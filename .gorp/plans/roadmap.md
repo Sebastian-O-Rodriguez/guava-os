@@ -2,12 +2,12 @@
 
 > CTO-maintained. Agents never modify this file.
 
-## Phase 1 — Foundation (Sprint 1)
+## Phase 1 — Foundation (Sprint 1) ✓
 - [x] Repo structure + agent system
-- [ ] Next.js app scaffold (App Router, Tailwind, shadcn/ui)
-- [ ] Prisma schema + PostgreSQL setup
-- [ ] Habit CRUD server actions
-- [ ] Today view — toggle habits, progress ring
+- [x] Next.js app scaffold (App Router, Tailwind, shadcn/ui)
+- [x] Prisma schema + PostgreSQL setup
+- [x] Habit CRUD server actions
+- [x] Today view — toggle habits, progress ring
 
 ## Phase 2 — Core Views (Sprint 2)
 - [ ] Monthly grid view — habit rows × day columns
