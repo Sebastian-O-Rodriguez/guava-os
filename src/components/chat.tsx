@@ -24,7 +24,13 @@ const EXAMPLE_PROMPTS = [
 ];
 
 function ToolResultCard({ result }: { result: ToolResult }) {
-  const parsed = JSON.parse(result.result);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let parsed: any;
+  try {
+    parsed = JSON.parse(result.result);
+  } catch {
+    parsed = { success: false, error: "Invalid response" };
+  }
   const success = parsed.success;
 
   const iconMap: Record<string, React.ReactNode> = {
@@ -165,6 +171,14 @@ export function Chat({ compact = false }: { compact?: boolean }) {
     }
   }
 
+  function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setInput(e.target.value);
+    // Fallback auto-resize for browsers without fieldSizing support
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -258,7 +272,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         <textarea
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder="Describe your habits or goals..."
           rows={1}
@@ -269,7 +283,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             "disabled:opacity-50 disabled:cursor-not-allowed",
             "min-h-[44px] max-h-[120px]",
           )}
-          style={{ fieldSizing: "content" } as React.CSSProperties}
+          style={{ fieldSizing: "content" } as unknown as React.CSSProperties}
         />
         <Button
           type="submit"

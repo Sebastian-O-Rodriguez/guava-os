@@ -19,10 +19,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Cap message history to prevent runaway API costs
+    const MAX_MESSAGES = 50;
+    const trimmedMessages = messages.slice(-MAX_MESSAGES);
+
     // Build the full message array with system prompt
     const fullMessages: ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...messages,
+      ...trimmedMessages,
     ];
 
     // Call Claude via OpenRouter with tool use
@@ -58,7 +62,17 @@ export async function POST(req: NextRequest) {
       for (const toolCall of assistantMessage.tool_calls) {
         if (toolCall.type !== "function") continue;
 
-        const args = JSON.parse(toolCall.function.arguments);
+        let args: Record<string, unknown>;
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch {
+          toolMessages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: JSON.stringify({ success: false, error: "Invalid tool arguments" }),
+          });
+          continue;
+        }
         const result = await executeTool(toolCall.function.name, args);
 
         toolResults.push({

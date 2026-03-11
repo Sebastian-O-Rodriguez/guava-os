@@ -1,5 +1,3 @@
-import type { FrequencyConfig } from "./types";
-
 /** Strip time component — returns midnight UTC for the given calendar date. */
 export function normalizeDate(date: Date): Date {
   return new Date(

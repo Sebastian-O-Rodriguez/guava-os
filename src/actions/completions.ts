@@ -46,34 +46,39 @@ export async function toggleCompletion(
     return { error: "Invalid habit id" };
   }
 
-  const normalized = normalizeDate(date);
+  try {
+    const normalized = normalizeDate(date);
 
-  const existing = await prisma.completion.findUnique({
-    where: {
-      habitId_date: { habitId, date: normalized },
-    },
-  });
+    const existing = await prisma.completion.findUnique({
+      where: {
+        habitId_date: { habitId, date: normalized },
+      },
+    });
 
-  if (existing) {
-    await prisma.completion.delete({ where: { id: existing.id } });
+    if (existing) {
+      await prisma.completion.delete({ where: { id: existing.id } });
+      revalidatePath("/");
+      revalidatePath("/monthly");
+      revalidatePath("/progress");
+      return { completed: false };
+    }
+
+    await prisma.completion.create({
+      data: {
+        habitId,
+        date: normalized,
+        completed: true,
+      },
+    });
+
     revalidatePath("/");
     revalidatePath("/monthly");
     revalidatePath("/progress");
-    return { completed: false };
+    return { completed: true };
+  } catch (err) {
+    console.error("toggleCompletion error:", err);
+    return { error: "Failed to toggle completion" };
   }
-
-  await prisma.completion.create({
-    data: {
-      habitId,
-      date: normalized,
-      completed: true,
-    },
-  });
-
-  revalidatePath("/");
-  revalidatePath("/monthly");
-  revalidatePath("/progress");
-  return { completed: true };
 }
 
 /**
@@ -832,28 +837,33 @@ export async function completeOverdue(
     return { error: "Invalid habit id" };
   }
 
-  const normalized = normalizeDate(missedDate);
+  try {
+    const normalized = normalizeDate(missedDate);
 
-  const existing = await prisma.completion.findUnique({
-    where: {
-      habitId_date: { habitId, date: normalized },
-    },
-  });
+    const existing = await prisma.completion.findUnique({
+      where: {
+        habitId_date: { habitId, date: normalized },
+      },
+    });
 
-  if (existing) {
-    return { completed: true }; // Already done
+    if (existing) {
+      return { completed: true }; // Already done
+    }
+
+    await prisma.completion.create({
+      data: {
+        habitId,
+        date: normalized,
+        completed: true,
+      },
+    });
+
+    revalidatePath("/");
+    revalidatePath("/monthly");
+    revalidatePath("/progress");
+    return { completed: true };
+  } catch (err) {
+    console.error("completeOverdue error:", err);
+    return { error: "Failed to complete overdue habit" };
   }
-
-  await prisma.completion.create({
-    data: {
-      habitId,
-      date: normalized,
-      completed: true,
-    },
-  });
-
-  revalidatePath("/");
-  revalidatePath("/monthly");
-  revalidatePath("/progress");
-  return { completed: true };
 }
