@@ -5,6 +5,8 @@ interface ProgressRingProps {
   total: number;
   size?: number;
   strokeWidth?: number;
+  /** Optional daily score to display in celebration state */
+  score?: number | null;
 }
 
 export function ProgressRing({
@@ -12,6 +14,7 @@ export function ProgressRing({
   total,
   size = 140,
   strokeWidth = 9,
+  score,
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -47,10 +50,7 @@ export function ProgressRing({
           style={{ width: size, height: size }}
         >
           <span className="text-sm font-medium text-muted-foreground leading-none">
-            No habits
-          </span>
-          <span className="text-xs text-muted-foreground mt-1 opacity-60">
-            today
+            Rest day
           </span>
         </div>
       </div>
@@ -79,6 +79,17 @@ export function ProgressRing({
       aria-valuemax={total}
       aria-label={`${clampedCompleted} of ${total} habits completed`}
     >
+      {/* Glow effect when complete */}
+      {isComplete && (
+        <div
+          className="absolute inset-0 rounded-full animate-pulse"
+          style={{
+            background:
+              "radial-gradient(circle, oklch(0.696 0.17 162.48 / 0.15) 0%, transparent 70%)",
+          }}
+        />
+      )}
+
       <svg
         width={size}
         height={size}
@@ -109,31 +120,59 @@ export function ProgressRing({
           transform={`rotate(-90 ${center} ${center})`}
           style={{
             transition: "stroke-dashoffset 0.5s ease, stroke 0.4s ease",
+            ...(isComplete
+              ? {
+                  filter: "drop-shadow(0 0 6px oklch(0.696 0.17 162.48 / 0.5))",
+                }
+              : {}),
           }}
         />
       </svg>
 
       {/* Center label */}
       <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-        <span
-          className="font-bold leading-none tabular-nums"
-          style={{
-            fontSize: size * 0.18,
-            color: isComplete ? "oklch(0.696 0.17 162.48)" : "var(--foreground)",
-            transition: "color 0.4s ease",
-          }}
-        >
-          {clampedCompleted}/{total}
-        </span>
-        <span
-          className="text-xs font-medium mt-1 leading-none"
-          style={{ color: "var(--muted-foreground)" }}
-        >
-          completed
-        </span>
+        {isComplete && score != null ? (
+          <>
+            <span
+              className="font-bold leading-none tabular-nums"
+              style={{
+                fontSize: size * 0.2,
+                color: "oklch(0.696 0.17 162.48)",
+                transition: "color 0.4s ease",
+              }}
+            >
+              +{score}
+            </span>
+            <span
+              className="text-xs font-bold mt-0.5 leading-none uppercase tracking-wider"
+              style={{ color: "oklch(0.696 0.17 162.48 / 0.7)" }}
+            >
+              xp
+            </span>
+          </>
+        ) : (
+          <>
+            <span
+              className="font-bold leading-none tabular-nums"
+              style={{
+                fontSize: size * 0.18,
+                color: isComplete
+                  ? "oklch(0.696 0.17 162.48)"
+                  : "var(--foreground)",
+                transition: "color 0.4s ease",
+              }}
+            >
+              {clampedCompleted}/{total}
+            </span>
+            <span
+              className="text-xs font-medium mt-1 leading-none"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              completed
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
 }
-
-export default ProgressRing;

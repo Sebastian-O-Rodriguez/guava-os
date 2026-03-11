@@ -148,6 +148,90 @@ export async function getDailyProgress(
 }
 
 /**
+ * Batch streak fetch for all active habits. Used by the Today page.
+ * Returns a Map-like array of { habitId, currentStreak }.
+ * Uses a single query for all completions instead of N+1.
+ */
+export async function getStreaksForActiveHabits(): Promise<
+  Array<{ habitId: string; currentStreak: number }>
+> {
+  try {
+    const userId = await getOrCreateUser();
+
+    const habits = await prisma.habit.findMany({
+      where: { userId, active: true },
+      select: { id: true, frequency: true },
+    });
+
+    if (habits.length === 0) return [];
+
+    const today = normalizeDate(new Date());
+    const ONE_DAY = 86_400_000;
+    // Look back 120 days max for streak calculation
+    const lookback = new Date(today.getTime() - 120 * ONE_DAY);
+
+    const completions = await prisma.completion.findMany({
+      where: {
+        habitId: { in: habits.map((h) => h.id) },
+        date: { gte: lookback, lte: today },
+      },
+      select: { habitId: true, date: true },
+    });
+
+    // Group completions by habitId as date-string sets
+    const completionsByHabit = new Map<string, Set<string>>();
+    for (const c of completions) {
+      const iso = normalizeDate(c.date).toISOString();
+      if (!completionsByHabit.has(c.habitId)) {
+        completionsByHabit.set(c.habitId, new Set());
+      }
+      completionsByHabit.get(c.habitId)!.add(iso);
+    }
+
+    return habits.map((habit) => {
+      const dateSet = completionsByHabit.get(habit.id) ?? new Set();
+      const frequency = habit.frequency ?? { type: "daily" };
+
+      let currentStreak = 0;
+      let cursor = today;
+
+      // Walk back to the most recent applicable day
+      let safety = 0;
+      while (!habitAppliesToDate(frequency, cursor) && safety < 7) {
+        cursor = new Date(cursor.getTime() - ONE_DAY);
+        safety++;
+      }
+
+      // If today's applicable day isn't completed, try starting from yesterday
+      if (!dateSet.has(cursor.toISOString())) {
+        cursor = new Date(cursor.getTime() - ONE_DAY);
+        safety = 0;
+        while (!habitAppliesToDate(frequency, cursor) && safety < 7) {
+          cursor = new Date(cursor.getTime() - ONE_DAY);
+          safety++;
+        }
+      }
+
+      // Count consecutive completed applicable days backwards
+      while (cursor.getTime() >= lookback.getTime()) {
+        if (!habitAppliesToDate(frequency, cursor)) {
+          cursor = new Date(cursor.getTime() - ONE_DAY);
+          continue;
+        }
+        if (!dateSet.has(cursor.toISOString())) break;
+        currentStreak++;
+        cursor = new Date(cursor.getTime() - ONE_DAY);
+      }
+
+      return { habitId: habit.id, currentStreak };
+    });
+  } catch (err) {
+    console.error("getStreaksForActiveHabits error:", err);
+    return [];
+  }
+}
+
+/**
  * Streak stats for a single habit.
  *
  * currentStreak  — consecutive days completed ending today (or yesterday if

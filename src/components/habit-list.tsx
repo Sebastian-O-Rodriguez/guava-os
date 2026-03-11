@@ -1,7 +1,7 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
-import { CheckIcon } from "lucide-react";
+import { useMemo, useOptimistic, useTransition } from "react";
+import { CheckIcon, FlameIcon, MoonIcon } from "lucide-react";
 import { toggleCompletion } from "@/actions/completions";
 import { cn } from "@/lib/utils";
 
@@ -14,20 +14,56 @@ type Completion = {
   habitId: string;
 };
 
+type StreakInfo = {
+  habitId: string;
+  currentStreak: number;
+};
+
 type Props = {
   habits: Habit[];
   completions: Completion[];
+  streaks: StreakInfo[];
+  /** Total applicable habits today (used for rest-day detection) */
+  applicableCount: number;
 };
 
 type OptimisticState = Set<string>;
 
-export function HabitList({ habits, completions }: Props) {
+const STREAK_MILESTONES = [100, 60, 30, 14, 7];
+
+function getStreakTier(streak: number): "gold" | "fire" | "warm" | null {
+  if (streak >= 30) return "gold";
+  if (streak >= 7) return "fire";
+  if (streak >= 3) return "warm";
+  return null;
+}
+
+function isMilestone(streak: number): boolean {
+  return STREAK_MILESTONES.includes(streak);
+}
+
+export function HabitList({ habits, completions, streaks, applicableCount }: Props) {
   const initialCompleted = new Set(completions.map((c) => c.habitId));
 
   const [optimisticCompleted, setOptimisticCompleted] =
     useOptimistic<OptimisticState>(initialCompleted);
 
   const [, startTransition] = useTransition();
+
+  const streakMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of streaks) m.set(s.habitId, s.currentStreak);
+    return m;
+  }, [streaks]);
+
+  // Sort: incomplete first, then completed — preserve creation order within groups
+  const sortedHabits = useMemo(() => {
+    return [...habits].sort((a, b) => {
+      const aDone = optimisticCompleted.has(a.id) ? 1 : 0;
+      const bDone = optimisticCompleted.has(b.id) ? 1 : 0;
+      return aDone - bDone;
+    });
+  }, [habits, optimisticCompleted]);
 
   function handleToggle(habitId: string) {
     startTransition(async () => {
@@ -44,6 +80,7 @@ export function HabitList({ habits, completions }: Props) {
     });
   }
 
+  // No habits created at all
   if (habits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
@@ -58,12 +95,34 @@ export function HabitList({ habits, completions }: Props) {
     );
   }
 
+  // Habits exist but none are scheduled today (rest day)
+  if (applicableCount === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+        <div className="flex size-14 items-center justify-center rounded-full bg-zinc-800 ring-1 ring-zinc-700">
+          <MoonIcon className="size-6 text-indigo-400" />
+        </div>
+        <p className="text-base font-medium text-foreground">Rest day</p>
+        <p className="text-sm text-muted-foreground">
+          No habits scheduled for today. Recharge and come back strong.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <ul className="flex flex-col divide-y divide-border">
-      {habits.map((habit) => {
+      {sortedHabits.map((habit) => {
         const completed = optimisticCompleted.has(habit.id);
+        const streak = streakMap.get(habit.id) ?? 0;
+        const tier = getStreakTier(streak);
+        const milestone = isMilestone(streak);
+
         return (
-          <li key={habit.id}>
+          <li
+            key={habit.id}
+            className="transition-all duration-300 ease-in-out"
+          >
             <button
               type="button"
               onClick={() => handleToggle(habit.id)}
@@ -100,6 +159,32 @@ export function HabitList({ habits, completions }: Props) {
               >
                 {habit.name}
               </span>
+
+              {/* Streak badge */}
+              {streak >= 2 && (
+                <span
+                  className={cn(
+                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums transition-all duration-200",
+                    tier === "gold" &&
+                      "bg-amber-500/15 text-amber-400",
+                    tier === "fire" &&
+                      "bg-orange-500/15 text-orange-400",
+                    tier === "warm" &&
+                      "bg-zinc-700/60 text-zinc-400",
+                    !tier && "bg-zinc-700/60 text-zinc-400",
+                    milestone && "animate-pulse",
+                  )}
+                >
+                  <FlameIcon
+                    className={cn(
+                      "size-3",
+                      tier === "gold" && "text-amber-400",
+                      tier === "fire" && "text-orange-400",
+                    )}
+                  />
+                  {streak}
+                </span>
+              )}
 
               {/* Completed badge */}
               {completed && (
