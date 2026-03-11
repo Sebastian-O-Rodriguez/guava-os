@@ -1,0 +1,42 @@
+# PM Lad — Frontend development template
+# Next.js 15 agent with a dev server pane (web2 dashboard).
+# Usage: shoal new --template pmlad-web -n my-web-task
+
+[template]
+name = "pmlad-web"
+description = "PM Lad frontend agent — Next.js 15 + Tailwind"
+extends = "base-dev"
+mixins = ["pmlad-env"]
+tool = "opencode"
+
+[template.env]
+CLAUDECODE = ""
+PMLAD_SCOPE = "web"
+
+[template.worktree]
+name = "feat/{session_name}"
+create_branch = true
+
+[[windows]]
+name = "agent"
+focus = true
+
+[[windows.panes]]
+split = "root"
+size = "60%"
+title = "agent"
+command = "{tool_command}"
+
+[[windows.panes]]
+split = "right"
+size = "40%"
+title = "terminal"
+command = "echo '--- PM Lad Web Dev ---' && echo 'Start: pnpm dev:web2' && echo 'Test:  pnpm --filter @pmlad/web2 test' && echo 'Story: pnpm --filter @pmlad/web2 storybook'"
+
+[[windows]]
+name = "server"
+
+[[windows.panes]]
+split = "root"
+title = "dev-server"
+command = "echo 'Run: pnpm dev:web2  (port 3002)'"

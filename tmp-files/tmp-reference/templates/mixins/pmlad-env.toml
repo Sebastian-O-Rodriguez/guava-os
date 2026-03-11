@@ -1,0 +1,15 @@
+# PM Lad — shared environment mixin
+# Adds common env vars for PM Lad development.
+# Usage in a template: mixins = ["pmlad-env"]
+
+[mixin]
+name = "pmlad-env"
+description = "Shared PM Lad environment variables"
+
+[mixin.env]
+# Node/pnpm settings
+NODE_ENV = "development"
+# API defaults (agents should use their own .env for secrets)
+API_PORT = "3001"
+WEB_PORT = "3000"
+WEB2_PORT = "3002"

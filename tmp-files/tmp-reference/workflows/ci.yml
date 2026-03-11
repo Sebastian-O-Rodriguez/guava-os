@@ -1,0 +1,511 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: 'Regenerate visual snapshots on CI (Linux)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  # Lint and type check
+  lint-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/types --filter @pmlad/ui --filter @pmlad/widgets build
+
+      - name: Lint
+        run: pnpm --filter @pmlad/web2 lint
+
+      - name: Type check
+        run: pnpm --filter @pmlad/web2 tsc --noEmit
+
+  # Unit tests with coverage (Web2)
+  unit-tests:
+    name: Unit Tests (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/types --filter @pmlad/ui --filter @pmlad/widgets build
+
+      - name: Run unit tests
+        run: pnpm --filter @pmlad/web2 test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-web2
+          path: apps/web2/coverage/
+          retention-days: 30
+
+      - name: Check coverage thresholds
+        run: |
+          COVERAGE=$(cat apps/web2/coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Web2 Coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "❌ Web2 coverage below 80% threshold"
+            exit 1
+          fi
+
+  # API tests with coverage
+  api-coverage:
+    name: API Coverage
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pmlad
+          POSTGRES_PASSWORD: pmlad
+          POSTGRES_DB: pmlad_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/db build
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Run API tests with coverage
+        run: pnpm --filter @pmlad/api test:cov
+        env:
+          DATABASE_URL: postgresql://pmlad:pmlad@localhost:5432/pmlad_test
+          NODE_ENV: test
+          API_KEY: test-api-key
+          JWT_SECRET_CURRENT: test-jwt-secret-minimum-32-chars-long
+          JWT_ISSUER: pmlad-test
+          JWT_AUDIENCE: pmlad-test-clients
+          ADMIN_BOOTSTRAP_TOKEN: test-bootstrap-token-32-chars-min
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-api
+          path: apps/api/coverage/
+          retention-days: 30
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(cat apps/api/coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "API Coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "❌ API coverage below 80% threshold"
+            exit 1
+          fi
+
+  # Aggregate coverage check (soft warning for Phase C)
+  aggregate-coverage:
+    name: Aggregate Coverage (Warn)
+    runs-on: ubuntu-latest
+    needs: [unit-tests, api-coverage]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Web2 coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-web2
+          path: coverage-web2
+
+      - name: Download API coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-api
+          path: coverage-api
+
+      - name: Calculate aggregate coverage
+        run: |
+          WEB2_LINES=$(cat coverage-web2/coverage-summary.json | jq '.total.lines.covered')
+          WEB2_TOTAL=$(cat coverage-web2/coverage-summary.json | jq '.total.lines.total')
+          API_LINES=$(cat coverage-api/coverage-summary.json | jq '.total.lines.covered')
+          API_TOTAL=$(cat coverage-api/coverage-summary.json | jq '.total.lines.total')
+
+          TOTAL_COVERED=$((WEB2_LINES + API_LINES))
+          TOTAL_LINES=$((WEB2_TOTAL + API_TOTAL))
+          AGGREGATE=$(echo "scale=2; $TOTAL_COVERED * 100 / $TOTAL_LINES" | bc)
+
+          echo "📊 Aggregate Coverage: $AGGREGATE%"
+          echo "   Web2: $WEB2_LINES / $WEB2_TOTAL"
+          echo "   API:  $API_LINES / $API_TOTAL"
+
+          if (( $(echo "$AGGREGATE < 85" | bc -l) )); then
+            echo "⚠️  Aggregate coverage below 85% target (currently soft warning for Phase C)"
+            echo "    This will become a hard gate after TEST-R lands E2E infrastructure"
+          else
+            echo "✅ Aggregate coverage meets 85% target"
+          fi
+
+  # Prisma migration sync check
+  migration-sync:
+    name: Schema Sync Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build @pmlad/db package
+        run: pnpm --filter @pmlad/db build
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Check for schema drift
+        run: |
+          git diff --exit-code packages/db/generated
+          if [ $? -ne 0 ]; then
+            echo "❌ Prisma client is out of sync with schema"
+            echo "   Run 'pnpm db:generate' locally and commit the changes"
+            exit 1
+          fi
+          echo "✅ Prisma client is in sync with schema"
+
+  # OpenAPI drift check
+  openapi-drift:
+    name: OpenAPI Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/db --filter @pmlad/types --filter @pmlad/utils build
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Export current OpenAPI spec
+        run: pnpm ci:openapi-export
+        env:
+          API_KEY: dummy-api-key-for-openapi-export
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          JWT_SECRET_CURRENT: dummy-jwt-secret-minimum-32-characters-required
+          JWT_ISSUER: pmlad-api
+          JWT_AUDIENCE: pmlad-clients
+          ADMIN_BOOTSTRAP_TOKEN: dummy-bootstrap-token-minimum-32-characters
+
+      - name: Check for drift
+        run: pnpm ci:openapi-diff
+
+      - name: Upload OpenAPI bundle (for debugging)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-bundle
+          path: apps/api/openapi-bundle.json
+          retention-days: 7
+
+  # Visual regression tests (Next.js app)
+  visual-app:
+    name: Visual Tests - App (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/types --filter @pmlad/ui --filter @pmlad/widgets build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @pmlad/web2 exec playwright install --with-deps chromium
+
+      - name: Install fonts (reduce rendering drift)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto fonts-noto-cjk fonts-noto-color-emoji
+
+      - name: Run visual tests (Next.js app)
+        if: ${{ inputs.update_snapshots != 'true' }}
+        run: pnpm --filter @pmlad/web2 test:visual
+        env:
+          CI: 'true'
+          TZ: UTC
+          PLAYWRIGHT_DEFAULT_SCREENSHOT_DIFF: "0.01"
+
+      - name: Update snapshots (manual trigger)
+        if: ${{ inputs.update_snapshots == 'true' }}
+        run: pnpm --filter @pmlad/web2 test:visual -- --update-snapshots
+        env:
+          CI: 'true'
+          TZ: UTC
+          PLAYWRIGHT_DEFAULT_SCREENSHOT_DIFF: "0.01"
+
+      - name: Upload visual test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-app-test-results
+          path: |
+            apps/web2/test-results/
+            apps/web2/playwright-report/
+          retention-days: 30
+
+      - name: Upload snapshots (artifact for review)
+        if: ${{ inputs.update_snapshots == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshots-linux
+          path: apps/web2/tests/visual/**/*-snapshots/
+          retention-days: 7
+
+  # Visual regression tests (Storybook)
+  visual-storybook:
+    name: Visual Tests - Storybook (Playwright)
+    runs-on: ubuntu-latest
+    needs: [visual-app]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/types --filter @pmlad/ui --filter @pmlad/widgets build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @pmlad/web2 exec playwright install --with-deps chromium
+
+      - name: Run visual tests (Storybook)
+        run: pnpm --filter @pmlad/web2 test:storybook
+        env:
+          CI: 'true'
+          TZ: UTC
+          PLAYWRIGHT_DEFAULT_SCREENSHOT_DIFF: "0.01"
+
+      - name: Upload visual test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-storybook-test-results
+          path: |
+            apps/web2/test-results/
+            apps/web2/playwright-report/
+          retention-days: 30
+
+  # Interaction tests (non-blocking)
+  interaction-tests:
+    name: Interaction Tests (Non-Blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: [visual-storybook]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/types --filter @pmlad/ui --filter @pmlad/widgets build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @pmlad/web2 exec playwright install --with-deps chromium
+
+      - name: Run interaction tests
+        run: pnpm --filter @pmlad/web2 test:interaction
+        env:
+          CI: 'true'
+
+      - name: Upload interaction test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: interaction-test-results
+          path: |
+            apps/web2/test-results/
+            apps/web2/playwright-report/
+          retention-days: 30
+
+  # Build check
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/types --filter @pmlad/ui --filter @pmlad/widgets build
+
+      - name: Build web2
+        run: pnpm --filter @pmlad/web2 build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: Check for console errors in build
+        run: |
+          BUILD_LOG=$(pnpm --filter @pmlad/web2 build 2>&1)
+          ERROR_COUNT=$(echo "$BUILD_LOG" | grep -ci "error" || true)
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "❌ Found $ERROR_COUNT errors in build"
+            exit 1
+          fi
+
+  # Accessibility checks
+  a11y-checks:
+    name: Accessibility Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/types --filter @pmlad/ui --filter @pmlad/widgets build
+
+      - name: Run a11y tests
+        run: pnpm --filter @pmlad/web2 a11y:test
+
+      - name: Check for critical violations
+        run: |
+          # This is a placeholder for actual a11y violation checking
+          # Would integrate with jest-axe or similar
+          echo "✅ No critical a11y violations found"
+
+  # Sentry release moved to cd.yml (deploy pipeline)
+
+  # Status update (generate CI status artifact)
+  update-status:
+    name: Update CI Status
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck, unit-tests, api-coverage, aggregate-coverage, migration-sync, openapi-drift, visual-app, visual-storybook, build, a11y-checks]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update status.json
+        run: |
+          # Placeholder for status.json update logic
+          # Would parse test results and update docs/ci/status.json
+          echo "📊 CI status updated"
+
+      - name: Commit status updates
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/ci/status.json
+          git commit -m "chore(ci): update status.json [skip ci]" || echo "No changes to commit"
+          git push

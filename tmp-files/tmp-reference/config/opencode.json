@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "openrouter/anthropic/claude-sonnet-4",
+  "provider": {
+    "openrouter": {
+      "models": {
+        "anthropic/claude-sonnet-4": {},
+        "anthropic/claude-opus-4": {}
+      }
+    }
+  }
+}

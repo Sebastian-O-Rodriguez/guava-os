@@ -1,0 +1,100 @@
+// RoutineMe — Prisma Schema
+// Single-user habit tracker. PostgreSQL backend.
+//
+// Design decisions:
+//   PK strategy:  cuid() — URL-safe, native Prisma, no external deps.
+//   Frequency:    Json field storing { type: "daily" | "weekdays" | "custom", days?: string[] }.
+//                 Parsed/validated in app code (Zod). Avoids join tables for a tiny dataset.
+//   Indexes:      Optimised for today-view, monthly-grid, and streak queries.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// User — single-user app, kept minimal. No auth fields.
+// ---------------------------------------------------------------------------
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  habits     Habit[]
+  dailyNotes DailyNote[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Habit — the thing being tracked.
+//
+// frequency stores a JSON object:
+//   { "type": "daily" }
+//   { "type": "weekdays" }
+//   { "type": "custom", "days": ["mon", "wed", "fri"] }
+// Validated at the app layer with a shared Zod schema.
+// ---------------------------------------------------------------------------
+model Habit {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String
+  frequency Json     @default("{\"type\":\"daily\"}")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions Completion[]
+
+  @@index([userId, active], map: "idx_habit_user_active")
+  @@map("habits")
+}
+
+// ---------------------------------------------------------------------------
+// Completion — one row per habit per day.
+//
+// `completed` defaults true (toggling on is the common path).
+// `note` is optional freetext attached to a single completion.
+// Unique on (habitId, date) enforces one entry per habit per day.
+// Composite index on (habitId, date) covers today-view, monthly-grid,
+// and streak-calculation queries.
+// ---------------------------------------------------------------------------
+model Completion {
+  id        String   @id @default(cuid())
+  habitId   String   @map("habit_id")
+  date      DateTime @db.Date
+  completed Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date], map: "uq_completion_habit_date")
+  @@index([habitId, date], map: "idx_completion_habit_date")
+  @@index([date], map: "idx_completion_date")
+  @@map("completions")
+}
+
+// ---------------------------------------------------------------------------
+// DailyNote — one optional reflection per day, tied to the user.
+// Unique on (userId, date) — single user but keeps the constraint explicit.
+// ---------------------------------------------------------------------------
+model DailyNote {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  date       DateTime @db.Date
+  reflection String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date], map: "uq_daily_note_user_date")
+  @@index([date], map: "idx_daily_note_date")
+  @@map("daily_notes")
+}

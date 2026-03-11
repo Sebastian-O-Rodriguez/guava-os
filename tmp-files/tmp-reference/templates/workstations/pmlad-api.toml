@@ -1,0 +1,42 @@
+# PM Lad — Backend API development template
+# NestJS + Prisma agent with a dev server pane and test runner.
+# Usage: shoal new --template pmlad-api -n my-api-task
+
+[template]
+name = "pmlad-api"
+description = "PM Lad backend agent — NestJS + Prisma"
+extends = "base-dev"
+mixins = ["pmlad-env"]
+tool = "opencode"
+
+[template.env]
+CLAUDECODE = ""
+PMLAD_SCOPE = "api"
+
+[template.worktree]
+name = "feat/{session_name}"
+create_branch = true
+
+[[windows]]
+name = "agent"
+focus = true
+
+[[windows.panes]]
+split = "root"
+size = "60%"
+title = "agent"
+command = "{tool_command}"
+
+[[windows.panes]]
+split = "right"
+size = "40%"
+title = "terminal"
+command = "echo '--- PM Lad API Dev ---' && echo 'Start: pnpm dev:api' && echo 'Test:  pnpm --filter @pmlad/api test' && echo 'Lint:  pnpm lint'"
+
+[[windows]]
+name = "server"
+
+[[windows.panes]]
+split = "root"
+title = "dev-server"
+command = "echo 'Run: pnpm dev:api  (port 3001)'"

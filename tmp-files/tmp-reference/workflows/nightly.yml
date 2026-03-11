@@ -1,0 +1,126 @@
+name: Nightly Smoke Tests
+
+on:
+  schedule:
+    # Run at 2 AM UTC daily
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual trigger for testing
+
+jobs:
+  load-smoke:
+    name: Load Smoke Test (k6)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pmlad
+          POSTGRES_PASSWORD: pmlad
+          POSTGRES_DB: pmlad_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter @pmlad/db --filter @pmlad/types --filter @pmlad/utils build
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Build API
+        run: pnpm --filter @pmlad/api build
+
+      - name: Start API in background
+        run: |
+          cd apps/api
+          pnpm start &
+          echo $! > api.pid
+          sleep 5
+        env:
+          DATABASE_URL: postgresql://pmlad:pmlad@localhost:5432/pmlad_test
+          NODE_ENV: test
+          API_KEY: nightly-smoke-api-key
+          JWT_SECRET_CURRENT: nightly-smoke-jwt-secret-minimum-32-characters
+          JWT_ISSUER: pmlad-nightly
+          JWT_AUDIENCE: pmlad-nightly-clients
+          ADMIN_BOOTSTRAP_TOKEN: nightly-smoke-bootstrap-token-32-chars
+          PORT: 3001
+
+      - name: Wait for API health
+        run: |
+          timeout 30 bash -c 'until curl -f http://localhost:3001/health -H "X-Api-Key: nightly-smoke-api-key"; do sleep 2; done'
+
+      - name: Run k6 load smoke (reduced VUs)
+        run: |
+          docker run --rm -i --network=host \
+            -e API_URL=http://localhost:3001 \
+            -e API_KEY=nightly-smoke-api-key \
+            -e TEST_ENTITY_ID=smoke-test-entity \
+            grafana/k6 run --vus 5 --duration 30s - < apps/api/test/load/chat-query.load.js \
+            | tee load-output.txt
+
+      - name: Parse k6 results
+        if: always()
+        run: |
+          # Extract key metrics from k6 output
+          echo "📊 Load Smoke Results:"
+          grep "http_req_duration" load-output.txt || echo "Metric not found"
+          grep "http_req_failed" load-output.txt || echo "Metric not found"
+          grep "chat_duration" load-output.txt || echo "Metric not found"
+
+          # Create summary JSON for artifact
+          cat > load-summary.json <<EOF
+          {
+            "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "vus": 5,
+            "duration": "30s",
+            "target": "p95 < 250ms",
+            "status": "completed"
+          }
+          EOF
+
+      - name: Upload load smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-smoke-results
+          path: |
+            load-output.txt
+            load-summary.json
+          retention-days: 30
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f apps/api/api.pid ]; then
+            kill $(cat apps/api/api.pid) || true
+          fi
+          # Fallback: kill by port
+          lsof -ti:3001 | xargs kill -9 || true
+
+      - name: Check for failures
+        run: |
+          if grep -q "✗" load-output.txt; then
+            echo "❌ Load smoke test had failures"
+            exit 1
+          fi
+          echo "✅ Load smoke test passed"

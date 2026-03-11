@@ -1,0 +1,45 @@
+# ---- builder ----
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages ./packages
+COPY apps/web2 ./apps/web2
+RUN pnpm -r install --frozen-lockfile
+
+# Build shared packages first
+RUN pnpm --filter @pmlad/types build || true
+RUN pnpm --filter @pmlad/ui build || true
+RUN pnpm --filter @pmlad/widgets build || true
+
+# Build args for Next.js (baked into build output)
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=""
+ARG NEXT_PUBLIC_SENTRY_DSN=""
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+
+# Build Next.js app
+RUN pnpm --filter @pmlad/web2 build
+
+# ---- runner ----
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/web2/.next ./apps/web2/.next
+COPY --from=builder /app/apps/web2/public ./apps/web2/public
+COPY --from=builder /app/apps/web2/node_modules ./apps/web2/node_modules
+COPY --from=builder /app/apps/web2/package.json ./apps/web2/package.json
+COPY --from=builder /app/packages ./packages
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@pmlad/web2", "start"]

@@ -8,8 +8,8 @@ Goal: Scaffold app, set up data model, implement habit CRUD, build Today view
 
 | ID | Agent | Task | Status | Acceptance Criteria |
 |----|-------|------|--------|-------------------|
-| 1A | architect | Design Prisma schema + frequency model | pending | schema.prisma with all 4 tables, migrations run clean |
-| 1B | backend | Scaffold Next.js app with Tailwind + shadcn/ui | pending | `next build` passes, shadcn/ui initialized, dark theme in tailwind.config, `src/lib/db.ts` Prisma singleton created, `src/actions/` dir created, `prisma/` dir ready for schema |
+| 1A | architect | Design Prisma schema + frequency model | done | schema.prisma with all 4 tables, migrations run clean |
+| 1B | backend | Scaffold Next.js app with Tailwind + shadcn/ui | in-progress | `next build` passes, shadcn/ui initialized, dark theme in tailwind.config, `src/lib/db.ts` Prisma singleton created, `src/actions/` dir created, `prisma/` dir ready for schema |
 
 ## Wave 2 — Server Actions (depends on Wave 1)
 

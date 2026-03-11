@@ -1,42 +1,41 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 # dependencies
-node_modules/
-.pnp
-.pnp.js
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
 
 # next.js
-.next/
-out/
+/.next/
+/out/
 
 # production
-build/
+/build
 
-# env
-.env
-.env.local
-.env.production.local
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
 
 # vercel
 .vercel
 
-# prisma
-prisma/*.db
-prisma/*.db-journal
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# claude code local settings
-.claude/settings.local.json
-
-# dispatch output (raw JSON from agent runs)
-.gorp/journal/*-dispatch.json
-
-# tmp reference files (imported from shoal, not part of RoutineMe)
-tmp-files/
+# typescript
+*.tsbuildinfo
+next-env.d.ts

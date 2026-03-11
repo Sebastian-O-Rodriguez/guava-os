@@ -1,0 +1,44 @@
+<!-- Agent Dispatch Template
+     Robo fills in the {VARIABLES} and sends via send_keys to the agent session.
+     Variables: PERSONA, SPRINT, SESSION, CONTEXT_FILES, TASKS, RULES
+-->
+<dispatch>
+  <persona>{PERSONA}</persona>
+  <sprint>{SPRINT}</sprint>
+  <session>{SESSION}</session>
+
+  <context>
+    <!-- Always include persona + sprint (these are in git, always available) -->
+    <read>.claude/personas/{PERSONA_FILE}</read>
+    <read>.shoal/plans/current-sprint.md</read>
+    <!-- Optional: may not exist in worktree — skip if missing -->
+    <read optional="true">.shoal/project/conventions.md</read>
+    <read optional="true">.shoal/project/agent-protocol.md</read>
+    <!-- Task-specific context files -->
+    {CONTEXT_FILES}
+  </context>
+
+  <tasks>
+    {TASKS}
+    <!--
+    Example task format:
+    <task id="4A1" status="pending">
+      <title>Short task title</title>
+      <scope>apps/api/src/dashboard/</scope>
+      <acceptance>Concrete, testable acceptance criteria</acceptance>
+    </task>
+    -->
+  </tasks>
+
+  <rules>
+    - ONLY modify files within the scope listed per task
+    - Do NOT touch system files (CLAUDE.md, .shoal/*, docs/ssot/*)
+    - Do NOT convert imports to "import type" (breaks NestJS DI)
+    - Update task status in current-sprint.md as you work
+    - Update any docs that reference code you changed
+    - When done, output a <report> using the format in agent-protocol.md
+    - Commit with: --author="Gorp, Guava AI <gorp@guava.ai>"
+    - Commit body: "Gorp, Guava AI\n{PERSONA}, {SPRINT}"
+    {EXTRA_RULES}
+  </rules>
+</dispatch>
