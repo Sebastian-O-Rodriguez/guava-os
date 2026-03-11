@@ -81,10 +81,10 @@ export default async function TodayPage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
       <div className="mx-auto max-w-2xl">
         {/* Page header */}
-        <header className="mb-8 flex items-start justify-between gap-4">
+        <header className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
               {getGreeting()}
@@ -107,7 +107,7 @@ export default async function TodayPage() {
         </header>
 
         {/* Habit list card */}
-        <Card>
+        <Card className="shadow-card">
           <CardHeader className="border-b pb-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">

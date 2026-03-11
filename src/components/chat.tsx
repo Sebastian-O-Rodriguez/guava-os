@@ -70,7 +70,7 @@ function ToolResultCard({ result }: { result: ToolResult }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-lg border px-3 py-2 text-sm",
+        "flex items-center gap-3 rounded-lg border px-3 py-2 text-sm shadow-card",
         success
           ? "border-emerald-500/20 bg-emerald-500/5"
           : "border-rose-500/20 bg-rose-500/5",
@@ -203,7 +203,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
                   key={i}
                   type="button"
                   onClick={() => handleExampleClick(prompt)}
-                  className={cn("rounded-lg border border-zinc-800 bg-zinc-900 text-left text-sm text-muted-foreground hover:border-zinc-700 hover:text-foreground transition-colors", compact ? "px-3 py-2" : "px-4 py-3")}
+                  className={cn("rounded-xl border border-zinc-800 bg-zinc-900 text-left text-sm text-muted-foreground hover:border-zinc-700 hover:text-foreground transition-colors shadow-card", compact ? "px-3 py-2" : "px-4 py-3")}
                 >
                   &ldquo;{prompt}&rdquo;
                 </button>
@@ -216,7 +216,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
           <div
             key={i}
             className={cn(
-              "flex flex-col gap-2",
+              "flex flex-col gap-2 animate-slide-up",
               msg.role === "user" ? "items-end" : "items-start",
             )}
           >

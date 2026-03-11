@@ -43,7 +43,7 @@ function HabitRow({ habit }: HabitRowProps) {
           {frequencyLabel(habit.frequency)}
         </span>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1.5">
         <EditHabitDialog habit={habit} />
         <ArchiveHabitButton habit={habit} />
         <DeleteHabitButton habit={habit} />
@@ -69,11 +69,11 @@ export function HabitSettingsList({
           Active Habits
         </h2>
         {activeHabits.length === 0 ? (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card px-4 py-6 text-center text-sm text-muted-foreground">
             No active habits. Add one above.
           </div>
         ) : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 divide-y divide-zinc-800">
+          <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card divide-y divide-zinc-800">
             {activeHabits.map((habit) => (
               <HabitRow key={habit.id} habit={habit} />
             ))}
@@ -87,7 +87,7 @@ export function HabitSettingsList({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
             Archived
           </h2>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 divide-y divide-zinc-800 opacity-70">
+          <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card divide-y divide-zinc-800 opacity-70">
             {archivedHabits.map((habit) => (
               <HabitRow key={habit.id} habit={habit} />
             ))}

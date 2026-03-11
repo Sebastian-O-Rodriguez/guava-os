@@ -6,6 +6,8 @@ import {
   FlameIcon,
   MoonIcon,
   AlertCircleIcon,
+  CalendarDaysIcon,
+  TargetIcon,
 } from "lucide-react";
 import { toggleCompletion, completeOverdue } from "@/actions/completions";
 import { cn } from "@/lib/utils";
@@ -14,6 +16,7 @@ import type { WeeklyProgress, OverdueHabit } from "@/lib/types";
 type Habit = {
   id: string;
   name: string;
+  frequency: { type: string };
 };
 
 type Completion = {
@@ -210,7 +213,7 @@ export function HabitList({
             </div>
           )}
           <ul className="flex flex-col divide-y divide-border">
-            {sortedHabits.map((habit) => {
+            {sortedHabits.map((habit, i) => {
               const completed = optimisticCompleted.has(habit.id);
               const streak = streakMap.get(habit.id) ?? 0;
               const tier = getStreakTier(streak);
@@ -220,7 +223,8 @@ export function HabitList({
               return (
                 <li
                   key={habit.id}
-                  className="transition-all duration-300 ease-in-out"
+                  className="animate-slide-up [animation-fill-mode:forwards] opacity-0 transition-all duration-300 ease-in-out"
+                  style={{ animationDelay: `${i * 50}ms` }}
                 >
                   <button
                     type="button"
@@ -253,19 +257,25 @@ export function HabitList({
                     <div className="flex flex-1 flex-col gap-1 min-w-0">
                       <span
                         className={cn(
-                          "text-base font-medium leading-snug transition-colors duration-200 truncate",
+                          "flex items-center gap-1.5 text-base font-medium leading-snug transition-colors duration-200 truncate",
                           completed
                             ? "text-muted-foreground line-through decoration-muted-foreground/50"
                             : "text-foreground",
                         )}
                       >
+                        {habit.frequency.type === "scheduled" && (
+                          <CalendarDaysIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                        {habit.frequency.type === "weekly" && (
+                          <TargetIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                        )}
                         {habit.name}
                       </span>
 
                       {/* Weekly progress bar */}
                       {weekly && (
                         <div className="flex items-center gap-2">
-                          <div className="h-1.5 flex-1 max-w-[120px] rounded-full bg-zinc-800 overflow-hidden">
+                          <div className="h-2 flex-1 max-w-[160px] rounded-full bg-zinc-800 overflow-hidden">
                             <div
                               className={cn(
                                 "h-full rounded-full transition-all duration-500",

@@ -32,10 +32,10 @@ export function ChatDrawer() {
         <div
           className={cn(
             "fixed bottom-0 right-0 z-50 flex flex-col",
-            "w-full sm:w-[420px] sm:right-6 sm:bottom-6 sm:rounded-2xl",
+            "w-full sm:w-[420px] sm:right-6 sm:bottom-6",
             "h-[70vh] sm:h-[560px] max-h-[80vh]",
-            "bg-zinc-950 border border-zinc-800 shadow-2xl shadow-black/50",
-            "sm:rounded-2xl overflow-hidden",
+            "backdrop-blur-xl bg-zinc-950/95 border border-zinc-800 shadow-elevated",
+            "rounded-t-2xl sm:rounded-2xl overflow-hidden",
           )}
         >
           {/* Header */}

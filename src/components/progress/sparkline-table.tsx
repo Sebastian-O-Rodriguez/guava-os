@@ -59,14 +59,14 @@ function StreakBadge({ streak }: { streak: number }) {
 export function SparklineTable({ sparklines }: SparklineTableProps) {
   if (sparklines.length === 0) {
     return (
-      <div className="flex h-24 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="flex h-24 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900">
         <p className="text-sm text-muted-foreground">No habits to display</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+    <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card overflow-hidden">
       <div className="divide-y divide-border">
         {sparklines.map((habit) => (
           <div
@@ -75,7 +75,7 @@ export function SparklineTable({ sparklines }: SparklineTableProps) {
           >
             {/* Habit name */}
             <span
-              className="w-32 shrink-0 truncate text-sm font-medium text-foreground lg:w-44"
+              className="w-28 sm:w-32 lg:w-48 shrink-0 truncate text-sm font-medium text-foreground"
               title={habit.name}
             >
               {habit.name}

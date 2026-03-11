@@ -19,8 +19,9 @@ function MetricCard({ label, value, sub, accent = false }: MetricCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-4",
-        "transition-colors hover:bg-card/80",
+        "flex flex-col gap-1 rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card px-5 py-4",
+        "hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-200",
+        accent && "border-l-2 border-l-emerald-500",
       )}
     >
       <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -28,7 +29,7 @@ function MetricCard({ label, value, sub, accent = false }: MetricCardProps) {
       </span>
       <span
         className={cn(
-          "text-4xl font-bold tabular-nums leading-none tracking-tight",
+          "text-3xl sm:text-4xl font-bold tabular-nums leading-none tracking-tight",
           accent ? "text-emerald-400" : "text-foreground",
         )}
       >

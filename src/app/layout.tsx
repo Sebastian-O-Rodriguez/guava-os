@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppNav } from "@/components/app-nav";
 import { ChatDrawer } from "@/components/chat-drawer";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,9 +30,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-zinc-950`}
       >
-        <AppNav />
-        <div className="pt-14">{children}</div>
-        <ChatDrawer />
+        <TooltipProvider>
+          <AppNav />
+          <div className="pt-14 pb-20">{children}</div>
+          <ChatDrawer />
+        </TooltipProvider>
       </body>
     </html>
   );

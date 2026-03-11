@@ -105,7 +105,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
 
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-card py-16 text-center">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card py-16 text-center">
         <p className="text-base font-medium text-foreground">No active habits</p>
         <p className="text-sm text-muted-foreground">
           Add habits on the Today page to see your monthly grid.
@@ -115,7 +115,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-card overflow-hidden">
+    <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card overflow-hidden">
       {/* Scrollable grid wrapper — first column is sticky */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm" style={{ minWidth: `${200 + daysInMonth * 36}px` }}>
@@ -124,7 +124,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
               {/* Sticky habit-name header cell */}
               <th
                 className={cn(
-                  "sticky left-0 z-10 bg-card px-4 py-3 text-left",
+                  "sticky left-0 z-10 bg-zinc-900 px-4 py-3 text-left",
                   "w-48 min-w-[11rem] text-xs font-semibold uppercase tracking-widest text-muted-foreground",
                 )}
               >
@@ -171,15 +171,22 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
                 {/* Sticky habit name */}
                 <td
                   className={cn(
-                    "sticky left-0 z-10 bg-card px-4 py-2 transition-colors",
+                    "sticky left-0 z-10 bg-zinc-900 px-4 py-2 transition-colors",
                     "group-hover:bg-muted/20",
                   )}
                 >
                   <span
-                    className="block max-w-[10rem] truncate text-sm font-medium text-foreground"
+                    className="flex items-center gap-2 max-w-[10rem]"
                     title={row.habitName}
                   >
-                    {row.habitName}
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {row.habitName}
+                    </span>
+                    {row.frequency.type === "weekly" && (
+                      <span className="shrink-0 text-xs text-muted-foreground/60">
+                        weekly
+                      </span>
+                    )}
                   </span>
                 </td>
 
@@ -254,7 +261,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-5 border-t border-border px-4 py-3">
+      <div className="flex items-center gap-5 border-t border-zinc-800/60 px-4 py-3">
         <span className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="flex size-4 items-center justify-center rounded bg-emerald-500">
             <svg

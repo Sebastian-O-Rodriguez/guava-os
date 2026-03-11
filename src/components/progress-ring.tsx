@@ -81,13 +81,7 @@ export function ProgressRing({
     >
       {/* Glow effect when complete */}
       {isComplete && (
-        <div
-          className="absolute inset-0 rounded-full animate-pulse"
-          style={{
-            background:
-              "radial-gradient(circle, oklch(0.696 0.17 162.48 / 0.15) 0%, transparent 70%)",
-          }}
-        />
+        <div className="absolute inset-0 rounded-full animate-pulse shadow-glow-emerald" />
       )}
 
       <svg

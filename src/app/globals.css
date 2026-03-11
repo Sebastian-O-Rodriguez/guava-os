@@ -124,6 +124,44 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply font-sans scroll-smooth;
+  }
+}
+
+/* Design system utilities */
+@layer utilities {
+  .shadow-card {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 20%),
+      0 0 0 1px oklch(1 0 0 / 4%);
+  }
+  .shadow-elevated {
+    box-shadow:
+      0 4px 16px oklch(0 0 0 / 30%),
+      0 1px 4px oklch(0 0 0 / 20%),
+      0 0 0 1px oklch(1 0 0 / 5%);
+  }
+  .shadow-glow-emerald {
+    box-shadow:
+      0 0 20px oklch(0.696 0.17 162.48 / 15%),
+      0 0 0 1px oklch(0.696 0.17 162.48 / 10%);
+  }
+}
+
+/* Smooth page transitions */
+@layer base {
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up {
+    animation: slide-up 0.25s ease-out;
   }
 }

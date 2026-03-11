@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getMonthlyGridData } from "@/actions/completions";
 import { normalizeDate } from "@/lib/habits";
 import { MonthlyGrid } from "@/components/monthly-grid";
@@ -49,30 +50,30 @@ export default async function MonthlyPage({ searchParams }: MonthlyPageProps) {
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl animate-fade-in">
         <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Monthly Grid
           </h1>
           <nav className="flex items-center gap-3 text-sm">
-            <a
+            <Link
               href={`/monthly?year=${prevYear}&month=${prevMonth}`}
-              className="rounded-md px-2 py-1 text-muted-foreground transition-colors duration-150 hover:bg-zinc-800 hover:text-zinc-100"
+              className="rounded-lg px-3 py-1.5 text-muted-foreground shadow-card transition-colors duration-150 hover:bg-zinc-800 hover:text-zinc-100"
             >
               Previous
-            </a>
+            </Link>
             <span className="font-semibold text-foreground">
               {new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(
                 "en-US",
                 { month: "long", year: "numeric", timeZone: "UTC" },
               )}
             </span>
-            <a
+            <Link
               href={`/monthly?year=${nextYear}&month=${nextMonth}`}
-              className="rounded-md px-2 py-1 text-muted-foreground transition-colors duration-150 hover:bg-zinc-800 hover:text-zinc-100"
+              className="rounded-lg px-3 py-1.5 text-muted-foreground shadow-card transition-colors duration-150 hover:bg-zinc-800 hover:text-zinc-100"
             >
               Next
-            </a>
+            </Link>
           </nav>
         </header>
 
