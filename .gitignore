@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+
+# production
+build/
+
+# env
+.env
+.env.local
+.env.production.local
+
+# vercel
+.vercel
+
+# prisma
+prisma/*.db
+prisma/*.db-journal
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# claude code local settings
+.claude/settings.local.json
+
+# dispatch output (raw JSON from agent runs)
+.gorp/journal/*-dispatch.json
+
+# tmp reference files (imported from shoal, not part of RoutineMe)
+tmp-files/

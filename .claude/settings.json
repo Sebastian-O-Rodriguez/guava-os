@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(echo $TOOL_INPUT | jq -r '.file_path // .filePath // empty'); if [ -n \"$file\" ] && echo \"$file\" | grep -qE '\\.(ts|tsx|js|jsx)$'; then npx prettier --write \"$file\" 2>/dev/null; fi",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(echo $TOOL_INPUT | jq -r '.command // empty'); if echo \"$cmd\" | grep -qE 'git\\s+(push\\s+--force|reset\\s+--hard|clean\\s+-f|checkout\\s+\\.|restore\\s+\\.)'; then echo 'BLOCKED: destructive git command requires CTO approval' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
