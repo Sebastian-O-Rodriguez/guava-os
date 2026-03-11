@@ -7,7 +7,6 @@ const NAV_LINKS = [
   { label: "Today", href: "/" },
   { label: "Monthly", href: "/monthly" },
   { label: "Progress", href: "/progress" },
-  { label: "Chat", href: "/chat" },
   { label: "Settings", href: "/settings" },
 ] as const;
 

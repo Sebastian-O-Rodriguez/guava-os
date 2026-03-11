@@ -5,4 +5,4 @@ export const openrouter = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY ?? "",
 });
 
-export const CHAT_MODEL = "anthropic/claude-haiku";
+export const CHAT_MODEL = "anthropic/claude-haiku-4.5";

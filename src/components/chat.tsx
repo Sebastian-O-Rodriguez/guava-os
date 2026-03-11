@@ -98,7 +98,7 @@ function ToolResultCard({ result }: { result: ToolResult }) {
   );
 }
 
-export function Chat() {
+export function Chat({ compact = false }: { compact?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -175,14 +175,14 @@ export function Chat() {
   return (
     <div className="flex flex-col gap-6">
       {/* Messages */}
-      <div className="flex flex-col gap-4 min-h-[200px]">
+      <div className={cn("flex flex-col gap-4", compact ? "min-h-[100px]" : "min-h-[200px]")}>
         {messages.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center gap-6 py-12 text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20">
-              <SparklesIcon className="size-7 text-emerald-400" />
+          <div className={cn("flex flex-col items-center justify-center gap-4 text-center", compact ? "py-6" : "py-12 gap-6")}>
+            <div className={cn("flex items-center justify-center rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20", compact ? "size-12" : "size-16")}>
+              <SparklesIcon className={cn("text-emerald-400", compact ? "size-5" : "size-7")} />
             </div>
             <div>
-              <p className="text-base font-medium text-foreground">
+              <p className={cn("font-medium text-foreground", compact ? "text-sm" : "text-base")}>
                 Brain dump your goals
               </p>
               <p className="mt-1 text-sm text-muted-foreground max-w-sm">
@@ -192,13 +192,13 @@ export function Chat() {
             </div>
 
             {/* Example prompts */}
-            <div className="flex flex-col gap-2 w-full max-w-md">
+            <div className={cn("flex flex-col gap-2 w-full", compact ? "max-w-full" : "max-w-md")}>
               {EXAMPLE_PROMPTS.map((prompt, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => handleExampleClick(prompt)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-left text-sm text-muted-foreground hover:border-zinc-700 hover:text-foreground transition-colors"
+                  className={cn("rounded-lg border border-zinc-800 bg-zinc-900 text-left text-sm text-muted-foreground hover:border-zinc-700 hover:text-foreground transition-colors", compact ? "px-3 py-2" : "px-4 py-3")}
                 >
                   &ldquo;{prompt}&rdquo;
                 </button>
