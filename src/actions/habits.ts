@@ -13,14 +13,21 @@ import type { ActionResult, FrequencyConfig } from "@/lib/types";
 
 const frequencySchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("daily") }),
-  z.object({ type: z.literal("weekdays") }),
   z.object({
-    type: z.literal("custom"),
+    type: z.literal("scheduled"),
     days: z
       .array(
         z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
       )
-      .min(1, "At least one day is required for custom frequency"),
+      .min(1, "At least one day is required"),
+  }),
+  z.object({
+    type: z.literal("weekly"),
+    timesPerWeek: z
+      .number()
+      .int()
+      .min(1, "Must be at least 1 time per week")
+      .max(7, "Cannot exceed 7 times per week"),
   }),
 ]);
 
@@ -117,6 +124,8 @@ export async function updateHabit(
 
     revalidatePath("/");
     revalidatePath("/settings");
+    revalidatePath("/monthly");
+    revalidatePath("/progress");
 
     return {
       success: true,
@@ -156,6 +165,33 @@ export async function archiveHabit(
   } catch (err) {
     console.error("archiveHabit error:", err);
     return { success: false, error: "Failed to archive habit" };
+  }
+}
+
+export async function deleteHabit(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    if (!id || typeof id !== "string") {
+      return { success: false, error: "Invalid habit id" };
+    }
+
+    await prisma.habit.delete({
+      where: { id },
+    });
+
+    revalidatePath("/");
+    revalidatePath("/settings");
+    revalidatePath("/monthly");
+    revalidatePath("/progress");
+
+    return {
+      success: true,
+      data: { id },
+    };
+  } catch (err) {
+    console.error("deleteHabit error:", err);
+    return { success: false, error: "Failed to delete habit" };
   }
 }
 

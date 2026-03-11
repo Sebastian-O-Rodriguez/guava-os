@@ -2,12 +2,30 @@
 
 import { EditHabitDialog } from "@/components/settings/edit-habit-dialog";
 import { ArchiveHabitButton } from "@/components/settings/archive-habit-button";
+import { DeleteHabitButton } from "@/components/settings/delete-habit-button";
 import type { FrequencyConfig, HabitSummary } from "@/lib/types";
 
+const DAY_LABELS: Record<string, string> = {
+  mon: "Mon",
+  tue: "Tue",
+  wed: "Wed",
+  thu: "Thu",
+  fri: "Fri",
+  sat: "Sat",
+  sun: "Sun",
+};
+
 function frequencyLabel(frequency: FrequencyConfig): string {
-  if (frequency.type === "weekdays") return "Weekdays";
-  if (frequency.type === "custom") return "Custom";
-  return "Daily";
+  switch (frequency.type) {
+    case "daily":
+      return "Every day";
+    case "scheduled":
+      return frequency.days.map((d) => DAY_LABELS[d] ?? d).join(", ");
+    case "weekly":
+      return `${frequency.timesPerWeek}x/week`;
+    default:
+      return "Daily";
+  }
 }
 
 interface HabitRowProps {
@@ -28,6 +46,7 @@ function HabitRow({ habit }: HabitRowProps) {
       <div className="flex shrink-0 items-center gap-1">
         <EditHabitDialog habit={habit} />
         <ArchiveHabitButton habit={habit} />
+        <DeleteHabitButton habit={habit} />
       </div>
     </div>
   );

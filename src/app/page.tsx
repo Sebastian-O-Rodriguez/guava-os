@@ -5,7 +5,10 @@ import {
   getCompletionsForDate,
   getDailyProgress,
   getStreaksForActiveHabits,
+  getWeeklyProgress,
+  getOverdueHabits,
 } from "@/actions/completions";
+import { habitShowsOnDate, normalizeDate } from "@/lib/habits";
 import { HabitList } from "@/components/habit-list";
 import { AddHabitDialog } from "@/components/add-habit-dialog";
 import { ProgressRing } from "@/components/progress-ring";
@@ -26,7 +29,6 @@ function formatDate(date: Date): string {
   });
 }
 
-/** Calculate daily XP score: completed habits × streak multiplier */
 function calcScore(
   completedCount: number,
   streaks: Array<{ habitId: string; currentStreak: number }>,
@@ -34,7 +36,6 @@ function calcScore(
 ): number {
   if (completedCount === 0) return 0;
 
-  // Sum streaks of completed habits, compute average
   let streakSum = 0;
   let count = 0;
   for (const s of streaks) {
@@ -51,15 +52,24 @@ function calcScore(
 
 export default async function TodayPage() {
   const today = new Date();
+  const normalizedToday = normalizeDate(today);
 
-  const [habitsResult, completions, progress, streaks] = await Promise.all([
-    getHabits(),
-    getCompletionsForDate(today),
-    getDailyProgress(today),
-    getStreaksForActiveHabits(),
-  ]);
+  const [habitsResult, completions, progress, streaks, weeklyProg, overdue] =
+    await Promise.all([
+      getHabits(),
+      getCompletionsForDate(today),
+      getDailyProgress(today),
+      getStreaksForActiveHabits(),
+      getWeeklyProgress(),
+      getOverdueHabits(),
+    ]);
 
-  const habits = habitsResult.success ? habitsResult.data : [];
+  const allHabits = habitsResult.success ? habitsResult.data : [];
+
+  // Filter to only habits that show on today's date
+  const todayHabits = allHabits.filter((h) =>
+    habitShowsOnDate(h.frequency, normalizedToday),
+  );
 
   const completionProps = completions.map((c) => ({ habitId: c.habitId }));
   const completedIds = new Set(completions.map((c) => c.habitId));
@@ -119,10 +129,12 @@ export default async function TodayPage() {
 
           <CardContent className="pt-2 pb-2">
             <HabitList
-              habits={habits}
+              habits={todayHabits}
               completions={completionProps}
               streaks={streaks}
               applicableCount={progress.total}
+              weeklyProgress={weeklyProg}
+              overdueHabits={overdue}
             />
           </CardContent>
         </Card>

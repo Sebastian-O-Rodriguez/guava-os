@@ -1,12 +1,12 @@
 // RoutineMe — Shared types
-// Frequency configuration for habits.
 
-export type FrequencyType = "daily" | "weekdays" | "custom";
+// Frequency configuration for habits.
+export type FrequencyType = "daily" | "scheduled" | "weekly";
 
 export type FrequencyConfig =
   | { type: "daily" }
-  | { type: "weekdays" }
-  | { type: "custom"; days: string[] };
+  | { type: "scheduled"; days: string[] }
+  | { type: "weekly"; timesPerWeek: number };
 
 // Consistent result type for server actions
 export type ActionResult<T> =
@@ -17,7 +17,7 @@ export type ActionResult<T> =
 // Monthly Grid types
 // ---------------------------------------------------------------------------
 
-export type CellStatus = "completed" | "missed" | "na";
+export type CellStatus = "completed" | "missed" | "late" | "na";
 
 export interface MonthlyGridRow {
   habitId: string;
@@ -92,6 +92,18 @@ export type HabitWithStreak = {
   id: string;
   name: string;
   currentStreak: number;
+};
+
+export type WeeklyProgress = {
+  habitId: string;
+  completed: number;
+  target: number;
+};
+
+export type OverdueHabit = {
+  habitId: string;
+  habitName: string;
+  missedDate: Date;
 };
 
 // ---------------------------------------------------------------------------

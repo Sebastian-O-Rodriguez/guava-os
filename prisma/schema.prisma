@@ -3,7 +3,7 @@
 //
 // Design decisions:
 //   PK strategy:  cuid() — URL-safe, native Prisma, no external deps.
-//   Frequency:    Json field storing { type: "daily" | "weekdays" | "custom", days?: string[] }.
+//   Frequency:    Json field storing { type: "daily" | "scheduled" | "weekly", ... }.
 //                 Parsed/validated in app code (Zod). Avoids join tables for a tiny dataset.
 //   Indexes:      Optimised for today-view, monthly-grid, and streak queries.
 
@@ -34,8 +34,9 @@ model User {
 //
 // frequency stores a JSON object:
 //   { "type": "daily" }
-//   { "type": "weekdays" }
-//   { "type": "custom", "days": ["mon", "wed", "fri"] }
+//   { "type": "scheduled", "days": ["mon", "wed", "fri"] }
+//   { "type": "weekly", "timesPerWeek": 3 }
+// Legacy: "weekdays" and "custom" types still supported in app code.
 // Validated at the app layer with a shared Zod schema.
 // ---------------------------------------------------------------------------
 model Habit {

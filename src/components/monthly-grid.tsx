@@ -32,12 +32,14 @@ function cellKey(habitId: string, year: number, month: number, day: number): str
 const STATUS_CLASSES: Record<CellStatus, string> = {
   completed:
     "bg-emerald-500 border-emerald-500 hover:bg-emerald-400 hover:border-emerald-400",
+  late:
+    "bg-amber-500/70 border-amber-500/70 hover:bg-amber-400 hover:border-amber-400",
   missed:
     "bg-zinc-700 border-zinc-600 hover:bg-rose-900/60 hover:border-rose-700/70",
   na: "bg-transparent border-transparent cursor-default",
 };
 
-const INTERACTIVE_STATUSES = new Set<CellStatus>(["completed", "missed"]);
+const INTERACTIVE_STATUSES = new Set<CellStatus>(["completed", "late", "missed"]);
 
 // ---- Component ------------------------------------------------------------
 
@@ -89,7 +91,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
     if (!INTERACTIVE_STATUSES.has(serverStatus)) return serverStatus;
     const key = cellKey(habitId, year, month, day);
     if (!flipped.has(key)) return serverStatus;
-    return serverStatus === "completed" ? "missed" : "completed";
+    return serverStatus === "completed" || serverStatus === "late" ? "missed" : "completed";
   }
 
   // Day column indices (1 to daysInMonth).
@@ -225,7 +227,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
                           status === "na" && !isFutureDay && "opacity-0",
                         )}
                       >
-                        {status === "completed" && (
+                        {(status === "completed" || status === "late") && (
                           <svg
                             className="size-3.5 text-white"
                             viewBox="0 0 12 12"
@@ -268,6 +270,14 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
             </svg>
           </span>
           Completed
+        </span>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="flex size-4 items-center justify-center rounded bg-amber-500/70">
+            <svg className="size-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1.5,6 4.5,9 10.5,3" />
+            </svg>
+          </span>
+          Late
         </span>
         <span className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="flex size-4 items-center justify-center rounded bg-zinc-700">

@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { habitAppliesToDate, normalizeDate } from "@/lib/habits";
+import {
+  habitAppliesToDate,
+  habitShowsOnDate,
+  normalizeDate,
+  getWeekStart,
+  getWeekEnd,
+  isWeeklyTarget,
+  isScheduled,
+} from "@/lib/habits";
 import { getOrCreateUser } from "@/lib/user";
 import type {
   ActionResult,
@@ -14,6 +22,8 @@ import type {
   DashboardStats,
   TrendPoint,
   HabitSparkline,
+  WeeklyProgress,
+  OverdueHabit,
 } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -125,9 +135,9 @@ export async function getDailyProgress(
     where: { userId, active: true },
   });
 
-  // Filter to habits that apply on this day-of-week.
+  // Filter to habits that show on the Today page for this date.
   const applicableHabits = habits.filter((h) =>
-    habitAppliesToDate(h.frequency, normalized),
+    habitShowsOnDate(h.frequency, normalized),
   );
 
   if (applicableHabits.length === 0) {
@@ -362,7 +372,8 @@ export async function getStreaks(
  * Full monthly grid data for the given year/month (1-based month).
  *
  * Each row represents one active habit. Each day cell is one of:
- *   "completed" — habit was done on that day
+ *   "completed" — habit was done on that day (on time)
+ *   "late"      — habit was completed but after its scheduled date
  *   "missed"    — habit was applicable but not done
  *   "na"        — future day, or frequency doesn't apply on that weekday
  */
@@ -383,25 +394,29 @@ export async function getMonthlyGridData(
       }),
       prisma.completion.findMany({
         where: { date: { gte: start, lt: end } },
-        select: { habitId: true, date: true },
+        select: { habitId: true, date: true, createdAt: true },
       }),
     ]);
 
-    // O(1) lookup set keyed as "habitId|YYYY-MM-DD"
-    const completionSet = new Set<string>(
-      completions.map((c) => {
-        const iso = normalizeDate(c.date).toISOString().slice(0, 10);
-        return `${c.habitId}|${iso}`;
-      }),
-    );
+    // O(1) lookup: "habitId|YYYY-MM-DD" → completion date
+    const completionMap = new Map<string, { date: Date; createdAt: Date }>();
+    for (const c of completions) {
+      const iso = normalizeDate(c.date).toISOString().slice(0, 10);
+      completionMap.set(`${c.habitId}|${iso}`, {
+        date: normalizeDate(c.date),
+        createdAt: c.createdAt,
+      });
+    }
 
     const today = normalizeDate(new Date());
-    // days in the month: new Date(UTC(year, month, 0)) is last day of the month
     const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
     const rows: MonthlyGridRow[] = habits.map((habit) => {
+      const freq = habit.frequency as unknown as FrequencyConfig;
       const days: CellStatus[] = [];
 
+      // For weekly target habits, count completions per week
+      // For scheduled/daily, use day-level logic
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(Date.UTC(year, month - 1, day));
 
@@ -411,20 +426,46 @@ export async function getMonthlyGridData(
           continue;
         }
 
-        // Days the habit doesn't apply on are "na"
-        if (!habitAppliesToDate(habit.frequency, date)) {
-          days.push("na");
-          continue;
-        }
+        if (isWeeklyTarget(freq)) {
+          // Weekly habits: show completion on actual days they were done
+          const iso = date.toISOString().slice(0, 10);
+          const key = `${habit.id}|${iso}`;
+          days.push(completionMap.has(key) ? "completed" : "na");
+        } else {
+          // Scheduled/daily: check if habit applies on this day
+          if (!habitAppliesToDate(freq, date)) {
+            // Check if there's a late completion recorded on this day
+            const iso = date.toISOString().slice(0, 10);
+            const key = `${habit.id}|${iso}`;
+            if (completionMap.has(key)) {
+              days.push("late");
+            } else {
+              days.push("na");
+            }
+            continue;
+          }
 
-        const iso = date.toISOString().slice(0, 10);
-        days.push(completionSet.has(`${habit.id}|${iso}`) ? "completed" : "missed");
+          const iso = date.toISOString().slice(0, 10);
+          const key = `${habit.id}|${iso}`;
+          if (completionMap.has(key)) {
+            // Check if it was completed late (createdAt date differs from scheduled date)
+            const completion = completionMap.get(key)!;
+            const createdDay = normalizeDate(completion.createdAt);
+            if (createdDay.getTime() > completion.date.getTime()) {
+              days.push("late");
+            } else {
+              days.push("completed");
+            }
+          } else {
+            days.push("missed");
+          }
+        }
       }
 
       return {
         habitId: habit.id,
         habitName: habit.name,
-        frequency: habit.frequency as unknown as FrequencyConfig,
+        frequency: freq,
         days,
       };
     });
@@ -659,4 +700,160 @@ export async function getDashboardStats(
     console.error("getDashboardStats error:", err);
     return { success: false, error: "Failed to load dashboard stats" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Weekly Progress (for weekly-target habits)
+// ---------------------------------------------------------------------------
+
+/**
+ * Get weekly progress for all active weekly-target habits.
+ * Counts completions in the current Mon–Sun week.
+ */
+export async function getWeeklyProgress(): Promise<WeeklyProgress[]> {
+  try {
+    const userId = await getOrCreateUser();
+    const today = normalizeDate(new Date());
+    const weekStart = getWeekStart(today);
+    const weekEnd = getWeekEnd(today);
+
+    const habits = await prisma.habit.findMany({
+      where: { userId, active: true },
+    });
+
+    const weeklyHabits = habits.filter((h) => isWeeklyTarget(h.frequency));
+    if (weeklyHabits.length === 0) return [];
+
+    const completions = await prisma.completion.findMany({
+      where: {
+        habitId: { in: weeklyHabits.map((h) => h.id) },
+        date: { gte: weekStart, lte: weekEnd },
+      },
+      select: { habitId: true },
+    });
+
+    // Count completions per habit
+    const countMap = new Map<string, number>();
+    for (const c of completions) {
+      countMap.set(c.habitId, (countMap.get(c.habitId) ?? 0) + 1);
+    }
+
+    return weeklyHabits.map((h) => {
+      const freq = h.frequency as unknown as { type: "weekly"; timesPerWeek: number };
+      return {
+        habitId: h.id,
+        completed: countMap.get(h.id) ?? 0,
+        target: freq.timesPerWeek,
+      };
+    });
+  } catch (err) {
+    console.error("getWeeklyProgress error:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Overdue Habits (for scheduled habits)
+// ---------------------------------------------------------------------------
+
+/**
+ * Find scheduled habits that were missed earlier this week.
+ * A habit is overdue if it was scheduled for a day before today (this week)
+ * and has no completion for that day.
+ */
+export async function getOverdueHabits(): Promise<OverdueHabit[]> {
+  try {
+    const userId = await getOrCreateUser();
+    const today = normalizeDate(new Date());
+    const weekStart = getWeekStart(today);
+    const ONE_DAY = 86_400_000;
+
+    const habits = await prisma.habit.findMany({
+      where: { userId, active: true },
+    });
+
+    const scheduledHabits = habits.filter((h) => isScheduled(h.frequency));
+    if (scheduledHabits.length === 0) return [];
+
+    // Get all completions this week for these habits
+    const completions = await prisma.completion.findMany({
+      where: {
+        habitId: { in: scheduledHabits.map((h) => h.id) },
+        date: { gte: weekStart, lt: today },
+      },
+      select: { habitId: true, date: true },
+    });
+
+    // Build set of "habitId|YYYY-MM-DD" for completed
+    const completionSet = new Set<string>(
+      completions.map((c) => {
+        const iso = normalizeDate(c.date).toISOString().slice(0, 10);
+        return `${c.habitId}|${iso}`;
+      }),
+    );
+
+    const overdue: OverdueHabit[] = [];
+
+    for (const habit of scheduledHabits) {
+      // Walk each day from weekStart to yesterday
+      let cursor = weekStart;
+      while (cursor.getTime() < today.getTime()) {
+        if (habitAppliesToDate(habit.frequency, cursor)) {
+          const iso = cursor.toISOString().slice(0, 10);
+          if (!completionSet.has(`${habit.id}|${iso}`)) {
+            overdue.push({
+              habitId: habit.id,
+              habitName: habit.name,
+              missedDate: cursor,
+            });
+          }
+        }
+        cursor = new Date(cursor.getTime() + ONE_DAY);
+      }
+    }
+
+    return overdue;
+  } catch (err) {
+    console.error("getOverdueHabits error:", err);
+    return [];
+  }
+}
+
+/**
+ * Complete an overdue habit. Records the completion on the original missed date
+ * (so the grid shows it on the right day) but the createdAt timestamp will
+ * reflect that it was done late.
+ */
+export async function completeOverdue(
+  habitId: string,
+  missedDate: Date,
+): Promise<{ completed: boolean } | { error: string }> {
+  if (!habitId || typeof habitId !== "string") {
+    return { error: "Invalid habit id" };
+  }
+
+  const normalized = normalizeDate(missedDate);
+
+  const existing = await prisma.completion.findUnique({
+    where: {
+      habitId_date: { habitId, date: normalized },
+    },
+  });
+
+  if (existing) {
+    return { completed: true }; // Already done
+  }
+
+  await prisma.completion.create({
+    data: {
+      habitId,
+      date: normalized,
+      completed: true,
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/monthly");
+  revalidatePath("/progress");
+  return { completed: true };
 }
