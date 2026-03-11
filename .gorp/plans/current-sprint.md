@@ -3,7 +3,7 @@
 Date: 2026-03-11
 Phase: 3 — Polish + Deploy
 Goal: Settings view, responsive layout, dark theme polish, cleanup, Vercel deployment
-Status: **In Progress** — Waves 1+3 complete, Wave 2 next
+Status: **Complete** — All waves done, deployed to Vercel
 Depends on: Sprint 2 (complete)
 
 ## Wave 1 — Architecture (sequential)
@@ -16,8 +16,8 @@ Depends on: Sprint 2 (complete)
 
 | ID | Agent | Task | Status | Acceptance Criteria |
 |----|-------|------|--------|-------------------|
-| 2A | frontend | Build Settings page — habit list with edit/archive/reactivate | todo | `/settings` route, lists all habits (active + archived), inline edit name/frequency, archive button, reactivate archived habits |
-| 2B | frontend | Add Settings link to AppNav | todo | 4th nav item "Settings" with gear icon, active state matches other links |
+| 2A | frontend | Build Settings page — habit list with edit/archive/reactivate | done | `/settings` route, lists all habits (active + archived), inline edit name/frequency, archive button, reactivate archived habits |
+| 2B | frontend | Add Settings link to AppNav + revalidation fix | done | 4th nav item "Settings" with gear icon, active state matches other links |
 | 2C | backend | Remove `@tremor/react` dependency | done | `pnpm remove @tremor/react`, no import references remain, build passes |
 
 ## Wave 3 — Responsive + Theme Polish (parallel with Wave 2)
@@ -31,15 +31,18 @@ Depends on: Sprint 2 (complete)
 
 | ID | Agent | Task | Status | Acceptance Criteria |
 |----|-------|------|--------|-------------------|
-| 4A | qa | Full quality gate pass | todo | `tsc --noEmit` clean, `next build` clean, manual review of all routes, no console errors |
-| 4B | CTO | Vercel deployment + production PostgreSQL | todo | App deployed on Vercel, production DATABASE_URL set, all routes working in production |
+| 4A | qa | Full quality gate pass | done | `tsc --noEmit` clean, `next build` clean, manual review of all routes, no console errors |
+| 4B | CTO | Vercel deployment + production PostgreSQL | done | App deployed on Vercel, production DATABASE_URL set, all routes working in production |
+| 4C | frontend | Today page upgrades — streaks, gamification, day picker | done | Per-habit streak badges, XP scoring, rest day state, sort incomplete first, custom day frequency in dialogs |
 
 ## Notes
 
 - Backend CRUD already exists: `createHabit`, `updateHabit`, `archiveHabit`, `getHabits(includeArchived)` — Settings page is purely frontend
-- `@tremor/react` is installed but unused (React 19 peer dep conflict) — remove in 2C
-- Production PostgreSQL: already on Supabase, just needs Vercel env vars
-- No new schema changes needed
+- `@tremor/react` removed (was unused, React 19 peer dep conflict)
+- Production PostgreSQL on Supabase, transaction pooler (port 6543)
+- Deployed to Vercel with `prisma generate && next build`
+- QA found 5 warnings (W1-W5), all fixed before deploy
+- Today page upgraded with streaks, gamification, custom day picker post-deploy
 
 ## Sprint 2 Archive
 
