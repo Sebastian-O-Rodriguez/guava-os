@@ -48,6 +48,7 @@ export async function toggleCompletion(
     await prisma.completion.delete({ where: { id: existing.id } });
     revalidatePath("/");
     revalidatePath("/monthly");
+    revalidatePath("/progress");
     return { completed: false };
   }
 
@@ -61,6 +62,7 @@ export async function toggleCompletion(
 
   revalidatePath("/");
   revalidatePath("/monthly");
+  revalidatePath("/progress");
   return { completed: true };
 }
 
@@ -69,12 +71,17 @@ export async function toggleCompletion(
  * Used by the Today view.
  */
 export async function getCompletionsForDate(date: Date) {
-  const normalized = normalizeDate(date);
+  try {
+    const normalized = normalizeDate(date);
 
-  return prisma.completion.findMany({
-    where: { date: normalized },
-    include: { habit: true },
-  });
+    return await prisma.completion.findMany({
+      where: { date: normalized },
+      select: { habitId: true },
+    });
+  } catch (err) {
+    console.error("getCompletionsForDate error:", err);
+    return [];
+  }
 }
 
 /**
@@ -84,16 +91,21 @@ export async function getCompletionsForDate(date: Date) {
  * Returns a flat array — the caller can group by date or habitId as needed.
  */
 export async function getCompletionsForMonth(year: number, month: number) {
-  // month is 1-based (Jan = 1)
-  const start = new Date(Date.UTC(year, month - 1, 1));
-  const end = new Date(Date.UTC(year, month, 1)); // first day of *next* month
+  try {
+    // month is 1-based (Jan = 1)
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 1)); // first day of *next* month
 
-  return prisma.completion.findMany({
-    where: {
-      date: { gte: start, lt: end },
-    },
-    include: { habit: true },
-  });
+    return await prisma.completion.findMany({
+      where: {
+        date: { gte: start, lt: end },
+      },
+      select: { habitId: true, date: true },
+    });
+  } catch (err) {
+    console.error("getCompletionsForMonth error:", err);
+    return [];
+  }
 }
 
 /**
