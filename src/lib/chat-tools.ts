@@ -25,55 +25,28 @@ export const tools: ChatCompletionTool[] = [
             type: "string",
             description: "The habit name, e.g. 'Gym', 'Meditate', 'Read'",
           },
-          frequency: {
-            type: "object",
-            description: "How often the habit should be tracked",
-            oneOf: [
-              {
-                type: "object",
-                properties: { type: { type: "string", enum: ["daily"] } },
-                required: ["type"],
-              },
-              {
-                type: "object",
-                properties: {
-                  type: { type: "string", enum: ["scheduled"] },
-                  days: {
-                    type: "array",
-                    items: {
-                      type: "string",
-                      enum: [
-                        "mon",
-                        "tue",
-                        "wed",
-                        "thu",
-                        "fri",
-                        "sat",
-                        "sun",
-                      ],
-                    },
-                    description: "Which days of the week",
-                  },
-                },
-                required: ["type", "days"],
-              },
-              {
-                type: "object",
-                properties: {
-                  type: { type: "string", enum: ["weekly"] },
-                  timesPerWeek: {
-                    type: "number",
-                    minimum: 1,
-                    maximum: 7,
-                    description: "How many times per week (1-7)",
-                  },
-                },
-                required: ["type", "timesPerWeek"],
-              },
-            ],
+          frequency_type: {
+            type: "string",
+            enum: ["daily", "scheduled", "weekly"],
+            description:
+              "daily = every day, scheduled = specific days of the week, weekly = X times per week any days",
+          },
+          days: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+            },
+            description:
+              "Required when frequency_type is 'scheduled'. Which days of the week.",
+          },
+          times_per_week: {
+            type: "number",
+            description:
+              "Required when frequency_type is 'weekly'. How many times per week (1-7).",
           },
         },
-        required: ["name", "frequency"],
+        required: ["name", "frequency_type"],
       },
     },
   },
@@ -94,46 +67,22 @@ export const tools: ChatCompletionTool[] = [
             type: "string",
             description: "New name (optional)",
           },
-          frequency: {
-            type: "object",
-            description: "New frequency (optional)",
-            oneOf: [
-              {
-                type: "object",
-                properties: { type: { type: "string", enum: ["daily"] } },
-                required: ["type"],
-              },
-              {
-                type: "object",
-                properties: {
-                  type: { type: "string", enum: ["scheduled"] },
-                  days: {
-                    type: "array",
-                    items: {
-                      type: "string",
-                      enum: [
-                        "mon",
-                        "tue",
-                        "wed",
-                        "thu",
-                        "fri",
-                        "sat",
-                        "sun",
-                      ],
-                    },
-                  },
-                },
-                required: ["type", "days"],
-              },
-              {
-                type: "object",
-                properties: {
-                  type: { type: "string", enum: ["weekly"] },
-                  timesPerWeek: { type: "number", minimum: 1, maximum: 7 },
-                },
-                required: ["type", "timesPerWeek"],
-              },
-            ],
+          frequency_type: {
+            type: "string",
+            enum: ["daily", "scheduled", "weekly"],
+            description: "New frequency type (optional)",
+          },
+          days: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+            },
+            description: "New days (required if frequency_type is 'scheduled')",
+          },
+          times_per_week: {
+            type: "number",
+            description: "New times per week (required if frequency_type is 'weekly')",
           },
         },
         required: ["id"],
@@ -177,15 +126,32 @@ export const tools: ChatCompletionTool[] = [
 // Tool executor — calls the actual server actions
 // ---------------------------------------------------------------------------
 
+/**
+ * Build a FrequencyConfig from flat tool call args.
+ */
+function buildFrequency(args: Record<string, unknown>): FrequencyConfig {
+  const freqType = args.frequency_type as string | undefined;
+
+  if (freqType === "scheduled" && Array.isArray(args.days)) {
+    return { type: "scheduled", days: args.days as string[] };
+  }
+  if (freqType === "weekly" && args.times_per_week != null) {
+    return { type: "weekly", timesPerWeek: Number(args.times_per_week) };
+  }
+  return { type: "daily" };
+}
+
 export async function executeTool(
   name: string,
   args: Record<string, unknown>,
 ): Promise<string> {
   switch (name) {
     case "create_habit": {
+      const frequency = buildFrequency(args);
+
       const result = await createHabit({
         name: args.name as string,
-        frequency: args.frequency as FrequencyConfig,
+        frequency,
       });
       if (result.success) {
         return JSON.stringify({
@@ -203,8 +169,7 @@ export async function executeTool(
     case "update_habit": {
       const updateData: { name?: string; frequency?: FrequencyConfig } = {};
       if (args.name) updateData.name = args.name as string;
-      if (args.frequency)
-        updateData.frequency = args.frequency as FrequencyConfig;
+      if (args.frequency_type) updateData.frequency = buildFrequency(args);
 
       const result = await updateHabit(args.id as string, updateData);
       if (result.success) {

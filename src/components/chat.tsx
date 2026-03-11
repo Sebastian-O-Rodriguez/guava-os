@@ -60,7 +60,12 @@ function ToolResultCard({ result }: { result: ToolResult }) {
     return "";
   }
 
-  const freq = parsed.habit?.frequency ?? result.args.frequency;
+  // Frequency can come from the result (server action response) or the flat tool args
+  const freq = parsed.habit?.frequency ?? (result.args.frequency_type ? {
+    type: result.args.frequency_type,
+    ...(result.args.days ? { days: result.args.days } : {}),
+    ...(result.args.times_per_week ? { timesPerWeek: result.args.times_per_week } : {}),
+  } : undefined);
 
   return (
     <div
