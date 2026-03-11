@@ -19,7 +19,7 @@ function MetricCard({ label, value, sub, accent = false }: MetricCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-xl border border-border bg-card px-5 py-4",
+        "flex flex-col gap-1 rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-4",
         "transition-colors hover:bg-card/80",
       )}
     >

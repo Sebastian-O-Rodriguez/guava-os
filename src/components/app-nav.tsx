@@ -29,7 +29,7 @@ export function AppNav() {
                 <Link
                   href={href}
                   className={[
-                    "relative px-3 py-1.5 text-sm font-medium transition-colors rounded-md",
+                    "relative px-3 py-1.5 text-sm font-medium transition-colors duration-150 rounded-md",
                     isActive
                       ? "text-emerald-400"
                       : "text-zinc-400 hover:text-zinc-100",

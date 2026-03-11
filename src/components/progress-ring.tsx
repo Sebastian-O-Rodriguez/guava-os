@@ -65,7 +65,7 @@ export function ProgressRing({
 
   const progressColor = isComplete
     ? "oklch(0.696 0.17 162.48)"
-    : "var(--chart-1)";
+    : "oklch(0.765 0.177 163.22)";
 
   const center = size / 2;
 

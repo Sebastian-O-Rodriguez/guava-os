@@ -120,8 +120,8 @@ export function AddHabitDialog() {
                   onClick={() => setFrequencyType(opt.value)}
                   className={
                     frequencyType === opt.value
-                      ? "flex-1 rounded-lg border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors"
-                      : "flex-1 rounded-lg border border-border bg-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-muted-foreground hover:text-foreground"
+                      ? "flex-1 rounded-lg border border-emerald-500 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-400 transition-colors duration-150"
+                      : "flex-1 rounded-lg border border-border bg-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:border-zinc-600 hover:text-zinc-100"
                   }
                 >
                   {opt.label}

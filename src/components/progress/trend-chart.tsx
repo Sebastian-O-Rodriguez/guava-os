@@ -104,14 +104,14 @@ export function TrendChart({ trend }: TrendChartProps) {
 
   if (trend.filter((p) => p.rate !== null).length === 0) {
     return (
-      <div className="flex h-[180px] items-center justify-center rounded-xl border border-border bg-card">
+      <div className="flex h-[180px] items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900">
         <p className="text-sm text-muted-foreground">No completion data yet</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-4">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-4">
       <div ref={containerRef} className="w-full" style={{ minHeight: 180 }} />
     </div>
   );

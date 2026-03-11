@@ -47,8 +47,8 @@ export function HabitList({ habits, completions }: Props) {
   if (habits.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-        <div className="flex size-14 items-center justify-center rounded-full bg-muted">
-          <CheckIcon className="size-6 text-muted-foreground" />
+        <div className="flex size-14 items-center justify-center rounded-full bg-zinc-800 ring-1 ring-zinc-700">
+          <CheckIcon className="size-6 text-zinc-400" />
         </div>
         <p className="text-base font-medium text-foreground">No habits yet</p>
         <p className="text-sm text-muted-foreground">
@@ -103,7 +103,7 @@ export function HabitList({ habits, completions }: Props) {
 
               {/* Completed badge */}
               {completed && (
-                <span className="text-xs font-medium text-emerald-500 opacity-80">
+                <span className="text-xs font-semibold text-emerald-400">
                   Done
                 </span>
               )}

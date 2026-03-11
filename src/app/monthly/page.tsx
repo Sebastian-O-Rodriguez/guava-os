@@ -50,14 +50,14 @@ export default async function MonthlyPage({ searchParams }: MonthlyPageProps) {
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-8 flex items-center justify-between gap-4">
+        <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Monthly Grid
           </h1>
           <nav className="flex items-center gap-3 text-sm">
             <a
               href={`/monthly?year=${prevYear}&month=${prevMonth}`}
-              className="text-muted-foreground hover:text-foreground"
+              className="rounded-md px-2 py-1 text-muted-foreground transition-colors duration-150 hover:bg-zinc-800 hover:text-zinc-100"
             >
               Previous
             </a>
@@ -69,7 +69,7 @@ export default async function MonthlyPage({ searchParams }: MonthlyPageProps) {
             </span>
             <a
               href={`/monthly?year=${nextYear}&month=${nextMonth}`}
-              className="text-muted-foreground hover:text-foreground"
+              className="rounded-md px-2 py-1 text-muted-foreground transition-colors duration-150 hover:bg-zinc-800 hover:text-zinc-100"
             >
               Next
             </a>

@@ -103,7 +103,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
 
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card py-16 text-center">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-card py-16 text-center">
         <p className="text-base font-medium text-foreground">No active habits</p>
         <p className="text-sm text-muted-foreground">
           Add habits on the Today page to see your monthly grid.
@@ -113,7 +113,7 @@ export function MonthlyGrid({ data, todayISO }: MonthlyGridProps) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-xl border border-zinc-800 bg-card overflow-hidden">
       {/* Scrollable grid wrapper — first column is sticky */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm" style={{ minWidth: `${200 + daysInMonth * 36}px` }}>
