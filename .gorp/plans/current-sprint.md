@@ -1,126 +1,96 @@
-# Sprint 3 — Polish + Deploy
+# Sprint 4 — AI Chat (Brain Dump → Habits)
 
 Date: 2026-03-11
-Phase: 3 — Polish + Deploy
-Goal: Settings view, responsive layout, dark theme polish, cleanup, Vercel deployment
-Status: **Complete** — All waves done, deployed to Vercel
-Depends on: Sprint 2 (complete)
+Phase: 4 — Post-Launch / AI Integration
+Goal: Chat interface where user brain-dumps goals, Claude extracts and creates habits automatically. Ongoing adjustment via conversation.
+Status: **Not Started**
+Depends on: Sprint 3 (complete), habit modes (complete)
 
-## Wave 1 — Architecture (sequential)
-
-| ID | Agent | Task | Status | Acceptance Criteria |
-|----|-------|------|--------|-------------------|
-| 1A | architect | Design Settings view — component tree, edit/archive flows, UI states | done | Props/types for settings page, component breakdown, edit-in-place vs modal decision, re-activate archived habit flow |
-
-## Wave 2 — Settings + Cleanup (depends on Wave 1)
+## Wave 1 — Architecture + Dependencies (sequential)
 
 | ID | Agent | Task | Status | Acceptance Criteria |
 |----|-------|------|--------|-------------------|
-| 2A | frontend | Build Settings page — habit list with edit/archive/reactivate | done | `/settings` route, lists all habits (active + archived), inline edit name/frequency, archive button, reactivate archived habits |
-| 2B | frontend | Add Settings link to AppNav + revalidation fix | done | 4th nav item "Settings" with gear icon, active state matches other links |
-| 2C | backend | Remove `@tremor/react` dependency | done | `pnpm remove @tremor/react`, no import references remain, build passes |
+| 1A | architect | Design chat API contract — route handler, tool schemas, system prompt, message format | todo | Tool definitions for create/update/delete/list habits matching FrequencyConfig. System prompt that knows about daily/scheduled/weekly modes. Request/response types. |
+| 1B | CTO | Add `OPENROUTER_API_KEY` to Vercel env vars | done | Key set in Vercel dashboard + local .env |
+| 1C | backend | Install dependency: `openai` (OpenRouter-compatible SDK) | todo | `pnpm add openai`, no peer dep conflicts, build passes |
 
-## Wave 3 — Responsive + Theme Polish (parallel with Wave 2)
-
-| ID | Agent | Task | Status | Acceptance Criteria |
-|----|-------|------|--------|-------------------|
-| 3A | frontend | Responsive layout — all 4 pages mobile-usable | done | Today/Settings stack vertically on mobile, Monthly grid horizontal-scrolls, Progress dashboard stacks cards, nav collapses or stays usable at 375px+ |
-| 3B | frontend | Dark theme refinement — consistent spacing, typography, hover states | done | Audit all pages for inconsistent colors/spacing, polish hover/focus states, ensure emerald accent is consistent, add subtle transitions |
-
-## Wave 4 — Quality + Deploy (depends on Waves 2-3)
+## Wave 2 — Backend (depends on Wave 1)
 
 | ID | Agent | Task | Status | Acceptance Criteria |
 |----|-------|------|--------|-------------------|
-| 4A | qa | Full quality gate pass | done | `tsc --noEmit` clean, `next build` clean, manual review of all routes, no console errors |
-| 4B | CTO | Vercel deployment + production PostgreSQL | done | App deployed on Vercel, production DATABASE_URL set, all routes working in production |
-| 4C | frontend | Today page upgrades — streaks, gamification, day picker | done | Per-habit streak badges, XP scoring, rest day state, sort incomplete first, custom day frequency in dialogs |
+| 2A | backend | Build chat route handler (`/api/chat`) — Claude API with tool use | todo | POST endpoint accepts `{ messages }`, calls Claude with tool definitions, executes tool calls against existing server actions, returns assistant message + results. Streaming not required for v1. |
+| 2B | backend | Define tool schemas — `create_habit`, `update_habit`, `delete_habit`, `list_habits` | todo | Zod-validated tool inputs matching FrequencyConfig. Claude can create any habit mode (daily, scheduled with specific days, weekly with target). List returns current habits for context. |
+| 2C | backend | System prompt — teach Claude about RoutineMe habit model | todo | Claude understands: daily/scheduled/weekly modes, day abbreviations (mon-sun), timesPerWeek range (1-7), can parse natural language like "gym 3x a week" or "meditate every morning" or "call mom on sundays". Returns confirmation of what was created/changed. |
+
+## Wave 3 — Frontend (depends on Wave 2)
+
+| ID | Agent | Task | Status | Acceptance Criteria |
+|----|-------|------|--------|-------------------|
+| 3A | frontend | Build chat page (`/chat`) — message input + response display | todo | New route, textarea input, send button, message history (session only), shows Claude's responses + habit creation confirmations. Dark theme consistent with rest of app. |
+| 3B | frontend | Add Chat link to AppNav | todo | 5th nav item "Chat" with message icon, active state matches other links |
+| 3C | frontend | Habit creation feedback — show created/updated habits inline | todo | When Claude creates habits via tools, show a summary card in the chat: habit name, frequency, confirmation. User can see what was just created without leaving chat. |
+
+## Wave 4 — Polish + QA (depends on Wave 3)
+
+| ID | Agent | Task | Status | Acceptance Criteria |
+|----|-------|------|--------|-------------------|
+| 4A | frontend | Chat UX polish — loading states, error handling, empty state | todo | Loading spinner while Claude responds, error message on API failure, welcome message with example prompts on first visit |
+| 4B | qa | Full quality gate pass | todo | `tsc --noEmit` clean, `next build` clean, chat flow works end-to-end, habits appear on Today page after creation via chat |
+| 4C | CTO | Deploy + verify in production | todo | Chat works on Vercel with production API key, all existing routes still work |
 
 ## Notes
 
-- Backend CRUD already exists: `createHabit`, `updateHabit`, `archiveHabit`, `getHabits(includeArchived)` — Settings page is purely frontend
-- `@tremor/react` removed (was unused, React 19 peer dep conflict)
-- Production PostgreSQL on Supabase, transaction pooler (port 6543)
-- Deployed to Vercel with `prisma generate && next build`
-- QA found 5 warnings (W1-W5), all fixed before deploy
-- Today page upgraded with streaks, gamification, custom day picker post-deploy
+- **No streaming for v1** — simple request/response. Can add streaming in a future sprint.
+- **No chat persistence** — messages are session-only (React state). No DB table needed.
+- **No check-off via chat** — the toggle UI is faster for daily use. Chat is for setup/adjustment.
+- **Context per request** — pass current habits list to Claude so it knows what exists.
+- **API**: OpenRouter (`https://openrouter.ai/api/v1`) with `openai` SDK. Model: `anthropic/claude-haiku` (cheap, fast).
+- **New dependency**: `openai` only. No `assistant-ui` for v1 (custom chat UI is simpler and avoids another dep).
+- **Tool use pattern**: Claude calls tools, server executes them, returns results to Claude, Claude summarizes for user.
 
-## Sprint 2 Archive
+## Example Interactions
 
-Sprint 2 (Core Views) completed 2026-03-11. Full plan archived below.
+```
+User: "I want to go to the gym 3 times a week, meditate every day,
+       message clients every monday, and read on weekends"
+
+Claude: Created 4 habits:
+  ✓ Gym — 3x per week
+  ✓ Meditate — Every day
+  ✓ Message clients — Mondays
+  ✓ Read — Sat, Sun
+
+User: "Actually make gym 4 times a week"
+
+Claude: Updated Gym to 4x per week ✓
+
+User: "What habits do I have?"
+
+Claude: You have 4 active habits:
+  • Gym — 4x/week
+  • Meditate — Daily
+  • Message clients — Mon
+  • Read — Sat, Sun
+```
+
+## Sprint 3 Archive
+
+Sprint 3 (Polish + Deploy) completed 2026-03-11. Includes post-sprint features:
+QA fixes (W1-W5), Vercel deployment, Today page upgrades (streaks, gamification,
+day picker), habit modes (scheduled/weekly/overdue), delete habit.
 
 <details>
-<summary>Sprint 2 — Core Views (COMPLETED 2026-03-11)</summary>
+<summary>Sprint 3 — Polish + Deploy (COMPLETED 2026-03-11)</summary>
 
-### Wave 1 — Architecture + Dependencies (parallel)
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 1A | architect | Design monthly grid data model + API contract | done |
-| 1B | architect | Design progress dashboard layout + chart specs | done |
-
-### Wave 2 — Monthly Grid (depends on Wave 1)
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 2A | frontend | Build monthly grid page — habit rows × day columns | done |
-| 2B | backend | Server action for month data aggregation | done |
-| 2C | frontend | Click-to-toggle in grid cells | done |
-
-### Wave 3 — Progress Dashboard (depends on Wave 1)
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 3A | frontend | Build progress dashboard page | done |
-| 3B | frontend | Metric cards — streaks, completion rates | done |
-| 3C | frontend | Observable Plot trend charts + sparklines | done |
-
-### Wave 4 — Navigation + Polish (depends on Waves 2-3)
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 4A | frontend | App navigation — sidebar or top nav | done |
-| 4B | qa | Validate Sprint 2 | done |
+### Waves 1-3: Settings, responsive, theme polish — all done
+### Wave 4: QA + Deploy — done
+### Post-sprint: Today upgrades, habit modes, delete — done
 
 ### QA Summary
-- Manual code review: all 9 files passed
 - `tsc --noEmit`: clean
-- `next build`: clean (3 dynamic routes)
-- Recommendation: Ship
-
-</details>
-
-<details>
-<summary>Sprint 1 — Foundation (COMPLETED 2026-03-10)</summary>
-
-### Wave 1 — Schema + Scaffold (parallel)
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 1A | architect | Design Prisma schema + frequency model | done |
-| 1B | backend | Scaffold Next.js app with Tailwind + shadcn/ui | done |
-
-### Wave 2 — Server Actions (depends on Wave 1)
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 2A | backend | Implement habit CRUD server actions | done |
-| 2B | backend | Implement completion toggle + stats queries | done |
-
-### Wave 3 — Today View (depends on Wave 2)
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 3A | frontend | Build Today page — habit list + toggle | done |
-| 3B | frontend | Build daily progress ring component | done |
-
-### Wave 4 — Validation
-
-| ID | Agent | Task | Status |
-|----|-------|------|--------|
-| 4A | qa | Validate Sprint 1 | done |
-
-### QA Summary
-- 4 issues found and fixed
-- Recommendation: Ship
+- `next build`: clean (4 dynamic routes)
+- 5 warnings found and fixed (W1-W5)
+- Deployed to Vercel, production DB connected
+- Recommendation: Ship ✓
 
 </details>
