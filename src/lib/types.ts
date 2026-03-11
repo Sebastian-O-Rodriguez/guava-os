@@ -83,3 +83,15 @@ export type MetricCardData = {
   weeklyRate: number | null;
   monthlyRate: number | null;
 };
+
+// ---------------------------------------------------------------------------
+// Settings types
+// ---------------------------------------------------------------------------
+
+export type HabitSummary = {
+  id: string;
+  name: string;
+  frequency: FrequencyConfig;
+  active: boolean;
+  createdAt: Date;
+};

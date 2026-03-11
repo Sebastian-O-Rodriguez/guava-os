@@ -66,6 +66,7 @@ export async function createHabit(data: {
     });
 
     revalidatePath("/");
+    revalidatePath("/settings");
 
     return {
       success: true,
@@ -115,6 +116,7 @@ export async function updateHabit(
     });
 
     revalidatePath("/");
+    revalidatePath("/settings");
 
     return {
       success: true,
@@ -145,6 +147,7 @@ export async function archiveHabit(
     });
 
     revalidatePath("/");
+    revalidatePath("/settings");
 
     return {
       success: true,
