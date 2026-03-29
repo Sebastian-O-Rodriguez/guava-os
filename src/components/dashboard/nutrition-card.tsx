@@ -36,11 +36,12 @@ export function NutritionCard({ summary, goals }: NutritionCardProps) {
     value: number;
     target: number;
     unit: string;
+    tapAmount: number;
   }[] = [
-    { key: "calories", label: "Cal", value: summary.calories, target: calTarget, unit: "kcal" },
-    { key: "protein", label: "Prot", value: summary.protein, target: proteinTarget, unit: "g" },
-    { key: "fat", label: "Fat", value: summary.fat, target: fatTarget, unit: "g" },
-    { key: "carbs", label: "Carb", value: summary.carbs, target: carbsTarget, unit: "g" },
+    { key: "calories", label: "Cal", value: summary.calories, target: calTarget, unit: "kcal", tapAmount: Math.round((calTarget || 2500) * 0.1) },
+    { key: "protein", label: "Prot", value: summary.protein, target: proteinTarget, unit: "g", tapAmount: Math.round((proteinTarget || 180) * 0.1) },
+    { key: "fat", label: "Fat", value: summary.fat, target: fatTarget, unit: "g", tapAmount: Math.round((fatTarget || 80) * 0.1) },
+    { key: "carbs", label: "Carb", value: summary.carbs, target: carbsTarget, unit: "g", tapAmount: Math.round((carbsTarget || 200) * 0.1) },
   ];
 
   const activeMacros = macros.filter((m) => m.target > 0);
@@ -48,12 +49,7 @@ export function NutritionCard({ summary, goals }: NutritionCardProps) {
 
   return (
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-foreground">Nutrition</h2>
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Daily
-        </span>
-      </div>
+      <h2 className="font-semibold text-foreground">Nutrition</h2>
 
       <div
         className="grid gap-3"
@@ -67,6 +63,8 @@ export function NutritionCard({ summary, goals }: NutritionCardProps) {
             max={macro.target > 0 ? macro.target : 100}
             unit={macro.unit}
             mode="increment"
+            quickIncrement
+            tapAmount={macro.tapAmount}
             onIncrement={handleIncrement(macro.key)}
           />
         ))}

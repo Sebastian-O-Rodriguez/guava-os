@@ -71,12 +71,7 @@ export function FitnessCard({
   if (!hasGym && !hasRunning) {
     return (
       <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Fitness</h2>
-          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Today
-          </span>
-        </div>
+        <h2 className="font-semibold text-foreground">Fitness</h2>
         <p className="text-sm text-muted-foreground">No fitness categories set up.</p>
       </div>
     );
@@ -84,12 +79,7 @@ export function FitnessCard({
 
   return (
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-foreground">Fitness</h2>
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Today
-        </span>
-      </div>
+      <h2 className="font-semibold text-foreground">Fitness</h2>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {gymRows.map((row) => (
