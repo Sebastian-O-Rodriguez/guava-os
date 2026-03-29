@@ -103,6 +103,98 @@ export async function quickIncrementGym(bodyPart: string) {
   }
 }
 
+export async function quickDecrementGym(bodyPart: string) {
+  try {
+    const userId = await getOrCreateUser();
+    const gymCat = await prisma.category.findFirst({
+      where: { userId, type: "gym", active: true },
+    });
+    if (!gymCat) return { success: false as const, error: "No gym category" };
+
+    const now = new Date();
+    const weekStart = getWeekStart(now);
+    const weekEnd = getWeekEnd(now);
+
+    const existing = await prisma.log.findMany({
+      where: {
+        categoryId: gymCat.id,
+        date: { gte: weekStart, lte: weekEnd },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const match = existing.find((log) => {
+      const data = log.data as { bodyPart?: string };
+      return data.bodyPart?.toLowerCase() === bodyPart.toLowerCase();
+    });
+
+    if (match) {
+      await prisma.log.delete({ where: { id: match.id } });
+    }
+
+    revalidatePath("/");
+    return { success: true as const };
+  } catch (err) {
+    console.error("[quickDecrementGym]", err);
+    return { success: false as const, error: "Failed to decrement gym session" };
+  }
+}
+
+export async function quickRemoveNutrition(
+  macro: "calories" | "protein" | "fat" | "carbs",
+  amount: number,
+) {
+  try {
+    const userId = await getOrCreateUser();
+    const nutritionCat = await prisma.category.findFirst({
+      where: { userId, type: "nutrition", active: true },
+    });
+    if (!nutritionCat) return { success: false as const, error: "No nutrition category" };
+
+    const entry = { item: `-${amount} ${macro}`, calories: 0, protein: 0, fat: 0, carbs: 0 };
+    entry[macro] = -amount;
+
+    await prisma.log.create({
+      data: {
+        categoryId: nutritionCat.id,
+        date: normalizeDate(new Date()),
+        data: entry as object,
+      },
+    });
+
+    revalidatePath("/");
+    return { success: true as const };
+  } catch (err) {
+    console.error("[quickRemoveNutrition]", err);
+    return { success: false as const, error: "Failed to remove nutrition" };
+  }
+}
+
+export async function quickDecrementRun(miles: number) {
+  try {
+    const userId = await getOrCreateUser();
+    const runCat = await prisma.category.findFirst({
+      where: { userId, type: "running", active: true },
+    });
+    if (!runCat) return { success: false as const, error: "No running category" };
+
+    // Create a negative log entry
+    await prisma.log.create({
+      data: {
+        categoryId: runCat.id,
+        date: normalizeDate(new Date()),
+        data: { miles: -miles } as object,
+      },
+    });
+
+    revalidatePath("/");
+    return { success: true as const };
+  } catch (err) {
+    console.error("[quickDecrementRun]", err);
+    return { success: false as const, error: "Failed to decrement run" };
+  }
+}
+
 export async function quickAddRun(miles: number) {
   try {
     const userId = await getOrCreateUser();

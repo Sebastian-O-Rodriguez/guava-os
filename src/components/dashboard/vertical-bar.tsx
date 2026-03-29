@@ -10,12 +10,11 @@ type VerticalBarProps = {
   unit?: string;
   mode: "increment" | "toggle";
   onIncrement?: (amount: number) => void;
+  onDecrement?: (amount: number) => void;
   onToggle?: () => void;
   completed?: boolean;
   icon?: React.ReactNode;
-  /** When true, clicking adds the tapAmount (default +1). */
   quickIncrement?: boolean;
-  /** Amount to add per tap in quickIncrement mode. Default: 1 */
   tapAmount?: number;
 };
 
@@ -26,6 +25,7 @@ export function VerticalBar({
   unit,
   mode,
   onIncrement,
+  onDecrement,
   onToggle,
   completed,
   icon,
@@ -46,13 +46,10 @@ export function VerticalBar({
   const overRatio = isOver ? optimisticValue / max : 1;
   const isCompleted = mode === "toggle" ? (completed ?? optimisticValue >= max) : pct >= 95;
 
-  // Progressive bar width: base w-8 (32px), grows wider the more over goal
-  // Each 100% over adds ~16px, capped at w-20 (80px)
   const barWidth = isOver
     ? Math.min(80, 32 + Math.floor((overRatio - 1) * 48))
     : 32;
 
-  // Fill color: emerald → sky-blue gradient when over goal
   const fillClass = isOver
     ? "bg-gradient-to-t from-emerald-500 to-sky-400"
     : pct >= 95
@@ -78,6 +75,14 @@ export function VerticalBar({
     }
   }
 
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    if (optimisticValue <= 0) return;
+    const newVal = Math.max(0, optimisticValue - tapAmount);
+    setOptimisticValue(newVal);
+    onDecrement?.(tapAmount);
+  }
+
   function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       const num = parseFloat(inputVal);
@@ -101,8 +106,9 @@ export function VerticalBar({
   return (
     <div
       onClick={!editing ? handleClick : undefined}
+      onContextMenu={quickIncrement ? handleContextMenu : undefined}
       className={cn(
-        "rounded-xl border p-3 flex flex-col items-center gap-2 cursor-pointer select-none",
+        "rounded-xl border p-1.5 flex flex-col items-center gap-1 cursor-pointer select-none",
         "transition-all duration-200",
         isCompleted
           ? "border-emerald-500/30 bg-zinc-900/60 shadow-[0_0_16px_rgba(52,211,153,0.15)]"
@@ -110,12 +116,6 @@ export function VerticalBar({
         !editing && "hover:border-zinc-700 hover:bg-zinc-800/60",
       )}
     >
-      {icon && !editing && (
-        <div className={cn("transition-colors duration-200", isCompleted ? "text-emerald-400" : "text-zinc-500")}>
-          {icon}
-        </div>
-      )}
-
       {editing ? (
         <input
           ref={inputRef}
@@ -128,17 +128,17 @@ export function VerticalBar({
           onBlur={handleInputBlur}
           onClick={(e) => e.stopPropagation()}
           placeholder="add"
-          className="w-full text-center bg-transparent border-b border-zinc-600 text-sm text-foreground outline-none placeholder:text-zinc-600 tabular-nums py-0.5"
+          className="w-full text-center bg-transparent border-b border-zinc-600 text-xs text-foreground outline-none placeholder:text-zinc-600 tabular-nums py-0.5"
         />
       ) : (
-        <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium leading-none">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium leading-none">
           {label}
         </span>
       )}
 
-      {/* Vertical bar — progressively widens when over goal */}
+      {/* Bar with centered icon */}
       <div
-        className="relative rounded-lg bg-zinc-800/80 transition-all duration-300"
+        className="relative rounded-lg bg-zinc-800/80 transition-all duration-300 flex items-center justify-center"
         style={{ height: "80px", width: `${barWidth}px` }}
       >
         <div
@@ -148,19 +148,25 @@ export function VerticalBar({
           )}
           style={{ height: `${Math.min(100, pct)}%` }}
         />
+        {icon && !editing && (
+          <div className="relative z-10 text-emerald-950">
+            {icon}
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col items-center leading-none gap-0.5">
-        <span className="text-sm font-semibold tabular-nums text-foreground">
+      {/* Value — small, muted, the bar is the hero */}
+      <div className="flex flex-col items-center leading-none gap-0">
+        <span className="text-[10px] font-medium tabular-nums text-zinc-500">
           {displayValue}
           {unit ? (
-            <span className="text-xs font-normal text-muted-foreground ml-0.5">
+            <span className="text-[9px] font-normal text-zinc-600 ml-0.5">
               {unit}
             </span>
           ) : null}
         </span>
         {max > 0 && (
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-[9px] text-zinc-600 tabular-nums">
             /{displayMax}
           </span>
         )}

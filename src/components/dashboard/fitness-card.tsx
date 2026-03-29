@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { Footprints, ArrowUpFromLine, Dumbbell, Timer } from "lucide-react";
 import type { GymBodyPartCount, GoalProgress, RunningSummary } from "@/lib/types";
 import { VerticalBar } from "./vertical-bar";
-import { quickIncrementGym, quickAddRun } from "@/actions/quick-log";
+import { quickIncrementGym, quickDecrementGym, quickAddRun, quickDecrementRun } from "@/actions/quick-log";
 
 type FitnessCardProps = {
   gymSummary: GymBodyPartCount[];
@@ -13,7 +13,6 @@ type FitnessCardProps = {
   runGoals: GoalProgress[];
 };
 
-// Map body part name to icon
 function getGymIcon(bodyPart: string): React.ReactNode {
   const key = bodyPart.toLowerCase();
   if (key.includes("leg")) return <Footprints size={20} />;
@@ -32,7 +31,6 @@ export function FitnessCard({
 
   const summaryMap = new Map(gymSummary.map((g) => [g.bodyPart.toLowerCase(), g.count]));
 
-  // Build gym rows from goals or fallback to summary
   const gymRows: { label: string; bodyPart: string; done: number; target: number }[] =
     gymGoals.length > 0
       ? gymGoals.map((goal) => {
@@ -59,9 +57,23 @@ export function FitnessCard({
     };
   }
 
+  function handleGymDecrement(bodyPart: string) {
+    return () => {
+      startTransition(async () => {
+        await quickDecrementGym(bodyPart);
+      });
+    };
+  }
+
   function handleRunIncrement(amount: number) {
     startTransition(async () => {
       await quickAddRun(amount);
+    });
+  }
+
+  function handleRunDecrement(amount: number) {
+    startTransition(async () => {
+      await quickDecrementRun(amount);
     });
   }
 
@@ -81,7 +93,7 @@ export function FitnessCard({
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
       <h2 className="font-semibold text-foreground">Fitness</h2>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {gymRows.map((row) => (
           <VerticalBar
             key={row.bodyPart}
@@ -91,6 +103,7 @@ export function FitnessCard({
             mode="increment"
             quickIncrement
             onIncrement={handleGymIncrement(row.bodyPart)}
+            onDecrement={handleGymDecrement(row.bodyPart)}
             icon={getGymIcon(row.bodyPart)}
           />
         ))}
@@ -102,7 +115,9 @@ export function FitnessCard({
             max={runTarget > 0 ? runTarget : 10}
             unit="mi"
             mode="increment"
+            quickIncrement
             onIncrement={handleRunIncrement}
+            onDecrement={handleRunDecrement}
             icon={<Timer size={20} />}
           />
         )}

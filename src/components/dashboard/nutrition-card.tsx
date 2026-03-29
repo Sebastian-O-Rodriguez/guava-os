@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import type { NutritionDailySummary, GoalProgress } from "@/lib/types";
 import { VerticalBar } from "./vertical-bar";
-import { quickAddNutrition } from "@/actions/quick-log";
+import { quickAddNutrition, quickRemoveNutrition } from "@/actions/quick-log";
 
 type NutritionCardProps = {
   summary: NutritionDailySummary;
@@ -30,6 +30,14 @@ export function NutritionCard({ summary, goals }: NutritionCardProps) {
     };
   }
 
+  function handleDecrement(macro: "calories" | "protein" | "fat" | "carbs") {
+    return (amount: number) => {
+      startTransition(async () => {
+        await quickRemoveNutrition(macro, amount);
+      });
+    };
+  }
+
   const macros: {
     key: "calories" | "protein" | "fat" | "carbs";
     label: string;
@@ -52,7 +60,7 @@ export function NutritionCard({ summary, goals }: NutritionCardProps) {
       <h2 className="font-semibold text-foreground">Nutrition</h2>
 
       <div
-        className="grid gap-3"
+        className="grid gap-2"
         style={{ gridTemplateColumns: `repeat(${displayMacros.length}, minmax(0, 1fr))` }}
       >
         {displayMacros.map((macro) => (
@@ -66,6 +74,7 @@ export function NutritionCard({ summary, goals }: NutritionCardProps) {
             quickIncrement
             tapAmount={macro.tapAmount}
             onIncrement={handleIncrement(macro.key)}
+            onDecrement={handleDecrement(macro.key)}
           />
         ))}
       </div>
