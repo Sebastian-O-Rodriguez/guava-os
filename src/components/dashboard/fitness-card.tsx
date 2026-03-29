@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { Footprints, ArrowUpFromLine, Dumbbell, Timer } from "lucide-react";
 import type { GymBodyPartCount, GoalProgress, RunningSummary } from "@/lib/types";
 import { VerticalBar } from "./vertical-bar";
 import { toggleGymSession, quickAddRun } from "@/actions/quick-log";
@@ -11,6 +12,15 @@ type FitnessCardProps = {
   runningSummary: RunningSummary;
   runGoals: GoalProgress[];
 };
+
+// Map body part name to icon
+function getGymIcon(bodyPart: string): React.ReactNode {
+  const key = bodyPart.toLowerCase();
+  if (key.includes("leg")) return <Footprints size={20} />;
+  if (key.includes("back")) return <ArrowUpFromLine size={20} />;
+  if (key.includes("chest")) return <Dumbbell size={20} />;
+  return <Dumbbell size={20} />;
+}
 
 export function FitnessCard({
   gymSummary,
@@ -64,7 +74,7 @@ export function FitnessCard({
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-foreground">Fitness</h2>
           <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            This Week
+            Today
           </span>
         </div>
         <p className="text-sm text-muted-foreground">No fitness categories set up.</p>
@@ -77,7 +87,7 @@ export function FitnessCard({
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-foreground">Fitness</h2>
         <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          This Week
+          Today
         </span>
       </div>
 
@@ -91,6 +101,7 @@ export function FitnessCard({
             mode="toggle"
             completed={row.done >= row.target}
             onToggle={handleGymToggle(row.bodyPart)}
+            icon={getGymIcon(row.bodyPart)}
           />
         ))}
 
@@ -102,6 +113,7 @@ export function FitnessCard({
             unit="mi"
             mode="increment"
             onIncrement={handleRunIncrement}
+            icon={<Timer size={20} />}
           />
         )}
       </div>

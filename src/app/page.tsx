@@ -11,13 +11,15 @@ import { NutritionCard } from "@/components/dashboard/nutrition-card";
 import { FitnessCard } from "@/components/dashboard/fitness-card";
 import { CustomCard } from "@/components/dashboard/custom-card";
 import { InlineChat } from "@/components/dashboard/inline-chat";
+import { DayHeader } from "@/components/dashboard/day-header";
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  // e.g. "Wednesday, 25 March 2026"
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long" });
+  const day = date.getDate();
+  const month = date.toLocaleDateString("en-GB", { month: "long" });
+  const year = date.getFullYear();
+  return `${weekday}, ${day} ${month} ${year}`;
 }
 
 export default async function DashboardPage() {
@@ -55,11 +57,8 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
       <div className="mx-auto max-w-3xl">
-        <header className="mb-6 flex items-start justify-between gap-4">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1.5">{formatDate(today)}</p>
+        <header className="mb-6">
+          <DayHeader dateString={formatDate(today)} />
         </header>
 
         <div className="flex flex-col gap-6">

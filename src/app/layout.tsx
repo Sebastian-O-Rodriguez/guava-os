@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppNav } from "@/components/app-nav";
-import { ChatDrawer } from "@/components/chat-drawer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
@@ -33,7 +32,6 @@ export default function RootLayout({
         <TooltipProvider>
           <AppNav />
           <div className="pt-14 pb-20">{children}</div>
-          <ChatDrawer />
         </TooltipProvider>
       </body>
     </html>

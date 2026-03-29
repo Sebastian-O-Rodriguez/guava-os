@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type VerticalBarProps = {
   label: string;
@@ -11,6 +11,7 @@ type VerticalBarProps = {
   onIncrement?: (amount: number) => void;
   onToggle?: () => void;
   completed?: boolean;
+  icon?: React.ReactNode;
 };
 
 export function VerticalBar({
@@ -22,26 +23,39 @@ export function VerticalBar({
   onIncrement,
   onToggle,
   completed,
+  icon,
 }: VerticalBarProps) {
+  const [optimisticValue, setOptimisticValue] = useState(value);
   const [editing, setEditing] = useState(false);
   const [inputVal, setInputVal] = useState("");
-  const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  const isFull = pct >= 100;
-  const isCompleted = mode === "toggle" ? (completed ?? value >= max) : isFull;
+  // Sync with server value
+  useEffect(() => {
+    setOptimisticValue(value);
+  }, [value]);
 
-  const displayValue = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  const pct = max > 0 ? (optimisticValue / max) * 100 : 0;
+  const isCompleted = mode === "toggle" ? (completed ?? optimisticValue >= max) : pct >= 95;
+
+  // Color based on progress
+  const fillColor =
+    pct > 105
+      ? "bg-amber-500"
+      : pct >= 95
+        ? "bg-emerald-400"
+        : "bg-emerald-500";
+
+  const displayValue = Number.isInteger(optimisticValue)
+    ? String(optimisticValue)
+    : optimisticValue.toFixed(1);
   const displayMax = Number.isInteger(max) ? String(max) : max.toFixed(1);
 
   function handleClick() {
     if (mode === "toggle") {
-      if (onToggle) {
-        startTransition(() => {
-          onToggle();
-        });
-      }
+      // Optimistic: immediately flip
+      setOptimisticValue((prev) => (prev >= max ? 0 : max));
+      onToggle?.();
     } else {
       setEditing(true);
       setInputVal("");
@@ -52,10 +66,10 @@ export function VerticalBar({
   function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       const num = parseFloat(inputVal);
-      if (!isNaN(num) && num > 0 && onIncrement) {
-        startTransition(() => {
-          onIncrement(num);
-        });
+      if (!isNaN(num) && num > 0) {
+        // Optimistic: immediately add
+        setOptimisticValue((prev) => prev + num);
+        onIncrement?.(num);
       }
       setEditing(false);
       setInputVal("");
@@ -77,12 +91,18 @@ export function VerticalBar({
         "rounded-xl border p-3 flex flex-col items-center gap-2 cursor-pointer select-none",
         "transition-all duration-150",
         isCompleted
-          ? "border-emerald-500/30 bg-zinc-900/60 shadow-[0_0_12px_rgba(52,211,153,0.08)]"
+          ? "border-emerald-500/30 bg-zinc-900/60 shadow-[0_0_16px_rgba(52,211,153,0.15)]"
           : "border-zinc-800/50 bg-zinc-900/60",
         !editing && "hover:border-zinc-700 hover:bg-zinc-800/60",
-        isPending && "opacity-70",
       ].join(" ")}
     >
+      {/* Icon (optional) */}
+      {icon && !editing && (
+        <div className={isCompleted ? "text-emerald-400" : "text-zinc-500"}>
+          {icon}
+        </div>
+      )}
+
       {/* Label */}
       {editing ? (
         <input
@@ -105,15 +125,16 @@ export function VerticalBar({
       )}
 
       {/* Vertical bar track */}
-      <div className="relative w-3 rounded-full bg-zinc-800" style={{ height: "80px" }}>
+      <div
+        className="relative w-8 rounded-lg bg-zinc-800/80"
+        style={{ height: "80px" }}
+      >
         <div
           className={[
-            "absolute bottom-0 left-0 w-full rounded-full transition-all duration-500",
-            isCompleted
-              ? "bg-emerald-400"
-              : "bg-gradient-to-t from-emerald-700 to-emerald-500",
+            "absolute bottom-0 left-0 w-full rounded-lg transition-all duration-200",
+            fillColor,
           ].join(" ")}
-          style={{ height: `${pct}%` }}
+          style={{ height: `${Math.min(100, pct)}%` }}
         />
       </div>
 
@@ -121,7 +142,11 @@ export function VerticalBar({
       <div className="flex flex-col items-center leading-none gap-0.5">
         <span className="text-sm font-semibold tabular-nums text-foreground">
           {displayValue}
-          {unit ? <span className="text-xs font-normal text-muted-foreground ml-0.5">{unit}</span> : null}
+          {unit ? (
+            <span className="text-xs font-normal text-muted-foreground ml-0.5">
+              {unit}
+            </span>
+          ) : null}
         </span>
         {max > 0 && (
           <span className="text-xs text-muted-foreground tabular-nums">
