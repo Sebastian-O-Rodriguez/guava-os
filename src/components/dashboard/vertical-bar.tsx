@@ -50,10 +50,10 @@ export function VerticalBar({
     ? String(optimisticValue)
     : optimisticValue.toFixed(1);
 
-  // Radial blue glow: proportional to % over goal
-  // 10% over = small glow, 100% over = massive aura
-  const blueSpread = isOver ? Math.min(40, overPct * 0.4) : 0;
-  const blueOpacity = isOver ? Math.min(0.5, overPct * 0.005) : 0;
+  // Blue overflow bar: same shape as green bar, scales larger proportional to % over
+  // 10% over = bar slightly larger, 100% over = bar fills the card
+  const overScale = isOver ? 1 + Math.min(2, overPct / 100) * 0.8 : 1;
+  const blueOpacity = isOver ? Math.min(0.7, 0.2 + overPct * 0.005) : 0;
 
   function handleClick() {
     if (quickIncrement) {
@@ -110,17 +110,6 @@ export function VerticalBar({
       )}
       style={{ minHeight: "120px" }}
     >
-      {/* Radial blue overflow glow — expands outside the bar proportional to % over */}
-      {isOver && (
-        <div
-          className="absolute inset-0 rounded-xl pointer-events-none transition-all duration-500"
-          style={{
-            background: `radial-gradient(ellipse at center, rgba(56,189,248,${blueOpacity}) 0%, rgba(56,189,248,${blueOpacity * 0.5}) 40%, transparent 70%)`,
-            transform: `scale(${1 + blueSpread / 50})`,
-          }}
-        />
-      )}
-
       {/* Label at top */}
       {editing ? (
         <input
@@ -144,9 +133,21 @@ export function VerticalBar({
 
       {/* Bar with value and icon inside */}
       <div
-        className="relative w-10 rounded-lg bg-zinc-800/80 transition-all duration-300 flex items-center justify-center"
+        className="relative w-10 rounded-lg bg-zinc-800/80 transition-all duration-300 flex items-center justify-center overflow-visible"
         style={{ height: "80px" }}
       >
+        {/* Blue overflow — same bar shape, scales outward behind green */}
+        {isOver && (
+          <div
+            className="absolute inset-0 rounded-lg pointer-events-none transition-all duration-500 ease-out"
+            style={{
+              backgroundColor: `rgba(56,189,248,${blueOpacity})`,
+              transform: `scale(${overScale})`,
+              boxShadow: `0 0 ${Math.min(30, overPct * 0.3)}px rgba(56,189,248,${blueOpacity * 0.6})`,
+            }}
+          />
+        )}
+
         {/* Green fill */}
         <div
           className={cn(
