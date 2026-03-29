@@ -1,7 +1,7 @@
 "use client";
 
 import type { CategoryProgress } from "@/lib/types";
-import { ProgressBar } from "./progress-bar";
+import { VerticalBar } from "./vertical-bar";
 
 type CustomCardProps = {
   category: CategoryProgress;
@@ -20,14 +20,20 @@ export function CustomCard({ category }: CustomCardProps) {
       {category.goals.length === 0 ? (
         <p className="text-sm text-muted-foreground">No goals set.</p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div
+          className="grid gap-3"
+          style={{
+            gridTemplateColumns: `repeat(${Math.min(category.goals.length, 4)}, minmax(0, 1fr))`,
+          }}
+        >
           {category.goals.map((goal) => (
-            <ProgressBar
+            <VerticalBar
               key={goal.goalId}
+              label={goal.metric}
               value={goal.actual}
               max={goal.target}
-              label={goal.metric}
-              unit={goal.period === "daily" ? "/ day" : "/ week"}
+              unit={goal.period === "daily" ? "/day" : "/wk"}
+              mode="increment"
             />
           ))}
         </div>

@@ -5,18 +5,16 @@ import {
   getDailyNutritionSummary,
   getWeeklyGymSummary,
   getWeeklyRunningSummary,
-  getLogsForDate,
 } from "@/actions/logs";
 import { getCategories } from "@/actions/categories";
-import type { NutritionLogData } from "@/lib/types";
 import { NutritionCard } from "@/components/dashboard/nutrition-card";
-import { GymCard } from "@/components/dashboard/gym-card";
-import { RunningCard } from "@/components/dashboard/running-card";
+import { FitnessCard } from "@/components/dashboard/fitness-card";
 import { CustomCard } from "@/components/dashboard/custom-card";
+import { InlineChat } from "@/components/dashboard/inline-chat";
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
-    weekday: "long",
+    weekday: "short",
     month: "short",
     day: "numeric",
   });
@@ -44,15 +42,6 @@ export default async function DashboardPage() {
     : { totalMiles: 0, sessions: 0 };
   const categories = categoriesResult.success ? categoriesResult.data : [];
 
-  const nutritionCategory = categories.find((c) => c.type === "nutrition");
-  let nutritionLogItems: NutritionLogData[] = [];
-  if (nutritionCategory) {
-    const logsResult = await getLogsForDate(nutritionCategory.id, today);
-    if (logsResult.success) {
-      nutritionLogItems = logsResult.data.map((l) => l.data as NutritionLogData);
-    }
-  }
-
   const nutritionProgress = allProgress.find((p) => p.categoryType === "nutrition");
   const gymProgress = allProgress.find((p) => p.categoryType === "gym");
   const runProgress = allProgress.find((p) => p.categoryType === "running");
@@ -61,39 +50,34 @@ export default async function DashboardPage() {
   const hasNutrition = categories.some((c) => c.type === "nutrition");
   const hasGym = categories.some((c) => c.type === "gym");
   const hasRunning = categories.some((c) => c.type === "running");
+  const hasFitness = hasGym || hasRunning;
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
       <div className="mx-auto max-w-3xl">
-        <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{formatDate(today)}</p>
-          </div>
+        <header className="mb-6 flex items-start justify-between gap-4">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1.5">{formatDate(today)}</p>
         </header>
 
         <div className="flex flex-col gap-6">
+          <InlineChat />
+
           {hasNutrition && (
             <NutritionCard
               summary={nutritionSummary}
               goals={nutritionProgress?.goals ?? []}
-              logItems={nutritionLogItems}
             />
           )}
 
-          {hasGym && (
-            <GymCard
+          {hasFitness && (
+            <FitnessCard
               gymSummary={gymSummary}
-              goals={gymProgress?.goals ?? []}
-            />
-          )}
-
-          {hasRunning && (
-            <RunningCard
+              gymGoals={gymProgress?.goals ?? []}
               runningSummary={runningSummary}
-              goals={runProgress?.goals ?? []}
+              runGoals={runProgress?.goals ?? []}
             />
           )}
 
@@ -101,7 +85,7 @@ export default async function DashboardPage() {
             <CustomCard key={cat.categoryId} category={cat} />
           ))}
 
-          {!hasNutrition && !hasGym && !hasRunning && customProgress.length === 0 && (
+          {!hasNutrition && !hasFitness && customProgress.length === 0 && (
             <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-8 text-center">
               <p className="text-muted-foreground text-sm">
                 No categories set up yet. Use the chat to get started.
