@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { Footprints, ArrowUpFromLine, Dumbbell, Timer } from "lucide-react";
 import type { GymBodyPartCount, GoalProgress, RunningSummary } from "@/lib/types";
-import { VerticalBar } from "./vertical-bar";
+import { LiquidGauge } from "./liquid-gauge";
 import { quickIncrementGym, quickDecrementGym, quickAddRun, quickDecrementRun } from "@/actions/quick-log";
 
 type FitnessCardProps = {
@@ -93,18 +93,14 @@ export function FitnessCard({
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
       <h2 className="font-semibold text-foreground">Fitness</h2>
 
-      <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${gymRows.length + (hasRunning ? 1 : 0)}, minmax(0, 1fr))` }}
-      >
+      <div className="flex justify-around items-end">
         {gymRows.map((row) => (
-          <VerticalBar
+          <LiquidGauge
             key={row.bodyPart}
             label={row.label}
             value={row.done}
             max={row.target}
-            mode="increment"
-            quickIncrement
+            tapAmount={1}
             onIncrement={handleGymIncrement(row.bodyPart)}
             onDecrement={handleGymDecrement(row.bodyPart)}
             icon={getGymIcon(row.bodyPart)}
@@ -112,13 +108,12 @@ export function FitnessCard({
         ))}
 
         {hasRunning && (
-          <VerticalBar
+          <LiquidGauge
             label="Run"
             value={runningSummary.totalMiles}
             max={runTarget > 0 ? runTarget : 10}
             unit="mi"
-            mode="increment"
-            quickIncrement
+            tapAmount={1}
             onIncrement={handleRunIncrement}
             onDecrement={handleRunDecrement}
             icon={<Timer size={28} />}

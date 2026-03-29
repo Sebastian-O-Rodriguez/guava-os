@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import type { NutritionDailySummary, GoalProgress } from "@/lib/types";
-import { VerticalBar } from "./vertical-bar";
+import { LiquidGauge } from "./liquid-gauge";
 import { quickAddNutrition, quickRemoveNutrition } from "@/actions/quick-log";
 
 type NutritionCardProps = {
@@ -59,19 +59,14 @@ export function NutritionCard({ summary, goals }: NutritionCardProps) {
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
       <h2 className="font-semibold text-foreground">Nutrition</h2>
 
-      <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${displayMacros.length}, minmax(0, 1fr))` }}
-      >
+      <div className="flex justify-around items-end">
         {displayMacros.map((macro) => (
-          <VerticalBar
+          <LiquidGauge
             key={macro.key}
             label={macro.label}
             value={macro.value}
             max={macro.target > 0 ? macro.target : 100}
             unit={macro.unit}
-            mode="increment"
-            quickIncrement
             tapAmount={macro.tapAmount}
             onIncrement={handleIncrement(macro.key)}
             onDecrement={handleDecrement(macro.key)}
