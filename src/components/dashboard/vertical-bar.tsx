@@ -50,10 +50,13 @@ export function VerticalBar({
     ? String(optimisticValue)
     : optimisticValue.toFixed(1);
 
-  // Blue overflow bar: same shape as green bar, scales larger proportional to % over
-  // 10% over = bar slightly larger, 100% over = bar fills the card
-  const overScale = isOver ? 1 + Math.min(2, overPct / 100) * 0.8 : 1;
-  const blueOpacity = isOver ? Math.min(0.7, 0.2 + overPct * 0.005) : 0;
+  // Blue overflow: a bar-shaped element inside the card that grows from the
+  // bar's size toward filling the entire card. At 0% over it matches the bar,
+  // at ~200% over it fills the whole card. Uses inset % so it stays contained.
+  // inset shrinks from full-card (0%) toward bar-sized (~35% horizontal, ~10% vertical)
+  const blueInsetX = isOver ? Math.max(0, 35 - overPct * 0.35) : 35;
+  const blueInsetY = isOver ? Math.max(0, 10 - overPct * 0.1) : 10;
+  const blueOpacity = isOver ? Math.min(0.6, 0.15 + overPct * 0.004) : 0;
 
   function handleClick() {
     if (quickIncrement) {
@@ -101,7 +104,7 @@ export function VerticalBar({
       onClick={!editing ? handleClick : undefined}
       onContextMenu={quickIncrement ? handleContextMenu : undefined}
       className={cn(
-        "relative rounded-xl border p-1.5 flex flex-col items-center justify-center cursor-pointer select-none overflow-visible",
+        "relative rounded-xl border p-1.5 flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden",
         "transition-all duration-300",
         isCompleted
           ? "border-emerald-500/30 bg-zinc-900/60"
@@ -110,6 +113,17 @@ export function VerticalBar({
       )}
       style={{ minHeight: "120px" }}
     >
+      {/* Blue overflow — bar-shaped, expands from bar size toward card edges */}
+      {isOver && (
+        <div
+          className="absolute rounded-lg pointer-events-none transition-all duration-500 ease-out z-0"
+          style={{
+            inset: `${blueInsetY}% ${blueInsetX}%`,
+            backgroundColor: `rgba(56,189,248,${blueOpacity})`,
+          }}
+        />
+      )}
+
       {/* Label at top */}
       {editing ? (
         <input
@@ -133,21 +147,9 @@ export function VerticalBar({
 
       {/* Bar with value and icon inside */}
       <div
-        className="relative w-10 rounded-lg bg-zinc-800/80 transition-all duration-300 flex items-center justify-center overflow-visible"
+        className="relative w-10 rounded-lg bg-zinc-800/80 transition-all duration-300 flex items-center justify-center z-10"
         style={{ height: "80px" }}
       >
-        {/* Blue overflow — same bar shape, scales outward behind green */}
-        {isOver && (
-          <div
-            className="absolute inset-0 rounded-lg pointer-events-none transition-all duration-500 ease-out"
-            style={{
-              backgroundColor: `rgba(56,189,248,${blueOpacity})`,
-              transform: `scale(${overScale})`,
-              boxShadow: `0 0 ${Math.min(30, overPct * 0.3)}px rgba(56,189,248,${blueOpacity * 0.6})`,
-            }}
-          />
-        )}
-
         {/* Green fill */}
         <div
           className={cn(
@@ -167,7 +169,7 @@ export function VerticalBar({
           </div>
         )}
 
-        {/* Value — centered in the bar, the hero number */}
+        {/* Value — centered in the bar */}
         {!editing && (
           <div className="relative z-10 flex flex-col items-center">
             <span className={cn(
