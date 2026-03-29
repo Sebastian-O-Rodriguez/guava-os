@@ -46,9 +46,19 @@ export function VerticalBar({
   const overRatio = isOver ? optimisticValue / max : 1;
   const isCompleted = mode === "toggle" ? (completed ?? optimisticValue >= max) : pct >= 95;
 
-  const barWidth = isOver
-    ? Math.min(80, 32 + Math.floor((overRatio - 1) * 48))
-    : 32;
+  // Bar expansion: grows in ALL directions as you go over goal
+  // At 1x goal: w-8 (32px), h-80px
+  // At 2x goal: fills entire card width and height
+  // Smooth continuous scaling between
+  const expansionFactor = isOver ? Math.min(overRatio, 3) : 1;
+  // Width: 32px → 100% of card (use percentage for width when expanding)
+  const widthPct = isOver
+    ? Math.min(100, 30 + (expansionFactor - 1) * 35)
+    : 30; // ~30% of card when normal
+  // Height: 80px base, grows up to 120px
+  const barHeight = isOver
+    ? Math.min(140, 80 + (expansionFactor - 1) * 30)
+    : 80;
 
   const fillClass = isOver
     ? "bg-gradient-to-t from-emerald-500 to-sky-400"
@@ -108,10 +118,10 @@ export function VerticalBar({
       onClick={!editing ? handleClick : undefined}
       onContextMenu={quickIncrement ? handleContextMenu : undefined}
       className={cn(
-        "rounded-xl border p-1.5 flex flex-col items-center gap-1 cursor-pointer select-none",
-        "transition-all duration-200",
+        "rounded-xl border p-1.5 flex flex-col items-center justify-center gap-1 cursor-pointer select-none overflow-hidden",
+        "transition-all duration-300",
         isCompleted
-          ? "border-emerald-500/30 bg-zinc-900/60 shadow-[0_0_16px_rgba(52,211,153,0.15)]"
+          ? "border-emerald-500/30 bg-zinc-900/60 shadow-[0_0_20px_rgba(52,211,153,0.2)]"
           : "border-zinc-800/50 bg-zinc-900/60",
         !editing && "hover:border-zinc-700 hover:bg-zinc-800/60",
       )}
@@ -131,32 +141,43 @@ export function VerticalBar({
           className="w-full text-center bg-transparent border-b border-zinc-600 text-xs text-foreground outline-none placeholder:text-zinc-600 tabular-nums py-0.5"
         />
       ) : (
-        <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium leading-none">
+        <span className={cn(
+          "uppercase tracking-wider font-medium leading-none transition-all duration-300",
+          isOver ? "text-[8px] text-zinc-700" : "text-[10px] text-zinc-600",
+        )}>
           {label}
         </span>
       )}
 
-      {/* Bar with centered icon */}
+      {/* Bar — EXPANDS to fill the card when over goal */}
       <div
-        className="relative rounded-lg bg-zinc-800/80 transition-all duration-300 flex items-center justify-center"
-        style={{ height: "80px", width: `${barWidth}px` }}
+        className="relative rounded-lg bg-zinc-800/80 transition-all duration-300 ease-out flex items-center justify-center"
+        style={{
+          height: `${barHeight}px`,
+          width: `${widthPct}%`,
+        }}
       >
         <div
           className={cn(
-            "absolute bottom-0 left-0 w-full rounded-lg transition-all duration-200",
+            "absolute bottom-0 left-0 w-full rounded-lg transition-all duration-300 ease-out",
             fillClass,
           )}
           style={{ height: `${Math.min(100, pct)}%` }}
         />
         {icon && !editing && (
-          <div className="relative z-10 text-emerald-950">
+          <div className={cn(
+            "relative z-10 transition-all duration-300",
+            isOver ? "text-emerald-950 scale-125" : "text-emerald-950",
+          )}>
             {icon}
           </div>
         )}
       </div>
 
-      {/* Value — small, muted, the bar is the hero */}
-      <div className="flex flex-col items-center leading-none gap-0">
+      <div className={cn(
+        "flex flex-col items-center leading-none gap-0 transition-all duration-300",
+        isOver ? "opacity-60" : "opacity-100",
+      )}>
         <span className="text-[10px] font-medium tabular-nums text-zinc-500">
           {displayValue}
           {unit ? (
