@@ -1,84 +1,159 @@
-# Current Sprint — Ready for Planning
+# Sprint 6 — RoutineMe v2: Category Tracker + Deterministic Chat
 
-No active sprint. Previous sprints archived below.
+**Goal**: Replace checkbox habits with category-based tracking (Gym, Nutrition, Running, custom). Consolidate into 2 pages. Refactor chat from freeform tool-calling to classifier + deterministic executor.
+
+**Started**: 2026-03-28
 
 ---
 
-<details>
-<summary>Sprint 5 — UI Polish (COMPLETED 2026-03-11)</summary>
+## Wave 1: Schema + Data Layer
+**Agent**: architect → backend
 
-### Summary
-Design system polish pass across all pages. Shipped in commit `112f339`.
+- [ ] **1.1** New Prisma models: `Category`, `Goal`, `Log` (replace Habit/Completion)
+- [ ] **1.2** Migration: create new tables, drop old ones
+- [ ] **1.3** Server actions: CRUD categories, upsert goals, create/query logs
+- [ ] **1.4** Seed default categories (Gym, Nutrition, Running) + default goals
+- [ ] **1.5** Types: `CategoryType`, `GoalConfig`, `LogData`, `NutritionEntry`, `GymEntry`, `RunEntry`
 
-### What shipped
-- **Shadow hierarchy**: `shadow-card` → `shadow-elevated` → `shadow-glow-emerald`
-- **Animations**: `animate-fade-in` on page load, `animate-slide-up` with stagger on habit rows
-- **Containers**: All `rounded-2xl` with consistent `border-zinc-800/60 bg-zinc-900/80`
-- **Nav**: Backdrop blur, hover backgrounds, thicker active bar
-- **Today**: Frequency icons, staggered row animations, wider weekly bars
-- **Monthly**: Weekly habit badge, shadow containers, Next.js Link nav
-- **Progress**: Metric card hover lift + accent borders, chart title, tighter spacing
-- **Chat**: Message animations, tool card shadows, blur drawer
-- **Settings**: Shadow cards, wider button spacing
+### Schema Design
 
-### QA
-- `tsc --noEmit`: clean
-- `next build`: clean (5 dynamic routes + /api/chat)
-- Deployed to Vercel
+```prisma
+model Category {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String                          // "Gym", "Nutrition", "Running", "Stretching"
+  type      String   @default("custom")     // "gym" | "nutrition" | "running" | "custom"
+  icon      String?                         // emoji or icon name
+  color     String?                         // tailwind color token
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-</details>
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goals Goal[]
+  logs  Log[]
 
-<details>
-<summary>Sprint 4 — AI Chat / Brain Dump → Habits (COMPLETED 2026-03-11)</summary>
+  @@index([userId, active])
+  @@map("categories")
+}
 
-### Summary
-Chat interface where user brain-dumps goals, Claude extracts and creates habits automatically.
+model Goal {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  metric     String                         // "leg_sessions", "calories", "miles", etc.
+  target     Float                          // 1, 2500, 1.0
+  period     String   @default("weekly")    // "daily" | "weekly"
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-### What shipped
-- **OpenRouter integration**: `openai` SDK → OpenRouter API → `anthropic/claude-haiku-4.5`
-- **Tool use**: `create_habit`, `update_habit`, `delete_habit`, `list_habits` — calls existing server actions
-- **API route**: POST `/api/chat` with tool use loop (max 10 iterations)
-- **System prompt**: Teaches Claude about daily/scheduled/weekly frequency modes
-- **Chat UI**: Session-only message history, example prompts, inline tool result cards
-- **Chat drawer**: Floating emerald button on all pages, collapsible 420px drawer
-- **Full page**: `/chat` route for full-screen use
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-### Files created
+  @@index([categoryId, active])
+  @@map("goals")
+}
+
+model Log {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  date       DateTime @db.Date
+  data       Json                           // type-specific payload
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, date])
+  @@index([date])
+  @@map("logs")
+}
 ```
-src/lib/openrouter.ts        — OpenAI client for OpenRouter
-src/lib/chat-tools.ts        — Tool definitions + executor
-src/lib/chat-prompt.ts       — System prompt
-src/app/api/chat/route.ts    — POST handler
-src/app/chat/page.tsx         — Full-page chat
-src/components/chat.tsx        — Chat client component
-src/components/chat-drawer.tsx — Floating drawer
+
+**Log `data` payloads:**
+- Gym: `{ bodyPart: "chest", notes?: "bench press 185x5" }`
+- Nutrition: `{ item: "200g chicken breast", calories: 330, protein: 62, fat: 7, carbs?: 0 }`
+- Running: `{ miles: 1.2, duration?: "12:30", notes?: "easy pace" }`
+- Custom: `{ value: 1, notes?: "done" }`
+
+---
+
+## Wave 2: Chat Classifier + Deterministic Executor
+**Agent**: backend
+
+- [ ] **2.1** Define scenario schemas (Zod): `log_nutrition`, `log_gym`, `log_run`, `set_goal`, `add_category`, `query_progress`
+- [ ] **2.2** Classifier prompt: LLM returns `{ scenario, params }` JSON only
+- [ ] **2.3** Executor map: scenario → server action (no LLM in the loop)
+- [ ] **2.4** Nutrition parser: LLM extracts `[{item, calories, protein, fat, carbs?}]` from natural language
+- [ ] **2.5** Update `/api/chat/route.ts`: classify → execute → respond
+- [ ] **2.6** Response templates: deterministic confirmation messages per scenario
+
+### Scenario Table
+
+| Scenario | Example Input | Extracted Params | Server Action |
+|----------|--------------|------------------|---------------|
+| `log_nutrition` | "200g chicken and rice" | `[{item, cal, protein, fat}]` | `createLogs(nutritionCategoryId, entries)` |
+| `log_gym` | "did chest today" | `{bodyPart, notes?}` | `createLog(gymCategoryId, gymData)` |
+| `log_run` | "ran 1.5 miles in 13 min" | `{miles, duration?}` | `createLog(runCategoryId, runData)` |
+| `set_goal` | "set protein to 180g daily" | `{category, metric, target, period}` | `upsertGoal(...)` |
+| `add_category` | "add stretching" | `{name, type?}` | `createCategory(...)` |
+| `query_progress` | "how's my week" | `{timeframe}` | Read + format summary |
+
+---
+
+## Wave 3: Dashboard Page (/)
+**Agent**: frontend
+
+- [ ] **3.1** New layout: single-page dashboard with category cards
+- [ ] **3.2** Nutrition card: daily macro bars (cals/protein/fat vs goals), logged items list
+- [ ] **3.3** Gym card: body parts done this week vs goals, session log
+- [ ] **3.4** Running card: miles this week vs goal
+- [ ] **3.5** Custom category cards: simple count vs goal
+- [ ] **3.6** Weekly summary section: all goals progress at a glance
+- [ ] **3.7** Quick-log buttons: tap to log gym/run directly (not just chat)
+
+---
+
+## Wave 4: Progress Page (/progress)
+**Agent**: frontend
+
+- [ ] **4.1** Refactor progress page for new data model
+- [ ] **4.2** Per-category trends (weekly/monthly)
+- [ ] **4.3** Nutrition charts: macro intake over time
+- [ ] **4.4** Gym frequency chart: sessions per body part per week
+- [ ] **4.5** Streak/consistency metrics adapted to new model
+
+---
+
+## Wave 5: Cleanup + QA
+**Agent**: qa
+
+- [ ] **5.1** Remove old pages: `/monthly`, `/settings` (standalone)
+- [ ] **5.2** Remove old components: habit-list, monthly-grid, add-habit-dialog, day-picker, settings/*
+- [ ] **5.3** Remove old actions: habits.ts, completions.ts (old)
+- [ ] **5.4** Remove old types/libs: habits.ts (frequency helpers)
+- [ ] **5.5** Update nav: only Dashboard + Progress + Chat
+- [ ] **5.6** Type check: `tsc --noEmit`
+- [ ] **5.7** Build: `next build`
+- [ ] **5.8** Manual smoke test all flows
+- [ ] **5.9** Deploy to Vercel
+
+---
+
+## Execution Order
+
+```
+Wave 1 (schema + data) → Wave 2 (chat) → Wave 3 (dashboard) → Wave 4 (progress) → Wave 5 (cleanup)
 ```
 
-### Commits
-- `5ee621a` docs(sprint): plan Sprint 4
-- `f1fc3a4` feat(app): AI chat — brain dump goals, Claude creates habits
-- `0e42c12` fix(chat): correct model ID + inline chat drawer on all pages
-- `6f8c4a1` fix(chat): flatten tool schemas + robust frequency parsing
+Waves are sequential — each depends on the previous. Within a wave, tasks are sequential except where noted.
 
-### QA
-- `tsc --noEmit`: clean
-- `next build`: clean
-- Chat creates habits end-to-end, habits appear on Today page
+## Acceptance Criteria
 
-</details>
-
-<details>
-<summary>Sprint 3 — Polish + Deploy (COMPLETED 2026-03-11)</summary>
-
-### Waves 1-3: Settings, responsive, theme polish — all done
-### Wave 4: QA + Deploy — done
-### Post-sprint: Today upgrades, habit modes, delete — done
-
-### QA Summary
-- `tsc --noEmit`: clean
-- `next build`: clean (4 dynamic routes)
-- 5 warnings found and fixed (W1-W5)
-- Deployed to Vercel, production DB connected
-- Recommendation: Ship
-
-</details>
+- [ ] Two pages: Dashboard (/) and Progress (/progress)
+- [ ] Gym: log sessions by body part, weekly goal tracking
+- [ ] Nutrition: log food via chat, daily macro tracking with goals
+- [ ] Running: log miles, weekly goal tracking
+- [ ] Custom categories addable via chat
+- [ ] Chat classifies input → deterministic action (no freeform tool calling)
+- [ ] `tsc --noEmit` clean
+- [ ] `next build` clean
+- [ ] Deployed to Vercel

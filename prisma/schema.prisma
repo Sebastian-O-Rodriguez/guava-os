@@ -1,11 +1,11 @@
-// RoutineMe — Prisma Schema
-// Single-user habit tracker. PostgreSQL backend.
+// RoutineMe — Prisma Schema v2
+// Single-user category/goal/log tracker. PostgreSQL backend.
 //
 // Design decisions:
 //   PK strategy:  cuid() — URL-safe, native Prisma, no external deps.
-//   Frequency:    Json field storing { type: "daily" | "scheduled" | "weekly", ... }.
-//                 Parsed/validated in app code (Zod). Avoids join tables for a tiny dataset.
-//   Indexes:      Optimised for today-view, monthly-grid, and streak queries.
+//   Log data:     Json field storing typed payloads per category type.
+//                 Validated in app code (Zod). Avoids join tables for a tiny dataset.
+//   Indexes:      Optimised for today-view, progress queries, and date-range scans.
 
 generator client {
   provider = "prisma-client-js"
@@ -23,61 +23,81 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  habits     Habit[]
+  categories Category[]
   dailyNotes DailyNote[]
 
   @@map("users")
 }
 
 // ---------------------------------------------------------------------------
-// Habit — the thing being tracked.
+// Category — a tracking domain (e.g. Gym, Nutrition, Running, custom).
 //
-// frequency stores a JSON object:
-//   { "type": "daily" }
-//   { "type": "scheduled", "days": ["mon", "wed", "fri"] }
-//   { "type": "weekly", "timesPerWeek": 3 }
-// Legacy: "weekdays" and "custom" types still supported in app code.
-// Validated at the app layer with a shared Zod schema.
+// type: "gym" | "nutrition" | "running" | "custom"
+// icon/color: optional display metadata
 // ---------------------------------------------------------------------------
-model Habit {
+model Category {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
   name      String
-  frequency Json     @default("{\"type\":\"daily\"}")
+  type      String   @default("custom")
+  icon      String?
+  color     String?
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  completions Completion[]
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goals Goal[]
+  logs  Log[]
 
-  @@index([userId, active], map: "idx_habit_user_active")
-  @@map("habits")
+  @@index([userId, active])
+  @@map("categories")
 }
 
 // ---------------------------------------------------------------------------
-// Completion — one row per habit per day.
+// Goal — a quantitative target attached to a category.
 //
-// `completed` defaults true (toggling on is the common path).
-// `note` is optional freetext attached to a single completion.
-// Unique on (habitId, date) enforces one entry per habit per day.
-// Composite index on (habitId, date) covers today-view, monthly-grid,
-// and streak-calculation queries.
+// metric: e.g. "calories", "protein", "miles", "leg_sessions"
+// target: numeric goal value
+// period: "daily" | "weekly"
 // ---------------------------------------------------------------------------
-model Completion {
-  id        String   @id @default(cuid())
-  habitId   String   @map("habit_id")
-  date      DateTime @db.Date
-  completed Boolean  @default(true)
-  note      String?
-  createdAt DateTime @default(now()) @map("created_at")
+model Goal {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  metric     String
+  target     Float
+  period     String   @default("weekly")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([habitId, date], map: "uq_completion_habit_date")
-  @@index([habitId, date], map: "idx_completion_habit_date")
-  @@index([date], map: "idx_completion_date")
-  @@map("completions")
+  @@index([categoryId, active])
+  @@map("goals")
+}
+
+// ---------------------------------------------------------------------------
+// Log — one entry per category per session/day.
+//
+// data stores a typed JSON payload depending on category type:
+//   Gym:       { bodyPart: string, notes?: string }
+//   Nutrition: { item: string, calories: number, protein: number, fat: number, carbs?: number }
+//   Running:   { miles: number, duration?: string, notes?: string }
+//   Custom:    { value: number, notes?: string }
+// ---------------------------------------------------------------------------
+model Log {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  date       DateTime @db.Date
+  data       Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, date])
+  @@index([date])
+  @@map("logs")
 }
 
 // ---------------------------------------------------------------------------

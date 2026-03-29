@@ -1,12 +1,4 @@
-// RoutineMe — Shared types
-
-// Frequency configuration for habits.
-export type FrequencyType = "daily" | "scheduled" | "weekly";
-
-export type FrequencyConfig =
-  | { type: "daily" }
-  | { type: "scheduled"; days: string[] }
-  | { type: "weekly"; timesPerWeek: number };
+// RoutineMe v2 — Shared types
 
 // Consistent result type for server actions
 export type ActionResult<T> =
@@ -14,106 +6,76 @@ export type ActionResult<T> =
   | { success: false; error: string };
 
 // ---------------------------------------------------------------------------
-// Monthly Grid types
+// Category types
 // ---------------------------------------------------------------------------
 
-export type CellStatus = "completed" | "missed" | "late" | "na";
+export type CategoryType = "gym" | "nutrition" | "running" | "custom";
 
-export interface MonthlyGridRow {
-  habitId: string;
-  habitName: string;
-  frequency: FrequencyConfig;
-  /** Length === daysInMonth. Index i === calendar day (i + 1). */
-  days: CellStatus[];
-}
-
-export interface MonthlyGridData {
-  year: number;
-  /** 1-based month number (January = 1). */
-  month: number;
-  daysInMonth: number;
-  rows: MonthlyGridRow[];
-}
-
-export interface MonthlyGridProps {
-  data: MonthlyGridData;
-  /** ISO string of today's date for highlighting the current day column. */
-  todayISO: string;
-}
+export type GoalPeriod = "daily" | "weekly";
 
 // ---------------------------------------------------------------------------
-// Progress Dashboard types
+// Log data payload types (stored as JSON in the logs table)
 // ---------------------------------------------------------------------------
 
-export type OverallStreaks = {
-  currentStreak: number;
-  longestStreak: number;
-  bestHabitName: string | null;
+export type NutritionLogData = {
+  item: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs?: number;
 };
 
-export type TrendPoint = {
-  date: string;
-  rate: number | null;
-  completed: number;
-  total: number;
+export type GymLogData = {
+  bodyPart: string;
+  notes?: string;
 };
 
-export type HabitSparkline = {
-  habitId: string;
-  name: string;
-  currentStreak: number;
-  points: {
-    date: string;
-    completed: boolean;
-    applicable: boolean;
-  }[];
+export type RunLogData = {
+  miles: number;
+  duration?: string;
+  notes?: string;
 };
 
-export type DashboardStats = {
-  weeklyRate: number | null;
-  monthlyRate: number | null;
-  trend: TrendPoint[];
-  sparklines: HabitSparkline[];
+export type CustomLogData = {
+  value: number;
+  notes?: string;
 };
 
-export type MetricCardData = {
-  currentStreak: number;
-  longestStreak: number;
-  bestHabitName: string | null;
-  weeklyRate: number | null;
-  monthlyRate: number | null;
-};
+export type LogData = NutritionLogData | GymLogData | RunLogData | CustomLogData;
 
 // ---------------------------------------------------------------------------
-// Today page types
+// Query result types
 // ---------------------------------------------------------------------------
 
-export type HabitWithStreak = {
-  id: string;
-  name: string;
-  currentStreak: number;
+export type NutritionDailySummary = {
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
 };
 
-export type WeeklyProgress = {
-  habitId: string;
-  completed: number;
+export type GymBodyPartCount = {
+  bodyPart: string;
+  count: number;
+};
+
+export type RunningSummary = {
+  totalMiles: number;
+  sessions: number;
+};
+
+export type GoalProgress = {
+  goalId: string;
+  metric: string;
   target: number;
+  period: GoalPeriod;
+  actual: number;
+  percentComplete: number;
 };
 
-export type OverdueHabit = {
-  habitId: string;
-  habitName: string;
-  missedDate: Date;
-};
-
-// ---------------------------------------------------------------------------
-// Settings types
-// ---------------------------------------------------------------------------
-
-export type HabitSummary = {
-  id: string;
-  name: string;
-  frequency: FrequencyConfig;
-  active: boolean;
-  createdAt: Date;
+export type CategoryProgress = {
+  categoryId: string;
+  categoryName: string;
+  categoryType: CategoryType;
+  goals: GoalProgress[];
 };

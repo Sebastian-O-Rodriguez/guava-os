@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openrouter, CHAT_MODEL } from "@/lib/openrouter";
-import { SYSTEM_PROMPT } from "@/lib/chat-prompt";
-import { tools, executeTool } from "@/lib/chat-tools";
-import type {
-  ChatCompletionMessageParam,
-  ChatCompletionToolMessageParam,
-} from "openai/resources/chat/completions";
+import { classifyMessage } from "@/lib/chat-classifier";
+import { executeScenario } from "@/lib/chat-executor";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,93 +15,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Cap message history to prevent runaway API costs
-    const MAX_MESSAGES = 50;
-    const trimmedMessages = messages.slice(-MAX_MESSAGES);
+    // Only the latest user message is used for classification
+    const latestUserMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === "user");
 
-    // Build the full message array with system prompt
-    const fullMessages: ChatCompletionMessageParam[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...trimmedMessages,
-    ];
+    const userContent =
+      typeof latestUserMessage?.content === "string"
+        ? latestUserMessage.content
+        : "";
 
-    // Call Claude via OpenRouter with tool use
-    let response = await openrouter.chat.completions.create({
-      model: CHAT_MODEL,
-      messages: fullMessages,
-      tools,
-      tool_choice: "auto",
-      max_tokens: 1024,
-    });
-
-    let assistantMessage = response.choices[0]?.message;
-
-    // Tool use loop — execute tools and feed results back until Claude is done
-    const toolResults: Array<{
-      tool: string;
-      args: Record<string, unknown>;
-      result: string;
-    }> = [];
-    let iterations = 0;
-    const MAX_ITERATIONS = 10;
-
-    while (
-      assistantMessage?.tool_calls &&
-      assistantMessage.tool_calls.length > 0 &&
-      iterations < MAX_ITERATIONS
-    ) {
-      iterations++;
-
-      // Execute each tool call
-      const toolMessages: ChatCompletionToolMessageParam[] = [];
-
-      for (const toolCall of assistantMessage.tool_calls) {
-        if (toolCall.type !== "function") continue;
-
-        let args: Record<string, unknown>;
-        try {
-          args = JSON.parse(toolCall.function.arguments);
-        } catch {
-          toolMessages.push({
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: JSON.stringify({ success: false, error: "Invalid tool arguments" }),
-          });
-          continue;
-        }
-        const result = await executeTool(toolCall.function.name, args);
-
-        toolResults.push({
-          tool: toolCall.function.name,
-          args,
-          result,
-        });
-
-        toolMessages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: result,
-        });
-      }
-
-      // Send tool results back to Claude for summarization
-      fullMessages.push(assistantMessage);
-      fullMessages.push(...toolMessages);
-
-      response = await openrouter.chat.completions.create({
-        model: CHAT_MODEL,
-        messages: fullMessages,
-        tools,
-        tool_choice: "auto",
-        max_tokens: 1024,
-      });
-
-      assistantMessage = response.choices[0]?.message;
+    if (!userContent.trim()) {
+      return NextResponse.json(
+        { error: "No user message found" },
+        { status: 400 },
+      );
     }
 
+    // Step 1: classify intent (single LLM call)
+    const classified = await classifyMessage(userContent);
+
+    // Step 2: execute deterministically
+    const result = await executeScenario(classified.scenario, classified.params as Record<string, unknown>);
+
     return NextResponse.json({
-      message: assistantMessage?.content ?? "Done.",
-      toolResults,
+      message: result.message,
+      scenario: classified.scenario,
+      data: result.data ?? null,
     });
   } catch (err) {
     console.error("Chat API error:", err);

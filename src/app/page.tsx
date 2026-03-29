@@ -1,143 +1,114 @@
 export const dynamic = "force-dynamic";
 
-import { getHabits } from "@/actions/habits";
 import {
-  getCompletionsForDate,
-  getDailyProgress,
-  getStreaksForActiveHabits,
-  getWeeklyProgress,
-  getOverdueHabits,
-} from "@/actions/completions";
-import { habitShowsOnDate, normalizeDate } from "@/lib/habits";
-import { HabitList } from "@/components/habit-list";
-import { AddHabitDialog } from "@/components/add-habit-dialog";
-import { ProgressRing } from "@/components/progress-ring";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
+  getAllCategoryProgress,
+  getDailyNutritionSummary,
+  getWeeklyGymSummary,
+  getWeeklyRunningSummary,
+  getLogsForDate,
+} from "@/actions/logs";
+import { getCategories } from "@/actions/categories";
+import type { NutritionLogData } from "@/lib/types";
+import { NutritionCard } from "@/components/dashboard/nutrition-card";
+import { GymCard } from "@/components/dashboard/gym-card";
+import { RunningCard } from "@/components/dashboard/running-card";
+import { CustomCard } from "@/components/dashboard/custom-card";
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
     weekday: "long",
-    month: "long",
+    month: "short",
     day: "numeric",
   });
 }
 
-function calcScore(
-  completedCount: number,
-  streaks: Array<{ habitId: string; currentStreak: number }>,
-  completedIds: Set<string>,
-): number {
-  if (completedCount === 0) return 0;
+export default async function DashboardPage() {
+  const today = new Date();
 
-  let streakSum = 0;
-  let count = 0;
-  for (const s of streaks) {
-    if (completedIds.has(s.habitId)) {
-      streakSum += s.currentStreak;
-      count++;
+  const [progressResult, nutritionResult, gymResult, runResult, categoriesResult] =
+    await Promise.all([
+      getAllCategoryProgress(),
+      getDailyNutritionSummary(today),
+      getWeeklyGymSummary(),
+      getWeeklyRunningSummary(),
+      getCategories(),
+    ]);
+
+  const allProgress = progressResult.success ? progressResult.data : [];
+  const nutritionSummary = nutritionResult.success
+    ? nutritionResult.data
+    : { calories: 0, protein: 0, fat: 0, carbs: 0 };
+  const gymSummary = gymResult.success ? gymResult.data : [];
+  const runningSummary = runResult.success
+    ? runResult.data
+    : { totalMiles: 0, sessions: 0 };
+  const categories = categoriesResult.success ? categoriesResult.data : [];
+
+  const nutritionCategory = categories.find((c) => c.type === "nutrition");
+  let nutritionLogItems: NutritionLogData[] = [];
+  if (nutritionCategory) {
+    const logsResult = await getLogsForDate(nutritionCategory.id, today);
+    if (logsResult.success) {
+      nutritionLogItems = logsResult.data.map((l) => l.data as NutritionLogData);
     }
   }
 
-  const avgStreak = count > 0 ? streakSum / count : 0;
-  const multiplier = 1 + Math.floor(avgStreak / 7) * 0.1;
-  return Math.round(completedCount * 10 * multiplier);
-}
+  const nutritionProgress = allProgress.find((p) => p.categoryType === "nutrition");
+  const gymProgress = allProgress.find((p) => p.categoryType === "gym");
+  const runProgress = allProgress.find((p) => p.categoryType === "running");
+  const customProgress = allProgress.filter((p) => p.categoryType === "custom");
 
-export default async function TodayPage() {
-  const today = new Date();
-  const normalizedToday = normalizeDate(today);
-
-  const [habitsResult, completions, progress, streaks, weeklyProg, overdue] =
-    await Promise.all([
-      getHabits(),
-      getCompletionsForDate(today),
-      getDailyProgress(today),
-      getStreaksForActiveHabits(),
-      getWeeklyProgress(),
-      getOverdueHabits(),
-    ]);
-
-  const allHabits = habitsResult.success ? habitsResult.data : [];
-
-  // Filter to only habits that show on today's date
-  const todayHabits = allHabits.filter((h) =>
-    habitShowsOnDate(h.frequency, normalizedToday),
-  );
-
-  const completionProps = completions.map((c) => ({ habitId: c.habitId }));
-  const completedIds = new Set(completions.map((c) => c.habitId));
-
-  const isAllDone =
-    progress.total > 0 && progress.completed >= progress.total;
-  const score = isAllDone
-    ? calcScore(progress.completed, streaks, completedIds)
-    : null;
+  const hasNutrition = categories.some((c) => c.type === "nutrition");
+  const hasGym = categories.some((c) => c.type === "gym");
+  const hasRunning = categories.some((c) => c.type === "running");
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
-      <div className="mx-auto max-w-2xl">
-        {/* Page header */}
-        <header className="mb-6 flex items-start justify-between gap-4">
+      <div className="mx-auto max-w-3xl">
+        <header className="mb-8 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              {getGreeting()}
+              Dashboard
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {formatDate(today)}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <ProgressRing
-              completed={progress.completed}
-              total={progress.total}
-              size={100}
-              score={score}
-            />
-
-            <AddHabitDialog />
+            <p className="mt-1 text-sm text-muted-foreground">{formatDate(today)}</p>
           </div>
         </header>
 
-        {/* Habit list card */}
-        <Card className="shadow-card">
-          <CardHeader className="border-b pb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                Habits
-              </span>
-              {progress.total > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {isAllDone ? (
-                    <span className="font-semibold text-emerald-500">
-                      All done! +{score} XP
-                    </span>
-                  ) : (
-                    <>{progress.total - progress.completed} remaining</>
-                  )}
-                </span>
-              )}
-            </div>
-          </CardHeader>
-
-          <CardContent className="pt-2 pb-2">
-            <HabitList
-              habits={todayHabits}
-              completions={completionProps}
-              streaks={streaks}
-              applicableCount={progress.total}
-              weeklyProgress={weeklyProg}
-              overdueHabits={overdue}
+        <div className="flex flex-col gap-6">
+          {hasNutrition && (
+            <NutritionCard
+              summary={nutritionSummary}
+              goals={nutritionProgress?.goals ?? []}
+              logItems={nutritionLogItems}
             />
-          </CardContent>
-        </Card>
+          )}
+
+          {hasGym && (
+            <GymCard
+              gymSummary={gymSummary}
+              goals={gymProgress?.goals ?? []}
+            />
+          )}
+
+          {hasRunning && (
+            <RunningCard
+              runningSummary={runningSummary}
+              goals={runProgress?.goals ?? []}
+            />
+          )}
+
+          {customProgress.map((cat) => (
+            <CustomCard key={cat.categoryId} category={cat} />
+          ))}
+
+          {!hasNutrition && !hasGym && !hasRunning && customProgress.length === 0 && (
+            <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-8 text-center">
+              <p className="text-muted-foreground text-sm">
+                No categories set up yet. Use the chat to get started.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
