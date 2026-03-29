@@ -15,10 +15,10 @@ type FitnessCardProps = {
 
 function getGymIcon(bodyPart: string): React.ReactNode {
   const key = bodyPart.toLowerCase();
-  if (key.includes("leg")) return <Footprints size={20} />;
-  if (key.includes("back")) return <ArrowUpFromLine size={20} />;
-  if (key.includes("chest")) return <Dumbbell size={20} />;
-  return <Dumbbell size={20} />;
+  if (key.includes("leg")) return <Footprints size={28} />;
+  if (key.includes("back")) return <ArrowUpFromLine size={28} />;
+  if (key.includes("chest")) return <Dumbbell size={28} />;
+  return <Dumbbell size={28} />;
 }
 
 export function FitnessCard({
@@ -93,7 +93,10 @@ export function FitnessCard({
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
       <h2 className="font-semibold text-foreground">Fitness</h2>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${gymRows.length + (hasRunning ? 1 : 0)}, minmax(0, 1fr))` }}
+      >
         {gymRows.map((row) => (
           <VerticalBar
             key={row.bodyPart}
@@ -118,7 +121,7 @@ export function FitnessCard({
             quickIncrement
             onIncrement={handleRunIncrement}
             onDecrement={handleRunDecrement}
-            icon={<Timer size={20} />}
+            icon={<Timer size={28} />}
           />
         )}
       </div>
