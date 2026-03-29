@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { Footprints, ArrowUpFromLine, Dumbbell, Timer } from "lucide-react";
 import type { GymBodyPartCount, GoalProgress, RunningSummary } from "@/lib/types";
 import { VerticalBar } from "./vertical-bar";
-import { toggleGymSession, quickAddRun } from "@/actions/quick-log";
+import { quickIncrementGym, quickAddRun } from "@/actions/quick-log";
 
 type FitnessCardProps = {
   gymSummary: GymBodyPartCount[];
@@ -51,10 +51,10 @@ export function FitnessCard({
   const milesGoal = runGoals.find((g) => g.metric === "miles");
   const runTarget = milesGoal?.target ?? 0;
 
-  function handleGymToggle(bodyPart: string) {
+  function handleGymIncrement(bodyPart: string) {
     return () => {
       startTransition(async () => {
-        await toggleGymSession(bodyPart);
+        await quickIncrementGym(bodyPart);
       });
     };
   }
@@ -98,9 +98,9 @@ export function FitnessCard({
             label={row.label}
             value={row.done}
             max={row.target}
-            mode="toggle"
-            completed={row.done >= row.target}
-            onToggle={handleGymToggle(row.bodyPart)}
+            mode="increment"
+            quickIncrement
+            onIncrement={handleGymIncrement(row.bodyPart)}
             icon={getGymIcon(row.bodyPart)}
           />
         ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 type VerticalBarProps = {
   label: string;
@@ -12,6 +13,8 @@ type VerticalBarProps = {
   onToggle?: () => void;
   completed?: boolean;
   icon?: React.ReactNode;
+  /** When true, clicking immediately adds +1 (no input field). Used for gym items. */
+  quickIncrement?: boolean;
 };
 
 export function VerticalBar({
@@ -24,6 +27,7 @@ export function VerticalBar({
   onToggle,
   completed,
   icon,
+  quickIncrement = false,
 }: VerticalBarProps) {
   const [optimisticValue, setOptimisticValue] = useState(value);
   const [editing, setEditing] = useState(false);
@@ -36,15 +40,19 @@ export function VerticalBar({
   }, [value]);
 
   const pct = max > 0 ? (optimisticValue / max) * 100 : 0;
+  const isOver = optimisticValue > max && max > 0;
   const isCompleted = mode === "toggle" ? (completed ?? optimisticValue >= max) : pct >= 95;
 
-  // Color based on progress
-  const fillColor =
-    pct > 105
-      ? "bg-amber-500"
-      : pct >= 95
-        ? "bg-emerald-400"
-        : "bg-emerald-500";
+  // Fitness (quickIncrement) fill: widening bar + emerald→sky gradient when over
+  // Nutrition (regular increment) fill: split emerald + orange gradient from top when over
+  const fitnessFillClass = isOver
+    ? "bg-gradient-to-t from-emerald-500 to-sky-400"
+    : pct >= 95
+      ? "bg-emerald-400"
+      : "bg-emerald-500";
+
+  const normalFillClass =
+    pct >= 95 && !isOver ? "bg-emerald-400" : "bg-emerald-500";
 
   const displayValue = Number.isInteger(optimisticValue)
     ? String(optimisticValue)
@@ -52,8 +60,11 @@ export function VerticalBar({
   const displayMax = Number.isInteger(max) ? String(max) : max.toFixed(1);
 
   function handleClick() {
-    if (mode === "toggle") {
-      // Optimistic: immediately flip
+    if (quickIncrement) {
+      // Immediately add +1, no input field
+      setOptimisticValue((prev) => prev + 1);
+      onIncrement?.(1);
+    } else if (mode === "toggle") {
       setOptimisticValue((prev) => (prev >= max ? 0 : max));
       onToggle?.();
     } else {
@@ -67,7 +78,6 @@ export function VerticalBar({
     if (e.key === "Enter") {
       const num = parseFloat(inputVal);
       if (!isNaN(num) && num > 0) {
-        // Optimistic: immediately add
         setOptimisticValue((prev) => prev + num);
         onIncrement?.(num);
       }
@@ -87,14 +97,14 @@ export function VerticalBar({
   return (
     <div
       onClick={!editing ? handleClick : undefined}
-      className={[
+      className={cn(
         "rounded-xl border p-3 flex flex-col items-center gap-2 cursor-pointer select-none",
         "transition-all duration-150",
         isCompleted
           ? "border-emerald-500/30 bg-zinc-900/60 shadow-[0_0_16px_rgba(52,211,153,0.15)]"
           : "border-zinc-800/50 bg-zinc-900/60",
         !editing && "hover:border-zinc-700 hover:bg-zinc-800/60",
-      ].join(" ")}
+      )}
     >
       {/* Icon (optional) */}
       {icon && !editing && (
@@ -124,18 +134,36 @@ export function VerticalBar({
         </span>
       )}
 
-      {/* Vertical bar track */}
+      {/* Vertical bar track — widens when fitness bar goes over goal */}
       <div
-        className="relative w-8 rounded-lg bg-zinc-800/80"
+        className={cn(
+          "relative rounded-lg bg-zinc-800/80 transition-all duration-300",
+          quickIncrement && isOver ? "w-12" : "w-8",
+        )}
         style={{ height: "80px" }}
       >
-        <div
-          className={[
-            "absolute bottom-0 left-0 w-full rounded-lg transition-all duration-200",
-            fillColor,
-          ].join(" ")}
-          style={{ height: `${Math.min(100, pct)}%` }}
-        />
+        {isOver && !quickIncrement ? (
+          <>
+            {/* Emerald portion up to goal */}
+            <div
+              className="absolute bottom-0 left-0 w-full rounded-b-lg bg-emerald-500 transition-all duration-200"
+              style={{ height: `${(max / optimisticValue) * 100}%` }}
+            />
+            {/* Orange excess portion above goal */}
+            <div
+              className="absolute top-0 left-0 w-full rounded-t-lg bg-gradient-to-t from-amber-500 to-orange-400 transition-all duration-200"
+              style={{ height: `${((optimisticValue - max) / optimisticValue) * 100}%` }}
+            />
+          </>
+        ) : (
+          <div
+            className={cn(
+              "absolute bottom-0 left-0 w-full rounded-lg transition-all duration-200",
+              quickIncrement ? fitnessFillClass : normalFillClass,
+            )}
+            style={{ height: `${Math.min(100, pct)}%` }}
+          />
+        )}
       </div>
 
       {/* Value */}

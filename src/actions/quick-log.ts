@@ -79,6 +79,30 @@ export async function toggleGymSession(bodyPart: string) {
   }
 }
 
+export async function quickIncrementGym(bodyPart: string) {
+  try {
+    const userId = await getOrCreateUser();
+    const gymCat = await prisma.category.findFirst({
+      where: { userId, type: "gym", active: true },
+    });
+    if (!gymCat) return { success: false as const, error: "No gym category" };
+
+    await prisma.log.create({
+      data: {
+        categoryId: gymCat.id,
+        date: normalizeDate(new Date()),
+        data: { bodyPart: bodyPart.toLowerCase() } as object,
+      },
+    });
+
+    revalidatePath("/");
+    return { success: true as const };
+  } catch (err) {
+    console.error("[quickIncrementGym]", err);
+    return { success: false as const, error: "Failed to increment gym session" };
+  }
+}
+
 export async function quickAddRun(miles: number) {
   try {
     const userId = await getOrCreateUser();
