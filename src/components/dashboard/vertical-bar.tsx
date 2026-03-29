@@ -50,13 +50,10 @@ export function VerticalBar({
     ? String(optimisticValue)
     : optimisticValue.toFixed(1);
 
-  // Blue overflow: a bar-shaped element inside the card that grows from the
-  // bar's size toward filling the entire card. At 0% over it matches the bar,
-  // at ~200% over it fills the whole card. Uses inset % so it stays contained.
-  // inset shrinks from full-card (0%) toward bar-sized (~35% horizontal, ~10% vertical)
-  const blueInsetX = isOver ? Math.max(0, 35 - overPct * 0.35) : 35;
-  const blueInsetY = isOver ? Math.max(0, 10 - overPct * 0.1) : 10;
-  const blueOpacity = isOver ? Math.min(0.6, 0.15 + overPct * 0.004) : 0;
+  // Blue overflow: same shape as the bar, centered on it, scales outward.
+  // Card clips it so it can't escape. Looks like the bar itself is growing.
+  const blueScale = isOver ? 1 + Math.min(3, overPct / 50) : 1;
+  const blueOpacity = isOver ? Math.min(0.55, 0.15 + overPct * 0.004) : 0;
 
   function handleClick() {
     if (quickIncrement) {
@@ -113,17 +110,6 @@ export function VerticalBar({
       )}
       style={{ minHeight: "120px" }}
     >
-      {/* Blue overflow — bar-shaped, expands from bar size toward card edges */}
-      {isOver && (
-        <div
-          className="absolute rounded-lg pointer-events-none transition-all duration-500 ease-out z-0"
-          style={{
-            inset: `${blueInsetY}% ${blueInsetX}%`,
-            backgroundColor: `rgba(56,189,248,${blueOpacity})`,
-          }}
-        />
-      )}
-
       {/* Label at top */}
       {editing ? (
         <input
@@ -150,6 +136,17 @@ export function VerticalBar({
         className="relative w-10 rounded-lg bg-zinc-800/80 transition-all duration-300 flex items-center justify-center z-10"
         style={{ height: "80px" }}
       >
+        {/* Blue overflow — same bar shape, scales from bar center outward, clipped by card */}
+        {isOver && (
+          <div
+            className="absolute inset-0 rounded-lg pointer-events-none transition-all duration-500 ease-out"
+            style={{
+              backgroundColor: `rgba(56,189,248,${blueOpacity})`,
+              transform: `scale(${blueScale})`,
+            }}
+          />
+        )}
+
         {/* Green fill */}
         <div
           className={cn(
