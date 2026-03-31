@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppNav } from "@/components/app-nav";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
@@ -42,11 +41,9 @@ export default function RootLayout({
           >
             Skip to main content
           </a>
-          <AppNav />
           <main
             id="main-content"
-            className="pb-20"
-            style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}
+            style={{ paddingTop: "calc(2.75rem + env(safe-area-inset-top))" }}
           >
             {children}
           </main>

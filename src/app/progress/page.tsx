@@ -6,6 +6,7 @@ import {
   getWeeklyRunningSummary,
 } from "@/actions/logs";
 import type { CategoryProgress } from "@/lib/types";
+import { AppNav } from "@/components/app-nav";
 
 function pctColor(pct: number): string {
   if (pct >= 100) return "text-emerald-400";
@@ -69,6 +70,7 @@ export default async function ProgressPage() {
 
   return (
     <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
+      <AppNav />
       <div className="mx-auto max-w-3xl space-y-8">
         <header>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Progress</h1>
