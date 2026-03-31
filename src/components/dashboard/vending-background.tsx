@@ -6,7 +6,7 @@ export function VendingBackground() {
   const { RiveComponent, rive } = useRive({
     src: "/animations/vending-machine.riv",
     autoplay: true,
-    layout: new Layout({ fit: Fit.Contain }),
+    layout: new Layout({ fit: Fit.Cover }),
   });
 
   return (
@@ -34,8 +34,8 @@ export function VendingBackground() {
         }}
       />
 
-      {/* Dark overlay gradient so dashboard text stays readable */}
-      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/50 to-zinc-950/30 pointer-events-none" />
+      {/* Subtle overlay so UI elements stay readable without hiding the machine */}
+      <div className="absolute inset-0 bg-zinc-950/40 pointer-events-none" />
     </div>
   );
 }
