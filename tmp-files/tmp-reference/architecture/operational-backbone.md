@@ -67,12 +67,12 @@ Dashboards
 
 ## Architecture Decisions (Locked)
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Event model | Hybrid audit-log | Full event sourcing is premature; entities are source of truth |
-| State management | Mutable entities + event trail | Simpler, Prisma-native, audit-safe |
-| Read models | Derived semantic layer | Decouples UI from implementation |
-| UI strategy | Role-based operational views | Operations first, exploration second |
+| Decision         | Choice                         | Rationale                                                      |
+| ---------------- | ------------------------------ | -------------------------------------------------------------- |
+| Event model      | Hybrid audit-log               | Full event sourcing is premature; entities are source of truth |
+| State management | Mutable entities + event trail | Simpler, Prisma-native, audit-safe                             |
+| Read models      | Derived semantic layer         | Decouples UI from implementation                               |
+| UI strategy      | Role-based operational views   | Operations first, exploration second                           |
 
 ---
 
@@ -87,11 +87,11 @@ Dashboards
 
 ## Naming Convention
 
-| Term | Meaning |
-|------|---------|
-| **Resident** | Property occupant (replaces legacy "Tenant" Prisma model name) |
-| **Organization** | Customer company (multi-tenancy scope) |
-| `organizationId` | Tenant isolation field (replaces legacy `tenantId`) |
+| Term             | Meaning                                                        |
+| ---------------- | -------------------------------------------------------------- |
+| **Resident**     | Property occupant (replaces legacy "Tenant" Prisma model name) |
+| **Organization** | Customer company (multi-tenancy scope)                         |
+| `organizationId` | Tenant isolation field (replaces legacy `tenantId`)            |
 
 This convention applies across the operational backbone. All new code and documentation should use these terms.
 

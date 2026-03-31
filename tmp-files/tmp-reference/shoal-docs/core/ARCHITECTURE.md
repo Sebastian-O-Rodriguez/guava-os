@@ -101,6 +101,7 @@ Shoal is a **control plane** for AI agents that:
 **Decision**: Build for tmux, SSH, and terminal workflows—not Electron or web UIs.
 
 **Why**:
+
 - Engineers already live in terminals
 - SSH accessibility is critical for remote work
 - Tmux provides battle-tested session persistence
@@ -115,12 +116,14 @@ Shoal is a **control plane** for AI agents that:
 **Decision**: Use SQLite with Write-Ahead Logging (WAL mode) + `aiosqlite` for all state management.
 
 **Why**:
+
 - **No External Dependencies**: Zero setup friction (no Postgres, Redis, etc.)
 - **ACID Guarantees**: Safe concurrent writes from CLI, API, and background watchers
 - **WAL Mode**: Readers don't block writers, writers don't block readers
 - **Async Throughout**: Natural async/await patterns for I/O operations
 
 **Implementation**:
+
 ```python
 # Single connection singleton with context manager lifecycle
 async with get_db() as db:
@@ -136,12 +139,14 @@ async with get_db() as db:
 **Decision**: Use git worktrees (not branches) to isolate agent work.
 
 **Why**:
+
 - **Zero File Conflicts**: Each agent has a separate working directory
 - **Parallel Checkouts**: Multiple agents can work on different branches simultaneously
 - **Native Git Support**: No custom filesystem magic, just standard git commands
 - **Branch Cleanup**: Automatically removes worktrees and branches when sessions end
 
 **Example**:
+
 ```bash
 # Agent 1 works in: /repo/.worktrees/feature-ui (branch: feature-ui)
 # Agent 2 works in: /repo/.worktrees/feature-api (branch: feature-api)
@@ -157,11 +162,13 @@ async with get_db() as db:
 **Decision**: Run a pool server per MCP type that listens on a Unix socket and spawns a fresh MCP command instance for each client connection.
 
 **Why**:
+
 - **Resource Efficiency**: One listener process per MCP type, shared socket infrastructure
 - **Standard Protocol**: Works with any MCP-compatible client (Claude, OpenCode, etc.)
 - **No External Dependencies**: Pure Python asyncio server, no socat required
 
 **Implementation**:
+
 ```python
 # Pool server listens on Unix socket:
 #   ~/.local/state/shoal/mcp-pool/sockets/memory.sock
@@ -184,12 +191,14 @@ async with get_db() as db:
 **Decision**: Detect agent status (Thinking, Waiting, Error, Idle) by parsing tmux pane output from the session-tagged tool pane.
 
 **Why**:
+
 - **No Agent Modifications**: Works with any agent (Claude, OpenCode, Gemini)
 - **Stable Targeting**: Watcher follows pane title `shoal:<session_id>` so split panes and active-pane changes do not cause false routing
 - **Real-Time**: Polls every 5 seconds via background watcher
 - **Tool-Specific Patterns**: Configurable regex patterns per tool
 
 **Implementation**:
+
 ```toml
 # ~/.config/shoal/tools/claude.toml
 [detection]
@@ -202,6 +211,7 @@ idle_patterns = ["$"]
 **Trade-off**: Requires tmux, limited to pattern matching, but universally compatible.
 
 **Runtime Contract**:
+
 - Session pane identity: `shoal:<session_id>` (tmux pane title)
 - Neovim socket identity: `/tmp/nvim-<session_id>-<window_id>.sock`
 - Socket ownership: interactive `nvim --listen` in the active tool pane
@@ -214,15 +224,18 @@ idle_patterns = ["$"]
 **Decision**: The "robo" supervisor is just another agent session with Shoal CLI access.
 
 **Why**:
+
 - **Dogfooding**: Robo uses the same API as manual users
 - **Programmable**: Can approve, send keys, monitor status—all via CLI
 - **Emergent Behavior**: LLMs can orchestrate complex workflows without custom code
 
 **Example Robo Prompt**:
+
 ```markdown
 You are a robo-fish supervisor managing a shoal of AI agents.
 
 Commands available:
+
 - shoal status: See all agents
 - shoal robo approve <session>: Approve an agent's action
 - shoal send <session> <keys>: Send input to an agent
@@ -239,11 +252,13 @@ Your job: Monitor agents, approve when needed, escalate if stuck.
 **Decision**: Support single inheritance (`extends`) and additive composition (`mixins`) for session templates, with cycle detection and raw-TOML field presence checks.
 
 **Why**:
+
 - **DRY Templates**: Common layouts shared via a base template, specialized by child templates
 - **Additive Composition**: Mixins add MCP servers, env vars, or windows without replacing base config
 - **Safe Resolution**: Cycle detection via set-based tracking prevents infinite loops
 
 **Merge Semantics** (`extends`):
+
 - Scalars (tool, description): child wins only if explicitly set in TOML
 - `env`: parent | child (child wins on conflict)
 - `mcp`: union, deduplicated, sorted
@@ -251,6 +266,7 @@ Your job: Monitor agents, approve when needed, escalate if stuck.
 - `worktree`: child wins if `[template.worktree]` section present
 
 **Mixin Semantics** (additive only):
+
 - `env`: merged in (mixin wins on conflict)
 - `mcp`: union, deduplicated, sorted
 - `windows`: appended after existing windows
@@ -258,6 +274,7 @@ Your job: Monitor agents, approve when needed, escalate if stuck.
 **Resolution order**: extends → mixins → CLI flags
 
 **Implementation**:
+
 ```toml
 # base-dev.toml — shared layout
 [template]
@@ -310,6 +327,7 @@ resolved = resolve_template("claude-dev")
 
 **Alternative Considered**: Postgres, MySQL  
 **Decision**:
+
 - No multi-machine deployments needed
 - Setup friction must be zero
 - WAL mode provides excellent concurrency for single-machine use
@@ -321,6 +339,7 @@ resolved = resolve_template("claude-dev")
 **Decision**: `async/await` for all I/O operations (DB, subprocess, HTTP)
 
 **Why**:
+
 - Non-blocking concurrent operations (status polling + user commands)
 - Natural fit for FastAPI server
 - Better resource utilization than threading
@@ -425,6 +444,7 @@ resolved = resolve_template("claude-dev")
 Shoal isn't just a wrapper around tmux—it's a **control plane for the AI coding revolution**.
 
 By choosing:
+
 - **Terminal-first** over GUI bloat
 - **SQLite + WAL** over complex databases
 - **Git worktrees** over manual branch management
@@ -433,6 +453,7 @@ By choosing:
 - **Robo supervisors** over hardcoded workflows
 
 ...we've built a system that is:
+
 - ✅ **Simple to deploy** (zero dependencies)
 - ✅ **Reliable in production** (ACID guarantees, WAL mode)
 - ✅ **Extensible by design** (TOML configs, MCP protocol)
@@ -443,6 +464,7 @@ By choosing:
 ---
 
 **Next Steps**:
+
 - Read [docs/ROBO_GUIDE.md](docs/ROBO_GUIDE.md) for advanced patterns
 - Try `shoal demo start` to see it in action
 - Check [ROADMAP.md](ROADMAP.md) for upcoming features

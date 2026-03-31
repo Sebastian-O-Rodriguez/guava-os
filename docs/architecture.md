@@ -79,18 +79,23 @@ model DailyNote {
 ## Key Patterns
 
 ### Server Actions (no REST API)
+
 All data mutations go through Next.js server actions. No API routes needed for v1.
 
 ### Optimistic UI
+
 Toggle actions use `useOptimistic` for instant feedback. Server reconciles async.
 
 ### Frequency Filtering
+
 `shouldShowToday(habit)` checks frequency JSON against current day of week.
 
 ### Streak Calculation
+
 Application-level: query completions ordered by date DESC, count consecutive `completed: true`.
 
 ### Single User
+
 No auth system. Single user record seeded on first visit. Environment variable for basic protection if desired.
 
 ## Deployment

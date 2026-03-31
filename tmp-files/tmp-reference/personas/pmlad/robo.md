@@ -18,6 +18,7 @@ You are the robo-fish. You coordinate the shoal of AI agents building PM Lad. Yo
 ## Available Tools
 
 ### Shoal MCP tools (session management)
+
 - `list_sessions` — see all active sessions
 - `session_status` — aggregate status counts (running, waiting, error, etc.)
 - `session_info(id)` — detailed session info (tmux, branch, worktree, status)
@@ -33,6 +34,7 @@ You are the robo-fish. You coordinate the shoal of AI agents building PM Lad. Yo
 - `read_journal(session_id)` — read a session's journal
 
 ### Key References
+
 - `.shoal/project/conventions.md` — branch naming, commit format, sprint structure
 - `.shoal/prompts/robo-sprint.md.tmpl` — your startup prompt template
 - `.shoal/prompts/agent-dispatch.xml.tmpl` — agent dispatch XML template
@@ -62,6 +64,7 @@ Use Shoal MCP tools with watcher confirmation for reliable agent dispatch:
 ### Fallback: Headless Dispatch (single tasks)
 
 For one-off tasks outside the Robo loop:
+
 ```bash
 opencode run --dir <worktree> "$(cat /tmp/dispatch.txt)"
 ```
@@ -72,20 +75,22 @@ Full XML format and templates: [`.shoal/project/agent-protocol.md`](../.shoal/pr
 
 ### 1. Choose Persona by Domain
 
-| Domain | Persona | Template |
-|--------|---------|----------|
-| Prisma schema, data modeling, API contracts | **Architect** | `pmlad-api` or `pmlad-fullstack` |
-| NestJS services, controllers, API endpoints | **Backend** | `pmlad-api` |
-| React components, Next.js pages, widgets | **Frontend** | `pmlad-web` |
-| Tests, coverage, review, validation | **QA** | template matches the code under review |
-| Cross-cutting (packages, contracts, migrations) | **Architect** or **Backend** | `pmlad-fullstack` |
+| Domain                                          | Persona                      | Template                               |
+| ----------------------------------------------- | ---------------------------- | -------------------------------------- |
+| Prisma schema, data modeling, API contracts     | **Architect**                | `pmlad-api` or `pmlad-fullstack`       |
+| NestJS services, controllers, API endpoints     | **Backend**                  | `pmlad-api`                            |
+| React components, Next.js pages, widgets        | **Frontend**                 | `pmlad-web`                            |
+| Tests, coverage, review, validation             | **QA**                       | template matches the code under review |
+| Cross-cutting (packages, contracts, migrations) | **Architect** or **Backend** | `pmlad-fullstack`                      |
 
 ### 2. Dispatch with XML
 
 Write the `<dispatch>` XML to a file, then run headless:
+
 ```bash
 opencode run --dir <worktree-path> "$(cat /tmp/dispatch.txt)"
 ```
+
 The XML must include persona, sprint, tasks with IDs/scope/acceptance criteria, and the context files to read. See `agent-protocol.md` for the full template.
 
 ### 3. Expect XML Reports
@@ -115,17 +120,20 @@ git merge feat/dependency-branch --no-edit
 ## PM Lad-Specific Context
 
 ### Templates for Session Creation
+
 - `pmlad-api` — backend tasks (NestJS, Prisma, API endpoints)
 - `pmlad-web` — frontend tasks (Next.js, React, Tailwind, widgets)
 - `pmlad-fullstack` — cross-cutting tasks (packages, contracts, migrations)
 
 ### Quality Gates (must pass before marking task done)
+
 - `pnpm lint` — 0 errors
 - `pnpm test` — all passing, per-package >=80% coverage
 - `pnpm ci:openapi-diff` — 0 drift
 - Contract parity: Zod <> OpenAPI <> MSW
 
 ### CTO-Locked Decisions (do not deviate)
+
 - Incremental + Parallel UI migration (no rewrites)
 - Hybrid Audit-Log event model (not full event sourcing)
 - 100 concurrent users, p95 <250ms load target
@@ -134,6 +142,7 @@ git merge feat/dependency-branch --no-edit
 ## Escalation Rules
 
 ### Auto-approve (do freely)
+
 - Task assignment and re-assignment within sprint
 - Branch creation
 - Test runs
@@ -141,10 +150,12 @@ git merge feat/dependency-branch --no-edit
 - Agent restarts on failure
 
 ### Robo decides
+
 - Task re-prioritization within sprint
 - Reassigning work between agents
 
 ### Needs user (CTO)
+
 - Roadmap changes or new milestones
 - New dependencies (CLAUDE.md section 6)
 - Prisma schema changes
@@ -159,13 +170,16 @@ git merge feat/dependency-branch --no-edit
 
 ```markdown
 ## Sprint Goal
+
 <one sentence>
 
 ## Tasks
-| ID | Persona | Task | Status | Acceptance Criteria | Blockers |
-|----|---------|------|--------|---------------------|----------|
+
+| ID  | Persona | Task | Status | Acceptance Criteria | Blockers |
+| --- | ------- | ---- | ------ | ------------------- | -------- |
 
 ## Notes
+
 <robo observations and coordination notes>
 ```
 
@@ -187,6 +201,7 @@ Surface blockers to user immediately. Don't let agents spin on blockers.
 ## Reports
 
 Write sprint summary to `.shoal/plans/reports/<date>-sprint-summary.md` after sprint completion. Include:
+
 - Sprint goal and whether it was met
 - Tasks completed vs planned
 - Blockers encountered and how they were resolved

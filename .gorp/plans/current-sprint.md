@@ -7,6 +7,7 @@
 ---
 
 ## Wave 1: Schema + Data Layer
+
 **Agent**: architect → backend
 
 - [ ] **1.1** New Prisma models: `Category`, `Goal`, `Log` (replace Habit/Completion)
@@ -69,6 +70,7 @@ model Log {
 ```
 
 **Log `data` payloads:**
+
 - Gym: `{ bodyPart: "chest", notes?: "bench press 185x5" }`
 - Nutrition: `{ item: "200g chicken breast", calories: 330, protein: 62, fat: 7, carbs?: 0 }`
 - Running: `{ miles: 1.2, duration?: "12:30", notes?: "easy pace" }`
@@ -77,6 +79,7 @@ model Log {
 ---
 
 ## Wave 2: Chat Classifier + Deterministic Executor
+
 **Agent**: backend
 
 - [ ] **2.1** Define scenario schemas (Zod): `log_nutrition`, `log_gym`, `log_run`, `set_goal`, `add_category`, `query_progress`
@@ -88,18 +91,19 @@ model Log {
 
 ### Scenario Table
 
-| Scenario | Example Input | Extracted Params | Server Action |
-|----------|--------------|------------------|---------------|
-| `log_nutrition` | "200g chicken and rice" | `[{item, cal, protein, fat}]` | `createLogs(nutritionCategoryId, entries)` |
-| `log_gym` | "did chest today" | `{bodyPart, notes?}` | `createLog(gymCategoryId, gymData)` |
-| `log_run` | "ran 1.5 miles in 13 min" | `{miles, duration?}` | `createLog(runCategoryId, runData)` |
-| `set_goal` | "set protein to 180g daily" | `{category, metric, target, period}` | `upsertGoal(...)` |
-| `add_category` | "add stretching" | `{name, type?}` | `createCategory(...)` |
-| `query_progress` | "how's my week" | `{timeframe}` | Read + format summary |
+| Scenario         | Example Input               | Extracted Params                     | Server Action                              |
+| ---------------- | --------------------------- | ------------------------------------ | ------------------------------------------ |
+| `log_nutrition`  | "200g chicken and rice"     | `[{item, cal, protein, fat}]`        | `createLogs(nutritionCategoryId, entries)` |
+| `log_gym`        | "did chest today"           | `{bodyPart, notes?}`                 | `createLog(gymCategoryId, gymData)`        |
+| `log_run`        | "ran 1.5 miles in 13 min"   | `{miles, duration?}`                 | `createLog(runCategoryId, runData)`        |
+| `set_goal`       | "set protein to 180g daily" | `{category, metric, target, period}` | `upsertGoal(...)`                          |
+| `add_category`   | "add stretching"            | `{name, type?}`                      | `createCategory(...)`                      |
+| `query_progress` | "how's my week"             | `{timeframe}`                        | Read + format summary                      |
 
 ---
 
 ## Wave 3: Dashboard Page (/)
+
 **Agent**: frontend
 
 - [ ] **3.1** New layout: single-page dashboard with category cards
@@ -113,6 +117,7 @@ model Log {
 ---
 
 ## Wave 4: Progress Page (/progress)
+
 **Agent**: frontend
 
 - [ ] **4.1** Refactor progress page for new data model
@@ -124,10 +129,11 @@ model Log {
 ---
 
 ## Wave 5: Cleanup + QA
+
 **Agent**: qa
 
 - [ ] **5.1** Remove old pages: `/monthly`, `/settings` (standalone)
-- [ ] **5.2** Remove old components: habit-list, monthly-grid, add-habit-dialog, day-picker, settings/*
+- [ ] **5.2** Remove old components: habit-list, monthly-grid, add-habit-dialog, day-picker, settings/\*
 - [ ] **5.3** Remove old actions: habits.ts, completions.ts (old)
 - [ ] **5.4** Remove old types/libs: habits.ts (frequency helpers)
 - [ ] **5.5** Update nav: only Dashboard + Progress + Chat

@@ -2,11 +2,11 @@
 
 ## Three-Layer Rule
 
-| Layer | Library | Use Case |
-|-------|---------|----------|
-| App shell + forms | shadcn/ui + Tailwind | Buttons, cards, inputs, dialogs, tables, navigation |
-| AI surfaces | assistant-ui | Chat panel, streaming responses, tool-use display |
-| Analytics surfaces | Tremor (standard) / Observable Plot (custom) | KPI cards, area charts, bar charts, custom viz |
+| Layer              | Library                                      | Use Case                                            |
+| ------------------ | -------------------------------------------- | --------------------------------------------------- |
+| App shell + forms  | shadcn/ui + Tailwind                         | Buttons, cards, inputs, dialogs, tables, navigation |
+| AI surfaces        | assistant-ui                                 | Chat panel, streaming responses, tool-use display   |
+| Analytics surfaces | Tremor (standard) / Observable Plot (custom) | KPI cards, area charts, bar charts, custom viz      |
 
 **Rule:** Pick one layer per component. Never mix Tremor charts inside assistant-ui threads.
 
@@ -26,17 +26,17 @@ All colors use CSS custom properties defined in `globals.css`. shadcn/ui and Tre
 
 ## When to Use Each Library
 
-| Need | Use |
-|------|-----|
-| Button, Input, Dialog, Select, Table | shadcn/ui (`components/ui/`) |
-| Page layout, spacing, grid | Tailwind classes + layout components (`components/layout/`) |
-| KPI card with delta | Tremor `Card` + `BadgeDelta` |
-| Area/bar/line chart | Tremor chart components |
-| Custom data visualization | Observable Plot (client-only, lazy-loaded) |
-| AI chat interface | assistant-ui `Thread` + `RuntimeProvider` |
-| Status indicator | `Badge` with status variants (pending, approved, etc.) |
-| Loading placeholder | `Skeleton` component |
-| Empty state | `EmptyState` composition |
+| Need                                 | Use                                                         |
+| ------------------------------------ | ----------------------------------------------------------- |
+| Button, Input, Dialog, Select, Table | shadcn/ui (`components/ui/`)                                |
+| Page layout, spacing, grid           | Tailwind classes + layout components (`components/layout/`) |
+| KPI card with delta                  | Tremor `Card` + `BadgeDelta`                                |
+| Area/bar/line chart                  | Tremor chart components                                     |
+| Custom data visualization            | Observable Plot (client-only, lazy-loaded)                  |
+| AI chat interface                    | assistant-ui `Thread` + `RuntimeProvider`                   |
+| Status indicator                     | `Badge` with status variants (pending, approved, etc.)      |
+| Loading placeholder                  | `Skeleton` component                                        |
+| Empty state                          | `EmptyState` composition                                    |
 
 ## Component Creation Checklist
 
@@ -49,11 +49,11 @@ All colors use CSS custom properties defined in `globals.css`. shadcn/ui and Tre
 
 ## Layout Components
 
-| Component | Purpose |
-|-----------|---------|
-| `PageShell` | Max-width container with responsive padding |
-| `SectionHeader` | Page title + description + optional action slot |
-| `FilterBar` | Horizontal filter/search toolbar |
-| `SplitPane` | Responsive two-column layout with ratio control |
-| `DetailPanel` | Bordered aside panel for detail views |
-| `DataTableShell` | Table wrapper with toolbar + pagination slots |
+| Component        | Purpose                                         |
+| ---------------- | ----------------------------------------------- |
+| `PageShell`      | Max-width container with responsive padding     |
+| `SectionHeader`  | Page title + description + optional action slot |
+| `FilterBar`      | Horizontal filter/search toolbar                |
+| `SplitPane`      | Responsive two-column layout with ratio control |
+| `DetailPanel`    | Bordered aside panel for detail views           |
+| `DataTableShell` | Table wrapper with toolbar + pagination slots   |

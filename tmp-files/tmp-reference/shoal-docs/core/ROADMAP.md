@@ -50,17 +50,20 @@ This roadmap outlines the planned development for Shoal as a fish-first, persona
 ## Next: Local Templates, Journals, HTTP Transport
 
 ### Project-Local Templates
+
 - [x] `.shoal/templates/` search path in git root (local shadows global)
 - [x] `template ls` shows SOURCE column (local/global)
 - [x] Project-local mixins support
 
 ### Structured Session Journals
+
 - [x] `core/journal.py` — append-only markdown per session
 - [x] MCP tools: `append_journal`, `read_journal`
 - [x] CLI: `shoal journal <session>` view/append
 - [x] Journal archive on session kill
 
 ### FastMCP HTTP Transport Default
+
 - [x] HTTP default for `shoal-orchestrator` in MCP pool registry
 - [x] `mcp doctor` HTTP probe via FastMCP Client
 - [x] Auto-configure HTTP URL for tool integration

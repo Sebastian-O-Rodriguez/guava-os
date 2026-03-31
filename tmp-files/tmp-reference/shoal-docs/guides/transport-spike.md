@@ -17,6 +17,7 @@ Evaluated whether FastMCP transports can replace Shoal's custom byte bridge (`mc
 **Finding**: FastMCP 3.0.2 does **not** provide native Unix Domain Socket (UDS) transport.
 
 Available transports:
+
 - `StdioTransport` — spawns subprocess, communicates via stdin/stdout
 - `StreamableHttpTransport` — HTTP-based MCP protocol
 - `SSETransport` — Server-Sent Events over HTTP
@@ -28,15 +29,15 @@ This means FastMCP cannot directly replace the asyncio `start_unix_server()` pat
 
 **Environment**: Python 3.13.11, Linux 6.18, FastMCP 3.0.2
 
-| Metric | stdio (direct) | HTTP (streamable) |
-|--------|---------------|-------------------|
-| **Startup** | ~8,800ms (process spawn) | ~65ms (connect to running server) |
-| **Call p50** | 19.6ms | 53.1ms |
-| **Call p95** | 40.4ms | 83.0ms |
-| **Call p99** | 70.8ms | 179.8ms |
-| **Call mean** | 21.3ms | 57.4ms |
-| **Concurrent mean (5 clients)** | n/a | 305.0ms |
-| **Server RSS** | n/a (ephemeral process) | ~90 MB |
+| Metric                          | stdio (direct)           | HTTP (streamable)                 |
+| ------------------------------- | ------------------------ | --------------------------------- |
+| **Startup**                     | ~8,800ms (process spawn) | ~65ms (connect to running server) |
+| **Call p50**                    | 19.6ms                   | 53.1ms                            |
+| **Call p95**                    | 40.4ms                   | 83.0ms                            |
+| **Call p99**                    | 70.8ms                   | 179.8ms                           |
+| **Call mean**                   | 21.3ms                   | 57.4ms                            |
+| **Concurrent mean (5 clients)** | n/a                      | 305.0ms                           |
+| **Server RSS**                  | n/a (ephemeral process)  | ~90 MB                            |
 
 **Key observations**:
 
@@ -59,6 +60,7 @@ The UDS pool path (proxy → socket → spawned process) could not be benchmarke
 **`shoal-orchestrator`** (the Shoal MCP server) is a FastMCP-native server. It can run in HTTP mode with zero changes to its tool implementations — just `mcp.run(transport="streamable-http", port=PORT)`.
 
 Benefits:
+
 - **Remote sessions (v0.16.0)**: HTTP tunnels over SSH trivially. An HTTP server on the remote machine can be accessed via `ssh -L PORT:localhost:PORT`.
 - **Persistent server**: No per-connection process spawning. One server handles all clients.
 - **Protocol awareness**: Full MCP protocol with error handling, tool introspection, health checks.

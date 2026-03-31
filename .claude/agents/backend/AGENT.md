@@ -28,34 +28,36 @@ You implement server actions, database queries, and data logic for RoutineMe.
 ## Patterns
 
 ### Server Actions
-```typescript
-"use server"
 
-import { prisma } from "@/lib/db"
-import { revalidatePath } from "next/cache"
+```typescript
+"use server";
+
+import { prisma } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 
 export async function toggleCompletion(habitId: string, date: string) {
   // upsert pattern for toggle
   const existing = await prisma.completion.findUnique({
-    where: { habitId_date: { habitId, date } }
-  })
+    where: { habitId_date: { habitId, date } },
+  });
 
   if (existing) {
     await prisma.completion.update({
       where: { id: existing.id },
-      data: { completed: !existing.completed }
-    })
+      data: { completed: !existing.completed },
+    });
   } else {
     await prisma.completion.create({
-      data: { habitId, date, completed: true }
-    })
+      data: { habitId, date, completed: true },
+    });
   }
 
-  revalidatePath("/")
+  revalidatePath("/");
 }
 ```
 
 ### Data Queries
+
 - Use Prisma's `groupBy`, `count`, `aggregate` for stats
 - Calculate streaks in application code (not SQL)
 - Filter habits by frequency + current day of week
@@ -79,8 +81,10 @@ export async function toggleCompletion(habitId: string, date: string) {
 ## Report Format
 
 When done, write to `.gorp/journal/backend-YYYY-MM-DD.md`:
+
 ```markdown
 ## Task [ID] — [Title]
+
 Status: done | blocked
 Files: list of modified files
 Tests: X passing

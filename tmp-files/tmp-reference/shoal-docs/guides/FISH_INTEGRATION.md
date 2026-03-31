@@ -83,15 +83,15 @@ shoal fork <TAB>      # grove, shoal, feature/foo, ...
 
 The integration provides convenient abbreviations for common commands:
 
-| Abbreviation | Expands to       | Description                 |
-|--------------|------------------|-----------------------------|
-| `sa`         | `shoal attach`   | Attach to a session         |
-| `sl`         | `shoal ls`       | List all sessions           |
-| `ss`         | `shoal status`   | Show status overview        |
-| `sp`         | `shoal popup`    | Launch popup dashboard      |
-| `sn`         | `shoal new`      | Create new session          |
-| `sk`         | `shoal kill`     | Kill a session              |
-| `si`         | `shoal info`     | Show session info           |
+| Abbreviation | Expands to     | Description            |
+| ------------ | -------------- | ---------------------- |
+| `sa`         | `shoal attach` | Attach to a session    |
+| `sl`         | `shoal ls`     | List all sessions      |
+| `ss`         | `shoal status` | Show status overview   |
+| `sp`         | `shoal popup`  | Launch popup dashboard |
+| `sn`         | `shoal new`    | Create new session     |
+| `sk`         | `shoal kill`   | Kill a session         |
+| `si`         | `shoal info`   | Show session info      |
 
 Example usage:
 
@@ -107,10 +107,10 @@ sl
 
 The following key bindings are available (inside fish shell):
 
-| Key Binding | Action                        | Description                              |
-|-------------|-------------------------------|------------------------------------------|
-| `Ctrl+S`    | `shoal popup`                 | Launch interactive dashboard             |
-| `Alt+A`     | `shoal-quick-attach`          | Quick attach using fzf (if available)    |
+| Key Binding | Action               | Description                           |
+| ----------- | -------------------- | ------------------------------------- |
+| `Ctrl+S`    | `shoal popup`        | Launch interactive dashboard          |
+| `Alt+A`     | `shoal-quick-attach` | Quick attach using fzf (if available) |
 
 ### Helper Functions
 
@@ -123,6 +123,7 @@ shoal-quick-attach
 ```
 
 Features:
+
 - Full-screen fzf interface
 - Live preview of session details
 - Arrow keys to navigate, Enter to attach
@@ -148,6 +149,7 @@ shoal-remote
 ```
 
 Features:
+
 - fzf picker for configured remote hosts
 - Auto-connects SSH tunnel if not already connected
 - fzf picker for remote sessions

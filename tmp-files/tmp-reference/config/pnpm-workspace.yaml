@@ -3,8 +3,8 @@ packages:
   - packages/*
 
 onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - '@tailwindcss/oxide'
+  - "@parcel/watcher"
+  - "@tailwindcss/oxide"
   - esbuild
   - sharp
   - unrs-resolver

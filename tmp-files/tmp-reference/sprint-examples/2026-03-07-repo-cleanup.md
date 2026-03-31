@@ -15,27 +15,27 @@ Restructure the pmlad-shoal workspace so docs are concise, non-duplicated, and c
 
 ## Tasks
 
-| ID | Task | Status | Notes |
-|----|------|--------|-------|
-| C1 | Disconnect shoal/ from root git | Done | Already separate — no .git at root |
-| C2 | Write root `CLAUDE.md` (replaces README as primary doc) | Done | TOC, project overview, points to everything |
-| C3 | Rewrite root `README.md` (brief, points to CLAUDE.md) | Done | |
-| C4 | Create `shoal.md` at root (Shoal TOC + context) | Done | First place pointed to for Shoal |
-| C5 | Create `.shoal/project/process.md` | Done | How we work, points to shoal resources |
-| C6 | Create `.shoal/project/conventions.md` | Done | Git, commit, push, sprint format |
-| C7 | Create `.shoal/project/stack.md` | Done | Tech stack + project details |
-| C8 | Create `.shoal/plans/roadmap.md` | Done | Pointer to canonical roadmap |
-| C9 | Reset `current-sprint.md` | Done | Cleared for Phase 4 |
-| C10 | Trim `pmlad/CLAUDE.md` | Done | Codebase rules only, no duplication |
-| C11 | Trim `pmlad/.claude/CLAUDE.md` | Done | Points to process.md + conventions.md |
-| C12 | Clean persona references to missing files | Done | Updated all 5 personas |
-| C13 | Postpone PM Lad project context update | N/A | Deferred until after restructure |
-| C14 | Create agent-protocol.md (XML dispatch/report) | Done | Standardized I/O for all agents |
-| C15 | Update robo.md with XML dispatch protocol | Done | References agent-protocol.md |
-| C16 | Update all personas with agent protocol + work loop | Done | All 5 personas updated |
-| C17 | Update process.md with protocol reference | Done | |
-| C18 | Update root CLAUDE.md with protocol link | Done | |
-| C19 | Disconnect shoal from usm-ricardoroche remote | Done | `git remote remove origin` |
+| ID  | Task                                                    | Status | Notes                                       |
+| --- | ------------------------------------------------------- | ------ | ------------------------------------------- |
+| C1  | Disconnect shoal/ from root git                         | Done   | Already separate — no .git at root          |
+| C2  | Write root `CLAUDE.md` (replaces README as primary doc) | Done   | TOC, project overview, points to everything |
+| C3  | Rewrite root `README.md` (brief, points to CLAUDE.md)   | Done   |                                             |
+| C4  | Create `shoal.md` at root (Shoal TOC + context)         | Done   | First place pointed to for Shoal            |
+| C5  | Create `.shoal/project/process.md`                      | Done   | How we work, points to shoal resources      |
+| C6  | Create `.shoal/project/conventions.md`                  | Done   | Git, commit, push, sprint format            |
+| C7  | Create `.shoal/project/stack.md`                        | Done   | Tech stack + project details                |
+| C8  | Create `.shoal/plans/roadmap.md`                        | Done   | Pointer to canonical roadmap                |
+| C9  | Reset `current-sprint.md`                               | Done   | Cleared for Phase 4                         |
+| C10 | Trim `pmlad/CLAUDE.md`                                  | Done   | Codebase rules only, no duplication         |
+| C11 | Trim `pmlad/.claude/CLAUDE.md`                          | Done   | Points to process.md + conventions.md       |
+| C12 | Clean persona references to missing files               | Done   | Updated all 5 personas                      |
+| C13 | Postpone PM Lad project context update                  | N/A    | Deferred until after restructure            |
+| C14 | Create agent-protocol.md (XML dispatch/report)          | Done   | Standardized I/O for all agents             |
+| C15 | Update robo.md with XML dispatch protocol               | Done   | References agent-protocol.md                |
+| C16 | Update all personas with agent protocol + work loop     | Done   | All 5 personas updated                      |
+| C17 | Update process.md with protocol reference               | Done   |                                             |
+| C18 | Update root CLAUDE.md with protocol link                | Done   |                                             |
+| C19 | Disconnect shoal from usm-ricardoroche remote           | Done   | `git remote remove origin`                  |
 
 ---
 

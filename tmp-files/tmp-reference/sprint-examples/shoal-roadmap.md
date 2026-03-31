@@ -27,6 +27,7 @@
 See `CHANGELOG.md` for full release history (v0.4.0 through v0.16.0).
 
 Highlights:
+
 - v0.16.0: Remote sessions, journals, HTTP transport, project-local templates
 - v0.15.0: FastMCP integration, Shoal MCP server, robo-orchestrator template
 - v0.14.0: Template inheritance and mixins

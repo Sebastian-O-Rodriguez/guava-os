@@ -16,47 +16,47 @@ Azure-based SaaS deployment.
 
 ### Backend
 
-| Component | Technology | Notes |
-|-----------|-----------|-------|
-| Runtime | Node.js 20 | Current: NestJS 10 on Node 20 Alpine |
-| Framework | NestJS | Existing, no changes |
-| Hosting | Azure App Service or Azure Container Apps | Container-based preferred |
-| ORM | Prisma 6.x | Existing |
+| Component | Technology                                | Notes                                |
+| --------- | ----------------------------------------- | ------------------------------------ |
+| Runtime   | Node.js 20                                | Current: NestJS 10 on Node 20 Alpine |
+| Framework | NestJS                                    | Existing, no changes                 |
+| Hosting   | Azure App Service or Azure Container Apps | Container-based preferred            |
+| ORM       | Prisma 6.x                                | Existing                             |
 
 ### Database
 
-| Component | Technology | Notes |
-|-----------|-----------|-------|
-| Primary | Azure Database for PostgreSQL (Flexible Server) | Managed, automated backups |
-| Migrations | Prisma Migrate | Existing migration pipeline |
+| Component  | Technology                                      | Notes                       |
+| ---------- | ----------------------------------------------- | --------------------------- |
+| Primary    | Azure Database for PostgreSQL (Flexible Server) | Managed, automated backups  |
+| Migrations | Prisma Migrate                                  | Existing migration pipeline |
 
 ### Frontend
 
-| Component | Technology | Notes |
-|-----------|-----------|-------|
-| Framework | Next.js 15 | Existing (apps/web2) |
-| Hosting | Azure Static Web Apps or Azure App Service | SSR requires App Service |
+| Component | Technology                                 | Notes                    |
+| --------- | ------------------------------------------ | ------------------------ |
+| Framework | Next.js 15                                 | Existing (apps/web2)     |
+| Hosting   | Azure Static Web Apps or Azure App Service | SSR requires App Service |
 
 ### Storage
 
-| Component | Technology | Notes |
-|-----------|-----------|-------|
+| Component | Technology         | Notes                                     |
+| --------- | ------------------ | ----------------------------------------- |
 | Documents | Azure Blob Storage | Future: lease documents, invoices, photos |
 
 ### Networking
 
-| Component | Technology | Notes |
-|-----------|-----------|-------|
-| Edge | Azure Front Door | CDN, SSL termination, WAF |
-| DNS | Azure DNS or external | TLS certificates via Front Door |
+| Component | Technology            | Notes                           |
+| --------- | --------------------- | ------------------------------- |
+| Edge      | Azure Front Door      | CDN, SSL termination, WAF       |
+| DNS       | Azure DNS or external | TLS certificates via Front Door |
 
 ### Observability
 
-| Component | Technology | Notes |
-|-----------|-----------|-------|
-| Error tracking | Sentry | Frontend + backend |
-| Logging | Structured JSON logs | Existing pattern, needs Azure integration |
-| Metrics | Azure Monitor (optional) | Application Insights for APM |
+| Component      | Technology               | Notes                                     |
+| -------------- | ------------------------ | ----------------------------------------- |
+| Error tracking | Sentry                   | Frontend + backend                        |
+| Logging        | Structured JSON logs     | Existing pattern, needs Azure integration |
+| Metrics        | Azure Monitor (optional) | Application Insights for APM              |
 
 ---
 
@@ -66,11 +66,11 @@ Azure-based SaaS deployment.
 
 ### Routing
 
-| Environment | Web | API |
-|-------------|-----|-----|
-| **Production** | `app.pmlad.com` | `api.pmlad.com` |
-| **Staging** | `staging.app.pmlad.com` | `staging.api.pmlad.com` |
-| **Local** | `localhost:3000` | `localhost:3001` |
+| Environment    | Web                     | API                     |
+| -------------- | ----------------------- | ----------------------- |
+| **Production** | `app.pmlad.com`         | `api.pmlad.com`         |
+| **Staging**    | `staging.app.pmlad.com` | `staging.api.pmlad.com` |
+| **Local**      | `localhost:3000`        | `localhost:3001`        |
 
 `pmlad.com` root serves as marketing/landing page (optional at launch).
 
@@ -94,11 +94,11 @@ SSL certificates managed by Azure Front Door (automatic renewal).
 
 ### Environments
 
-| Environment | Purpose | URL Pattern |
-|-------------|---------|-------------|
-| Development | Local + CI | localhost:3000 (web), localhost:3001 (api) |
-| Staging | Pre-production validation | staging.app.pmlad.com / staging.api.pmlad.com |
-| Production | Live customers | app.pmlad.com / api.pmlad.com |
+| Environment | Purpose                   | URL Pattern                                   |
+| ----------- | ------------------------- | --------------------------------------------- |
+| Development | Local + CI                | localhost:3000 (web), localhost:3001 (api)    |
+| Staging     | Pre-production validation | staging.app.pmlad.com / staging.api.pmlad.com |
+| Production  | Live customers            | app.pmlad.com / api.pmlad.com                 |
 
 ### Deployment Pipeline
 
@@ -127,19 +127,19 @@ git push to main
 
 ### Current State vs Required
 
-| Capability | Current | Required |
-|-----------|---------|----------|
-| Dockerfile | Exists (multi-stage) | Ready |
-| CI pipeline | GitHub Actions (test/lint/build) | Needs deploy steps |
-| Container registry | None | Azure Container Registry |
-| Staging environment | None | Azure App Service (staging slot) |
-| Production environment | None | Azure App Service |
-| Database (managed) | Local/Docker only | Azure PostgreSQL |
-| SSL/TLS | None | Azure Front Door |
-| Secrets management | .env files | Azure Key Vault |
-| Database migrations | Prisma (manual) | Automated in deploy pipeline |
-| Health checks | /v1/health endpoint exists | Ready |
-| Error tracking | None | Sentry (needs integration) |
+| Capability             | Current                          | Required                         |
+| ---------------------- | -------------------------------- | -------------------------------- |
+| Dockerfile             | Exists (multi-stage)             | Ready                            |
+| CI pipeline            | GitHub Actions (test/lint/build) | Needs deploy steps               |
+| Container registry     | None                             | Azure Container Registry         |
+| Staging environment    | None                             | Azure App Service (staging slot) |
+| Production environment | None                             | Azure App Service                |
+| Database (managed)     | Local/Docker only                | Azure PostgreSQL                 |
+| SSL/TLS                | None                             | Azure Front Door                 |
+| Secrets management     | .env files                       | Azure Key Vault                  |
+| Database migrations    | Prisma (manual)                  | Automated in deploy pipeline     |
+| Health checks          | /v1/health endpoint exists       | Ready                            |
+| Error tracking         | None                             | Sentry (needs integration)       |
 
 ---
 
@@ -186,6 +186,7 @@ git push to main
 **Provider:** Clerk
 
 Clerk handles:
+
 - User registration and login
 - Email verification
 - Session management
@@ -217,11 +218,11 @@ Organization (customer company)
 
 ### Naming Convention
 
-| Term | Meaning |
-|------|---------|
-| `organizationId` | Multi-tenant scope field (replaces legacy `tenantId`) |
-| Resident | Property occupant (replaces legacy `Tenant` model name) |
-| Organization | Customer company using PM Lad |
+| Term             | Meaning                                                 |
+| ---------------- | ------------------------------------------------------- |
+| `organizationId` | Multi-tenant scope field (replaces legacy `tenantId`)   |
+| Resident         | Property occupant (replaces legacy `Tenant` model name) |
+| Organization     | Customer company using PM Lad                           |
 
 ---
 

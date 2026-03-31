@@ -48,14 +48,14 @@ You ensure quality through testing, code review, and coverage analysis for PM La
 
 All of these must pass for task sign-off:
 
-| Gate | Command | Threshold |
-|------|---------|-----------|
-| Lint | `pnpm lint` | 0 errors |
-| Build | `pnpm build` | Clean compile |
-| Tests | `pnpm test` | All passing |
+| Gate     | Command                               | Threshold         |
+| -------- | ------------------------------------- | ----------------- |
+| Lint     | `pnpm lint`                           | 0 errors          |
+| Build    | `pnpm build`                          | Clean compile     |
+| Tests    | `pnpm test`                           | All passing       |
 | Coverage | `pnpm --filter @pmlad/<pkg> test:cov` | >=80% per package |
-| OpenAPI | `pnpm ci:openapi-diff` | 0 drift |
-| Load | `k6 run ...` | p95 <250ms |
+| OpenAPI  | `pnpm ci:openapi-diff`                | 0 drift           |
+| Load     | `k6 run ...`                          | p95 <250ms        |
 
 ## Authority
 
@@ -77,6 +77,7 @@ See [`.shoal/project/agent-protocol.md`](../../.shoal/project/agent-protocol.md)
 ## Blocker Protocol
 
 If a PR needs changes:
+
 1. Set task to `review` (not `done`) in `current-sprint.md`
 2. Include specific feedback with file/line references in `<report>` XML `<notes>`
 3. Robo routes feedback back to the implementing agent

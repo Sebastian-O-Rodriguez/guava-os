@@ -57,6 +57,7 @@ subprocess calls. The watcher is a separate process polling the same DB.
 ```
 
 **Observations:**
+
 - Fish scripts are thin (good) -- just abbreviations, keybindings, and fzf wrappers
 - tmux commands are centralized in `core/tmux.py` (good)
 - CLI and API duplicate session creation logic (lines 73-221 in `session.py` vs 265-353 in `server.py`) -- this is a maintenance risk
@@ -194,6 +195,7 @@ The CLI's `_add_impl` and the API's `create_session_api` duplicate the entire se
 **Impact:** Critical. Anyone on the same network can execute arbitrary commands in any tmux session.
 
 **Fix (immediate):**
+
 ```python
 # server.py — change default bind to localhost
 if __name__ == "__main__":
@@ -210,6 +212,7 @@ def serve(host: str = "127.0.0.1", port: int = 8080):
 **Impact:** High via API, low via CLI (CLI requires local access).
 
 **Fix:**
+
 ```python
 # mcp_pool.py — use shlex.quote or validate command against allowlist
 import shlex
@@ -234,6 +237,7 @@ async def start_mcp_server_api(data: McpCreate):
 **Impact:** Medium. Currently mitigated by `validate_session_name` restricting charset to `[a-zA-Z0-9_/.-]`, but the defense is implicit.
 
 **Fix:**
+
 ```fish
 # quick-attach.fish — use single quotes around {} to prevent word splitting
 --preview='shoal info -- {}'
@@ -249,6 +253,7 @@ async def start_mcp_server_api(data: McpCreate):
 If `~/.config/shoal/` or `~/.local/state/shoal/` is world-writable, any local user could inject tool configs that execute arbitrary commands via startup commands.
 
 **Fix:**
+
 ```python
 # config.py — check permissions on ensure_dirs()
 import stat
@@ -267,6 +272,7 @@ def ensure_dirs():
 `.github/workflows/ci.yml:16` pipes a remote script directly to `sh`.
 
 **Fix:**
+
 ```yaml
 # Replace with official GitHub Action
 - uses: astral-sh/setup-uv@v5
@@ -306,28 +312,28 @@ def ensure_dirs():
 
 ### What to unit test (pure functions, no I/O)
 
-| Module | Priority | Notes |
-|--------|----------|-------|
-| `detection.py` | Already good | Add case-sensitivity and regex-special-char tests |
-| `notify.py._escape_applescript_string` | High | 0 tests currently. Test `'`, `"`, `\`, newlines, unicode |
-| `state.validate_session_name` | Already good | Add leading/trailing slash, `../` path traversal |
-| `state._sanitize_tmux_name` | High | Test collision detection (e.g., `a.b` vs `a-b`) |
-| `models/` | Medium | Add invalid input tests, boundary values |
-| `theme.py` | Low | Pure formatting, test `tmux_status_segment` edge cases |
-| `_infer_branch_name` | Low | Already trivial |
+| Module                                 | Priority     | Notes                                                    |
+| -------------------------------------- | ------------ | -------------------------------------------------------- |
+| `detection.py`                         | Already good | Add case-sensitivity and regex-special-char tests        |
+| `notify.py._escape_applescript_string` | High         | 0 tests currently. Test `'`, `"`, `\`, newlines, unicode |
+| `state.validate_session_name`          | Already good | Add leading/trailing slash, `../` path traversal         |
+| `state._sanitize_tmux_name`            | High         | Test collision detection (e.g., `a.b` vs `a-b`)          |
+| `models/`                              | Medium       | Add invalid input tests, boundary values                 |
+| `theme.py`                             | Low          | Pure formatting, test `tmux_status_segment` edge cases   |
+| `_infer_branch_name`                   | Low          | Already trivial                                          |
 
 ### What to integration test (with mocking)
 
-| Module | Priority | Notes |
-|--------|----------|-------|
-| Session creation (CLI) | High | Happy path. Currently only error cases tested |
-| Session creation (API) | High | Currently **SKIPPED** |
-| `kill` command | High | 0 tests |
-| `fork` command | Medium | Only startup commands tested |
-| `watcher._poll_cycle` | Medium | Add exception-during-poll and concurrent-update tests |
-| `mcp_pool.start/stop` | High | 4 tests **SKIPPED** |
-| Fish installer | Medium | Add missing-template and copy-failure paths |
-| `demo start` | Medium | 5 tests **SKIPPED** |
+| Module                 | Priority | Notes                                                 |
+| ---------------------- | -------- | ----------------------------------------------------- |
+| Session creation (CLI) | High     | Happy path. Currently only error cases tested         |
+| Session creation (API) | High     | Currently **SKIPPED**                                 |
+| `kill` command         | High     | 0 tests                                               |
+| `fork` command         | Medium   | Only startup commands tested                          |
+| `watcher._poll_cycle`  | Medium   | Add exception-during-poll and concurrent-update tests |
+| `mcp_pool.start/stop`  | High     | 4 tests **SKIPPED**                                   |
+| Fish installer         | Medium   | Add missing-template and copy-failure paths           |
+| `demo start`           | Medium   | 5 tests **SKIPPED**                                   |
 
 ### How to test tmux/fish
 
@@ -354,6 +360,7 @@ def test_fish_templates_syntax():
 ```
 
 ### Current gaps summary
+
 - **8 skipped tests** across demo, MCP pool, and API
 - **0 tests** for: `notify.py`, `theme.py`, `popup.py`, `nvim.py`, `setup.py` CLI, `kill`, `attach`, `fork` (full flow)
 - Coverage floor is 57% (`pyproject.toml:67`) — reasonable for v0.5, but should be 70%+ before wider distribution

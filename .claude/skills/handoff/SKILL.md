@@ -9,6 +9,7 @@ Preserve or restore context between Claude Code sessions.
 
 **Write handoff** (`/handoff write`):
 Summarize current session state:
+
 - What was accomplished
 - What's in progress
 - What's blocked

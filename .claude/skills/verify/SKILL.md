@@ -8,6 +8,7 @@ description: Run quality gates — type check, lint, format, build, test.
 Run the quality gates for RoutineMe. Usage: `/verify [target]`
 
 Targets:
+
 - `types` — `npx tsc --noEmit`
 - `lint` — `npx eslint . --max-warnings 0`
 - `format` — `npx prettier --check .`

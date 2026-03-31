@@ -15,18 +15,18 @@ Subscription has zero VM quota — pivoted from App Service to **Azure Container
 
 ## Azure Resources
 
-| Resource | Azure Name | Status |
-|----------|-----------|--------|
-| Resource Group | `pmlad-prod` (eastus) | Done |
-| Container Registry | `pmladacr.azurecr.io` (eastus) | Done |
-| Key Vault | `pmlad-vault` (eastus) | Done |
-| PostgreSQL Flexible | `pmlad-db` (centralus, B1ms, PG 16) | Done |
-| Container Apps Env | `pmlad-env` (eastus) | Done |
-| Container Apps | `pmlad-api`, `pmlad-web`, staging variants | Done |
-| Custom Domains | `api.pmlad.com`, `app.pmlad.com` (managed SSL) | Done |
-| Sentry | Web + API projects | Done |
-| Service Principal | `pmlad-gh-deploy` | Done |
-| GitHub Environments | `staging` + `production` | Done |
+| Resource            | Azure Name                                     | Status |
+| ------------------- | ---------------------------------------------- | ------ |
+| Resource Group      | `pmlad-prod` (eastus)                          | Done   |
+| Container Registry  | `pmladacr.azurecr.io` (eastus)                 | Done   |
+| Key Vault           | `pmlad-vault` (eastus)                         | Done   |
+| PostgreSQL Flexible | `pmlad-db` (centralus, B1ms, PG 16)            | Done   |
+| Container Apps Env  | `pmlad-env` (eastus)                           | Done   |
+| Container Apps      | `pmlad-api`, `pmlad-web`, staging variants     | Done   |
+| Custom Domains      | `api.pmlad.com`, `app.pmlad.com` (managed SSL) | Done   |
+| Sentry              | Web + API projects                             | Done   |
+| Service Principal   | `pmlad-gh-deploy`                              | Done   |
+| GitHub Environments | `staging` + `production`                       | Done   |
 
 ## CD Pipeline
 

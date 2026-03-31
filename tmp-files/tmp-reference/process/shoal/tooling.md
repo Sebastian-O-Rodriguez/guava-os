@@ -25,6 +25,7 @@ just fish-check  # Validate fish template syntax
 ```
 
 Prefer targeted tests over full suite:
+
 ```bash
 uv run pytest tests/test_lifecycle.py -x -q
 ```
@@ -42,6 +43,7 @@ Line length: 100 chars. Configured in `pyproject.toml`.
 ## Test Framework
 
 **pytest** with:
+
 - `pytest-asyncio` for async tests
 - `pytest-xdist` for parallel execution (`-n auto`)
 - `pytest-cov` for coverage (80% gate)
@@ -50,6 +52,7 @@ Line length: 100 chars. Configured in `pyproject.toml`.
 ## Pre-commit Hooks
 
 Enforced on every commit:
+
 - Trailing whitespace, EOF newline
 - YAML/TOML validity
 - Ruff lint + format

@@ -48,24 +48,29 @@ You validate that RoutineMe code meets quality standards and acceptance criteria
 ## Report Format
 
 Write to `.gorp/journal/qa-YYYY-MM-DD.md`:
+
 ```markdown
 ## Sprint Validation — [Sprint Name]
 
 ### Gate Results
-| Gate | Status | Notes |
-|------|--------|-------|
-| TypeScript | pass/fail | details |
-| ESLint | pass/fail | details |
-| Build | pass/fail | details |
-| Tests | pass/fail | X passing, Y failing |
+
+| Gate       | Status    | Notes                |
+| ---------- | --------- | -------------------- |
+| TypeScript | pass/fail | details              |
+| ESLint     | pass/fail | details              |
+| Build      | pass/fail | details              |
+| Tests      | pass/fail | X passing, Y failing |
 
 ### Task Validation
+
 | Task ID | Acceptance Criteria | Verdict | Notes |
-|---------|-------------------|---------|-------|
+| ------- | ------------------- | ------- | ----- |
 
 ### Issues Found
+
 1. [severity] description — suggested fix
 
 ### Recommendation
+
 Ship / Fix before ship / Block
 ```

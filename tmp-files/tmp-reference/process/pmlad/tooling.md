@@ -32,15 +32,15 @@ pnpm dev:web           # Next.js frontend on port 3000 (apps/web2)
 
 ### Pages
 
-| Route | Content |
-|-------|---------|
-| `/dashboard/portfolio` | CEO/Owner portfolio overview (KPIs) |
-| `/dashboard/inbox` | PM operational inbox (pending actions) |
-| `/dashboard/tasks` | Technician task queue |
-| `/dashboard` | Config dashboard (chat UI, secondary) |
-| `/properties` | Properties data table |
-| `/tenants` | Residents data table |
-| `/config-dashboard` | Invoice dashboard with action buttons |
+| Route                  | Content                                |
+| ---------------------- | -------------------------------------- |
+| `/dashboard/portfolio` | CEO/Owner portfolio overview (KPIs)    |
+| `/dashboard/inbox`     | PM operational inbox (pending actions) |
+| `/dashboard/tasks`     | Technician task queue                  |
+| `/dashboard`           | Config dashboard (chat UI, secondary)  |
+| `/properties`          | Properties data table                  |
+| `/tenants`             | Residents data table                   |
+| `/config-dashboard`    | Invoice dashboard with action buttons  |
 
 Web2 proxies `/api/*` → `localhost:3001/*` via Next.js rewrites (configured in `next.config.ts`).
 
@@ -87,6 +87,7 @@ pnpm ci:openapi-diff
 ```
 
 Prefer targeted tests over full suite:
+
 ```bash
 pnpm --filter @pmlad/api test -- --testPathPattern=tenants
 ```
@@ -101,6 +102,7 @@ docker compose down                              # Stop all
 ## Quality Gates (CI)
 
 All PRs must pass:
+
 - Lint: 0 errors (11 warnings allowed)
 - Build: all packages compile
 - Tests: per-package >=80% coverage

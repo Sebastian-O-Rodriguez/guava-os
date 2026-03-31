@@ -19,11 +19,13 @@ We use **Shoal** for agent orchestration. See [`shoal.md`](../../../shoal.md) fo
 The canonical flow for executing a sprint with Robo orchestration:
 
 **Phase 1 — CTO plans in Claude chat:**
+
 1. Review roadmap + current state
 2. Break phase into waves with persona-per-task breakdown
 3. Write/update `current-sprint.md`
 
 **Phase 2 — Launch Robo supervisor:**
+
 ```bash
 cd pmlad
 
@@ -61,6 +63,7 @@ Robo uses Shoal MCP tools to manage the agent fleet:
 **Phase 4 — CTO reviews:**
 
 CTO monitors from their Claude chat session:
+
 ```bash
 shoal ls                    # see all sessions
 shoal status                # aggregate health
@@ -72,10 +75,10 @@ git log --oneline -5        # check agent commits
 
 Standardized prompts in `.shoal/prompts/`:
 
-| Template | Purpose |
-|----------|---------|
-| `robo-sprint.md.tmpl` | Robo's startup instructions — waves, orchestration loop, MCP tools |
-| `agent-dispatch.xml.tmpl` | Agent dispatch XML — persona, tasks, scope, rules, context files |
+| Template                  | Purpose                                                            |
+| ------------------------- | ------------------------------------------------------------------ |
+| `robo-sprint.md.tmpl`     | Robo's startup instructions — waves, orchestration loop, MCP tools |
+| `agent-dispatch.xml.tmpl` | Agent dispatch XML — persona, tasks, scope, rules, context files   |
 
 Robo fills in template variables and sends to agents. See [`agent-protocol.md`](agent-protocol.md) for the full XML format.
 
@@ -88,6 +91,7 @@ Robo fills in template variables and sends to agents. See [`agent-protocol.md`](
 ### Watcher + send_keys (Reliable Pattern)
 
 The Shoal watcher polls tmux panes every 5s and detects agent state via regex:
+
 - `busy` — agent is processing (do not send keys)
 - `waiting` — agent is idle, ready for input (safe to send keys)
 - `error` — agent hit an error (escalate)
@@ -96,12 +100,12 @@ The Shoal watcher polls tmux panes every 5s and detects agent state via regex:
 
 ### Dispatch Methods (Ranked)
 
-| Method | Use Case | Reliability |
-|--------|----------|-------------|
-| Robo + MCP tools | Sprint orchestration (primary) | High — watcher-gated, automated |
-| `opencode run "prompt"` | Single-task headless dispatch | High — runs to completion |
-| `claude --print "prompt"` | Single-task Claude dispatch | High — pipe-friendly |
-| `shoal new -b` + TUI | Interactive debugging | Medium — manual |
+| Method                    | Use Case                       | Reliability                     |
+| ------------------------- | ------------------------------ | ------------------------------- |
+| Robo + MCP tools          | Sprint orchestration (primary) | High — watcher-gated, automated |
+| `opencode run "prompt"`   | Single-task headless dispatch  | High — runs to completion       |
+| `claude --print "prompt"` | Single-task Claude dispatch    | High — pipe-friendly            |
+| `shoal new -b` + TUI      | Interactive debugging          | Medium — manual                 |
 
 ### OpenRouter Setup
 
@@ -125,12 +129,12 @@ Every task must be assigned a persona. No unassigned work.
 
 All tasks must pass before completion:
 
-| Gate | Command | Threshold |
-|------|---------|-----------|
-| Lint | `pnpm lint` | 0 errors |
-| Build | `pnpm build` | Clean compile |
-| Tests | `pnpm test` | All passing |
-| Coverage | per-package `test:cov` | >=80% |
+| Gate     | Command                | Threshold     |
+| -------- | ---------------------- | ------------- |
+| Lint     | `pnpm lint`            | 0 errors      |
+| Build    | `pnpm build`           | Clean compile |
+| Tests    | `pnpm test`            | All passing   |
+| Coverage | per-package `test:cov` | >=80%         |
 
 ## Approval Matrix
 

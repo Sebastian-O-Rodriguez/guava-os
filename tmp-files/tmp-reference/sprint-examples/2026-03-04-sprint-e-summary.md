@@ -8,15 +8,15 @@
 
 ## Tasks Completed
 
-| ID | Task | Agent Session | Status |
-|----|------|---------------|--------|
-| E-1 | Enrich view data with parsed fields | `e1-enrich-view` (pmlad-api) | Done |
-| E-2 | Semantic grouping by reason | `e2-semantic-grouping` (pmlad-web) | Done |
-| E-3 | Reason badges inline | `e3-reason-badges` (pmlad-web) | Done |
-| E-4 | Deduplication of identical items | `e456-ui-polish` (pmlad-web) | Done |
-| E-5 | Action-oriented group headers | `e456-ui-polish` (pmlad-web) | Done |
-| E-6 | Tailwind + dark mode + responsive | `e456-ui-polish` (pmlad-web) | Done |
-| E-7 | QA validation (2-min demo) | — | Pending (needs Docker) |
+| ID  | Task                                | Agent Session                      | Status                 |
+| --- | ----------------------------------- | ---------------------------------- | ---------------------- |
+| E-1 | Enrich view data with parsed fields | `e1-enrich-view` (pmlad-api)       | Done                   |
+| E-2 | Semantic grouping by reason         | `e2-semantic-grouping` (pmlad-web) | Done                   |
+| E-3 | Reason badges inline                | `e3-reason-badges` (pmlad-web)     | Done                   |
+| E-4 | Deduplication of identical items    | `e456-ui-polish` (pmlad-web)       | Done                   |
+| E-5 | Action-oriented group headers       | `e456-ui-polish` (pmlad-web)       | Done                   |
+| E-6 | Tailwind + dark mode + responsive   | `e456-ui-polish` (pmlad-web)       | Done                   |
+| E-7 | QA validation (2-min demo)          | —                                  | Pending (needs Docker) |
 
 ## Files Changed (2 files, +304/-71 lines)
 
@@ -26,11 +26,13 @@
 ## What Was Built
 
 ### Backend (E-1)
+
 - Parse structured title (`"Invoice #1234 - Location - Reason"`) into 3 fields
 - Graceful null fallback for non-standard titles
 - No new endpoints, no schema changes
 
 ### Frontend (E-2 through E-6)
+
 - **Grouped view**: Work items grouped by reason, sorted by count (biggest problem first)
 - **Collapsible groups**: Click to expand/collapse each reason group
 - **Reason badges**: Color-coded pills (red=error, amber=approval, blue=dispute)
@@ -42,10 +44,10 @@
 
 ## Quality Gates
 
-| Gate | Result |
-|------|--------|
-| Lint | 0 errors, 13 warnings (pre-existing) |
-| Build | Not tested (deferred to E-7) |
+| Gate  | Result                                                                    |
+| ----- | ------------------------------------------------------------------------- |
+| Lint  | 0 errors, 13 warnings (pre-existing)                                      |
+| Build | Not tested (deferred to E-7)                                              |
 | Tests | Pre-existing failures in als.interceptor.spec.ts (DI issues, not related) |
 
 ## Blockers Encountered

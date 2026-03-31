@@ -9,9 +9,9 @@ _No active sprint. Robo will populate this after the user confirms a sprint plan
 
 ## Tasks
 
-| ID | Persona | Task | Status | Acceptance Criteria | Blockers |
-|----|---------|------|--------|---------------------|----------|
-| — | — | _Sprint not started_ | — | — | — |
+| ID  | Persona | Task                 | Status | Acceptance Criteria | Blockers |
+| --- | ------- | -------------------- | ------ | ------------------- | -------- |
+| —   | —       | _Sprint not started_ | —      | —                   | —        |
 
 ## Notes
 

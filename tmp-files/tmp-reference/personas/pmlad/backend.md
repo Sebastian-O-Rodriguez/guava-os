@@ -56,7 +56,7 @@ You implement backend services, APIs, database logic, and core infrastructure fo
 - Don't add dependencies without architect + CTO sign-off
 - Don't skip or weaken tests to unblock
 - Don't touch `.env` files or log secrets
-- Don't touch system docs (CLAUDE.md, .shoal/*, docs/ssot/*, docs/contracts/*, docs/cto-handoff/*)
+- Don't touch system docs (CLAUDE.md, .shoal/_, docs/ssot/_, docs/contracts/_, docs/cto-handoff/_)
 - Don't convert `import X` to `import type X` across the codebase — this breaks NestJS DI
 - Don't recreate files that don't exist in your worktree
 - If you think a doc or contract needs updating, **report it to Robo via journal** — don't modify it yourself

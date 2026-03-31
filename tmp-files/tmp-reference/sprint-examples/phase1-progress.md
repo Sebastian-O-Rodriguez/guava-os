@@ -14,11 +14,13 @@ Phase 1 Clerk authentication integration is **complete**. Users can sign up, sig
 ## Completed Work
 
 ### Phase 1A: tenantId Rename — SKIPPED
+
 Not applicable — codebase already uses `organizationId`.
 
 ### Phase 1B: Clerk Authentication — COMPLETE
 
 **Backend:**
+
 - [x] @clerk/backend v3.0.1 — token verification via JWKS
 - [x] clerk.util.ts — verifyClerkToken(), ClerkUser type, ClerkVerificationError
 - [x] JwtAuthGuard — Clerk verification + lazy user sync
@@ -30,6 +32,7 @@ Not applicable — codebase already uses `organizationId`.
 - [x] OrgEntityGuard migrated to ClerkUser type
 
 **Frontend:**
+
 - [x] @clerk/nextjs v7.0.1 — ClerkProvider, components, middleware
 - [x] Sign-in page (/sign-in)
 - [x] Sign-up page (/sign-up)

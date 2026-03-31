@@ -30,19 +30,21 @@ agents, monitor their progress, and collect results.
 
 ```markdown
 # Sprint: [Name]
+
 Date: YYYY-MM-DD
 Phase: [roadmap phase]
 
 ## Tasks
 
-| ID | Agent | Task | Status | Acceptance Criteria |
-|----|-------|------|--------|-------------------|
-| 1A | architect | Design habit schema | pending | Prisma schema + migration |
-| 1B | backend | Implement habit CRUD | pending | Server actions + tests |
-| 1C | frontend | Build Today view | pending | Toggle works, progress ring |
-| 1D | qa | Validate sprint | pending | All gates pass, coverage >80% |
+| ID  | Agent     | Task                 | Status  | Acceptance Criteria           |
+| --- | --------- | -------------------- | ------- | ----------------------------- |
+| 1A  | architect | Design habit schema  | pending | Prisma schema + migration     |
+| 1B  | backend   | Implement habit CRUD | pending | Server actions + tests        |
+| 1C  | frontend  | Build Today view     | pending | Toggle works, progress ring   |
+| 1D  | qa        | Validate sprint      | pending | All gates pass, coverage >80% |
 
 ## Dependencies
+
 - 1B depends on 1A
 - 1C depends on 1B
 - 1D depends on 1B + 1C
@@ -51,6 +53,7 @@ Phase: [roadmap phase]
 ## Dispatch Format
 
 When dispatching work to an agent, include:
+
 - **Task ID** from sprint table
 - **Scope** — specific files/directories they should touch
 - **Acceptance criteria** — concrete, testable

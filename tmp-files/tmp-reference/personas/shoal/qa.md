@@ -51,6 +51,7 @@ Activated by robo after implementation tasks are marked complete. QA reviews the
 ## Blocker Protocol
 
 If a PR needs changes:
+
 1. Journal specific feedback with file/line references
 2. Mark sprint task as `review` (not `done`)
 3. Robo routes feedback back to the implementing agent

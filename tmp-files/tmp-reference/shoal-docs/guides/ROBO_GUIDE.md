@@ -7,6 +7,7 @@ The **Robo** is Shoal's supervisory agent—a "robo-fish" that monitors and coor
 In nature, researchers demonstrated that biomimetic robot fish can integrate into and lead schools of real fish by alternating between following and leading behaviors ([Marras & Porfiri 2012](https://royalsocietypublishing.org/doi/10.1098/rsif.2012.0084), [Papaspyros et al. 2019](https://doi.org/10.1371/journal.pone.0220559)).
 
 Similarly, Shoal's **Robo** acts as a robot fish that:
+
 - Monitors the "shoal" of agent sessions
 - Approves actions when agents are waiting
 - Routes tasks and escalates issues
@@ -23,6 +24,7 @@ shoal robo setup default --tool opencode
 ```
 
 This creates:
+
 - `~/.config/shoal/robo/default.toml` — Configuration profile
 - `~/.local/state/shoal/robo/default/` — Runtime directory with:
   - `AGENTS.md` — Instructions for the robo agent
@@ -58,6 +60,7 @@ shoal attach
 **Use case**: You want predictable worker layouts so the robo can coordinate sessions with the same pane/window structure.
 
 **Setup**:
+
 ```bash
 # Verify global templates
 shoal template ls
@@ -73,6 +76,7 @@ shoal robo start default
 ```
 
 **Robo instructions**:
+
 ```
 Treat worker sessions as template-driven environments.
 For each waiting/idle session:
@@ -89,6 +93,7 @@ For each waiting/idle session:
 **Use case**: You have 3 agents working on different features. The robo periodically checks their status.
 
 **Setup**:
+
 ```toml
 # ~/.config/shoal/robo/default.toml
 [robo]
@@ -101,6 +106,7 @@ waiting_timeout = 300  # Escalate after 5 minutes
 ```
 
 **Robo instructions** (in the session):
+
 ```
 Check status every minute with `shoal status`.
 If any session is "waiting", investigate using `shoal logs <name>`.
@@ -116,6 +122,7 @@ Log findings in task-log.md.
 **Use case**: Agents need permission to run destructive operations (push to main, delete files, etc.).
 
 **Setup**:
+
 ```bash
 # Start 3 sessions
 shoal new -t claude -w feat/auth -b --template feature-dev
@@ -127,6 +134,7 @@ shoal robo start approval-bot
 ```
 
 **Robo instructions**:
+
 ```
 Monitor all sessions. When a session enters "waiting" state:
 1. Check what it's waiting for: `shoal logs <name>`
@@ -136,6 +144,7 @@ Monitor all sessions. When a session enters "waiting" state:
 ```
 
 **Manual override**:
+
 ```bash
 # You can also manually approve from your shell
 shoal robo approve feature-auth
@@ -160,6 +169,7 @@ Create a task list in `~/.local/state/shoal/robo/default/tasks.md`:
 ```
 
 **Robo instructions**:
+
 ```
 Monitor sessions with `shoal status`.
 When a session becomes "idle":
@@ -178,6 +188,7 @@ When a session becomes "idle":
 **Use case**: An agent encounters an LSP error or crashes. The robo detects it and notifies you.
 
 **Setup**:
+
 ```toml
 # ~/.config/shoal/robo/default.toml
 [escalation]
@@ -186,6 +197,7 @@ auto_respond = false
 ```
 
 **Robo instructions**:
+
 ```
 Check `shoal status` every minute.
 If any session is "error" or "crashed":
@@ -201,14 +213,14 @@ If any session is "error" or "crashed":
 
 ## Robo Commands Reference
 
-| Command | Description |
-|---------|-------------|
-| `shoal robo setup <name>` | Create a new robo profile |
-| `shoal robo start <name>` | Launch the robo session |
-| `shoal robo stop <name>` | Terminate the robo session |
-| `shoal robo ls` | List all robo sessions |
-| `shoal robo approve <session>` | Send "Enter" to approve a waiting agent |
-| `shoal robo send <session> <keys>` | Send arbitrary keys to a session |
+| Command                            | Description                             |
+| ---------------------------------- | --------------------------------------- |
+| `shoal robo setup <name>`          | Create a new robo profile               |
+| `shoal robo start <name>`          | Launch the robo session                 |
+| `shoal robo stop <name>`           | Terminate the robo session              |
+| `shoal robo ls`                    | List all robo sessions                  |
+| `shoal robo approve <session>`     | Send "Enter" to approve a waiting agent |
+| `shoal robo send <session> <keys>` | Send arbitrary keys to a session        |
 
 ---
 
@@ -288,6 +300,7 @@ Edit `~/.local/state/shoal/robo/meta/AGENTS.md`:
 
 ```md
 You are the meta-robo. Monitor all robo sessions:
+
 - `shoal robo ls` to see all robos
 - Check their task logs for anomalies
 - Escalate if any robo is stuck
@@ -336,6 +349,7 @@ shoal robo stop default
 ### Can't find robo profile
 
 Shoal looks for profiles in:
+
 1. `~/.config/shoal/robo/<name>.toml` (new path)
 2. `~/.config/shoal/conductor/<name>.toml` (old path, backward compat)
 
@@ -364,6 +378,7 @@ shoal robo start feature-auth-coordinator
 ```
 
 **Robo task** (you tell it in the session):
+
 ```
 Monitor these three sessions. When all three are "idle":
 1. Check that tests pass in each
@@ -387,16 +402,18 @@ shoal robo start overnight-batch
 ```
 
 **tasks.md**:
+
 ```md
 - [ ] Refactor auth module
 - [ ] Refactor API handlers
 - [ ] Refactor DB models
 - [ ] Refactor tests
 - [ ] Update docs
-...
+      ...
 ```
 
 **Robo task**:
+
 ```
 Route tasks from tasks.md to idle workers.
 Mark completed tasks.
@@ -404,6 +421,7 @@ Log any errors for morning review.
 ```
 
 **Morning review**:
+
 ```bash
 cat ~/.local/state/shoal/robo/overnight-batch/task-log.md
 ```

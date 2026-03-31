@@ -19,6 +19,7 @@ Read the project roadmap and handoff notes to establish session context.
 4. If `$ARGUMENTS` is "update" or "write":
    - Ask the user to confirm what was accomplished this session
    - Append a new handoff entry to the **Handoff** section in `ROADMAP.md` following the existing format:
+
      ```
      ### Session: YYYY-MM-DD — brief title
 
@@ -28,12 +29,14 @@ Read the project roadmap and handoff notes to establish session context.
      **What to do next:**
      - bullet points of next steps
      ```
+
    - Update milestone checkboxes in `ROADMAP.md` if any items were completed
    - Update `CHANGELOG.md` under `[Unreleased]` if new features/fixes were shipped
 
 ## Format
 
 Each handoff entry uses this template:
+
 - **Session date and title**: `### Session: YYYY-MM-DD — brief description`
 - **What we did**: Concrete accomplishments (commits, features, fixes, test counts)
 - **What to do next**: Actionable items for the next session, ordered by priority

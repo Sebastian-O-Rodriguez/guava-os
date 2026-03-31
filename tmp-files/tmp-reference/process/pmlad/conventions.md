@@ -18,17 +18,20 @@ Sprints live in `pmlad/.shoal/plans/`:
 **Owner:** Robo
 
 ## Goal
+
 <one sentence>
 
 ## Task Groups
 
 ### Group: <name> (e.g., "API Endpoints")
-| ID | Persona | Task | Status | Acceptance Criteria |
-|----|---------|------|--------|---------------------|
+
+| ID  | Persona | Task | Status | Acceptance Criteria |
+| --- | ------- | ---- | ------ | ------------------- |
 
 ### Group: <name> (e.g., "Dashboard UI")
-| ID | Persona | Task | Status | Acceptance Criteria |
-|----|---------|------|--------|---------------------|
+
+| ID  | Persona | Task | Status | Acceptance Criteria |
+| --- | ------- | ---- | ------ | ------------------- |
 ```
 
 Task statuses: `pending`, `in-progress`, `blocked`, `review`, `done`
@@ -42,6 +45,7 @@ feat/<sprint>-<persona>-<task-slug>
 ```
 
 Examples:
+
 - `feat/phase4-backend-dashboard-apis`
 - `feat/phase4-frontend-dashboard-ui`
 - `feat/phase4-architect-read-models`

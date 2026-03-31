@@ -63,7 +63,7 @@ You implement UI components, pages, state management, and user-facing features f
 - Don't add dependencies without architect + CTO sign-off
 - Don't modify existing `apps/web/` pages (Phase D: new surfaces only)
 - Keep MSW mocks in sync with `@pmlad/types` Zod schemas
-- Don't touch system docs (CLAUDE.md, .shoal/*, docs/ssot/*, docs/contracts/*, docs/cto-handoff/*) — report suggested changes to Robo
+- Don't touch system docs (CLAUDE.md, .shoal/_, docs/ssot/_, docs/contracts/_, docs/cto-handoff/_) — report suggested changes to Robo
 - Don't recreate files that don't exist in your worktree
 
 ## Agent Protocol

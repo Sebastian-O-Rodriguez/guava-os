@@ -106,6 +106,7 @@ Agents output this after completing work (or when blocked):
 ## Worktree Context Warning
 
 Agents run in git worktrees. Some files may not exist in the worktree:
+
 - `.shoal/project/*.md` — process docs (may not be tracked by git)
 - `docs/ssot/*.md` — SSOT docs (may not be tracked)
 

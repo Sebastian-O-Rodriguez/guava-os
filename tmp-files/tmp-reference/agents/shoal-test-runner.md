@@ -20,6 +20,7 @@ Run the appropriate tests and report results concisely.
 ## File-to-Test Mapping
 
 Map changed source files to their test files:
+
 - `src/shoal/services/lifecycle.py` → `tests/test_lifecycle.py`
 - `src/shoal/services/mcp_pool.py` → `tests/test_mcp_pool.py`
 - `src/shoal/services/mcp_proxy.py` → `tests/test_mcp_proxy.py`
@@ -32,6 +33,7 @@ Map changed source files to their test files:
 ## Output Format
 
 Report:
+
 1. Which tests ran and how many passed/failed
 2. If failures: show the failing test name and the assertion error (not full tracebacks)
 3. One-sentence summary: "All N tests passed" or "M/N tests failed — [brief reason]"

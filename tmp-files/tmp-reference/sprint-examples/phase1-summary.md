@@ -11,41 +11,41 @@
 
 ### Authentication (Clerk)
 
-| Item | Status |
-|------|--------|
-| @clerk/backend v3.0.1 installed | Done |
-| @clerk/nextjs v7.0.1 installed | Done |
-| `clerk.util.ts` — token verification via JWKS | Done |
-| `JwtAuthGuard` — uses `verifyClerkToken()` | Done |
-| `ClerkProvider` wrapping app | Done |
-| Sign-in page (`/sign-in`) | Done |
-| Sign-up page (`/sign-up`) | Done |
-| UserButton in TopBar | Done |
-| Route protection (non-public routes require auth) | Done |
-| Env config (CLERK_SECRET_KEY, CLERK_JWKS_URL) | Done |
+| Item                                              | Status |
+| ------------------------------------------------- | ------ |
+| @clerk/backend v3.0.1 installed                   | Done   |
+| @clerk/nextjs v7.0.1 installed                    | Done   |
+| `clerk.util.ts` — token verification via JWKS     | Done   |
+| `JwtAuthGuard` — uses `verifyClerkToken()`        | Done   |
+| `ClerkProvider` wrapping app                      | Done   |
+| Sign-in page (`/sign-in`)                         | Done   |
+| Sign-up page (`/sign-up`)                         | Done   |
+| UserButton in TopBar                              | Done   |
+| Route protection (non-public routes require auth) | Done   |
+| Env config (CLERK_SECRET_KEY, CLERK_JWKS_URL)     | Done   |
 
 ### User Model
 
-| Item | Status |
-|------|--------|
-| `User` table (id, clerkId, email, name) | Done |
-| `Membership` table (userId + organizationId + role) | Done |
-| `MemberRole` enum (owner, manager, technician, viewer) | Done |
-| `Organization.ownerId` FK to `User.id` | Done |
-| `UsersService` with lazy sync (upsert per request) | Done |
-| `UsersModule` (global, exported) | Done |
-| Owner membership auto-created on org creation | Done |
+| Item                                                   | Status |
+| ------------------------------------------------------ | ------ |
+| `User` table (id, clerkId, email, name)                | Done   |
+| `Membership` table (userId + organizationId + role)    | Done   |
+| `MemberRole` enum (owner, manager, technician, viewer) | Done   |
+| `Organization.ownerId` FK to `User.id`                 | Done   |
+| `UsersService` with lazy sync (upsert per request)     | Done   |
+| `UsersModule` (global, exported)                       | Done   |
+| Owner membership auto-created on org creation          | Done   |
 
 ### Testing
 
-| Suite | Tests | Status |
-|-------|-------|--------|
-| jwt-auth.guard.spec | 13 | Pass |
-| org-entity.guard.spec | 12 | Pass |
-| roles.guard.spec | 20 | Pass |
-| jwt.util.spec | 4 | Pass |
-| users.service.spec | 5 | Pass |
-| **Total** | **59** | **All pass** |
+| Suite                 | Tests  | Status       |
+| --------------------- | ------ | ------------ |
+| jwt-auth.guard.spec   | 13     | Pass         |
+| org-entity.guard.spec | 12     | Pass         |
+| roles.guard.spec      | 20     | Pass         |
+| jwt.util.spec         | 4      | Pass         |
+| users.service.spec    | 5      | Pass         |
+| **Total**             | **59** | **All pass** |
 
 ### Build
 
@@ -75,6 +75,7 @@
 ## Migration Applied
 
 **`20260306215218_add_user_membership_org_fk`**
+
 - Creates `User` and `Membership` tables
 - Creates `MemberRole` enum
 - Adds FK from `Organization.ownerId` to `User.id`

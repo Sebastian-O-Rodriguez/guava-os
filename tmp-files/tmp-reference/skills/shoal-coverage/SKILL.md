@@ -23,6 +23,7 @@ Run the test suite with coverage analysis and report gaps.
 ## Targeted Mode
 
 If `$ARGUMENTS` is provided, treat it as a file path or module name:
+
 - `$ARGUMENTS` = "lifecycle" → `uv run pytest --cov=src/shoal/services/lifecycle --cov-report=term-missing tests/test_lifecycle.py -q`
 - `$ARGUMENTS` = path → run coverage for that specific file
 

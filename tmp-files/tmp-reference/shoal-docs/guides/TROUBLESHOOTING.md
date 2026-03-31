@@ -17,10 +17,12 @@ This will output DEBUG-level logs to stderr, which can help identify where a pro
 ### Symptom: Session status doesn't update (remains 'running' or 'idle' incorrectly)
 
 **Causes:**
+
 - Watcher daemon is not running.
 - Pattern matching in tool config doesn't match the output in the tmux pane.
 
 **Solutions:**
+
 1. Check if the watcher is running: `shoal watcher status`
 2. Start it if needed: `shoal watcher start`
 3. Verify tool configuration in `~/.config/shoal/tools/<tool>.toml`. Ensure the `busy_patterns`, `waiting_patterns`, and `error_patterns` match the actual text output by your tool.
@@ -31,10 +33,12 @@ This will output DEBUG-level logs to stderr, which can help identify where a pro
 ### Symptom: `sqlite3.OperationalError: database is locked`
 
 **Causes:**
+
 - Multiple processes trying to write to the database simultaneously without WAL mode enabled.
 - A stale process holding a connection.
 
 **Solutions:**
+
 - Shoal uses WAL (Write-Ahead Logging) mode by default to prevent this. If you see this error, it may mean a process hung while holding a transaction.
 - Check for Shoal processes: `ps aux | grep shoal`
 - Ensure you are running the latest version which handles the DB lifecycle correctly.
@@ -44,10 +48,12 @@ This will output DEBUG-level logs to stderr, which can help identify where a pro
 ### Symptom: `Tmux session '_...' not found`
 
 **Causes:**
+
 - The tmux session was killed manually outside of Shoal.
 - The terminal multiplexer server crashed.
 
 **Solutions:**
+
 1. Run `shoal ls` to see if the session is marked as a **ghost**.
 2. Use `shoal prune` to remove stale records for dead tmux sessions.
 3. Use `shoal kill <session>` to clean up the DB record.
@@ -55,9 +61,11 @@ This will output DEBUG-level logs to stderr, which can help identify where a pro
 ### Symptom: Session status does not change even though tmux output changed
 
 **Cause:**
+
 - The active pane is no longer running the tool command configured for that session.
 
 **Solution:**
+
 1. Run `shoal info <session>` and check the session's configured tool.
 2. In tmux, restart the matching tool command in that session pane (for example, `opencode`).
 3. Run `shoal status` again. The tmux status segment always stays visible, even when all counts are zero.
@@ -67,11 +75,13 @@ This will output DEBUG-level logs to stderr, which can help identify where a pro
 ### Symptom: `Attached MCP '...' to session '...' but tool can't connect`
 
 **Causes:**
+
 - The MCP server process died.
 - The tool is not configured to use the proxy.
 - Stale sockets/PIDs from a previous crash.
 
 **Solutions:**
+
 1. Run deep diagnostics: `shoal mcp doctor`
    - Shows PID liveness, protocol health, tool count, and latency per server
 2. Check MCP pool status: `shoal mcp status`
@@ -88,11 +98,13 @@ This will output DEBUG-level logs to stderr, which can help identify where a pro
 ### Symptom: `shoal remote ls` fails or times out
 
 **Causes:**
+
 - SSH tunnel is not connected.
 - The remote Shoal API server is not running.
 - Port conflict or firewall blocking the tunnel.
 
 **Solutions:**
+
 1. Connect the tunnel: `shoal remote connect <host>`
 2. Check tunnel status: `shoal remote status <host>`
 3. Verify the remote API is running: `ssh <host> "shoal serve"` in a separate terminal
@@ -116,6 +128,7 @@ shoal diag --json   # Machine-readable JSON
 ```
 
 Checks performed:
+
 - **DB**: SQLite connectivity and WAL mode
 - **Watcher**: Background status watcher PID liveness
 - **Tmux**: tmux server reachability
@@ -137,10 +150,12 @@ These flags work with any command and can be combined.
 ### Symptom: `nvr not found` or `No nvim socket`
 
 **Causes:**
+
 - `neovim-remote` is not installed.
 - Neovim is not running in the session or was started without a socket.
 
 **Solutions:**
+
 1. Install `neovim-remote`: `pip install neovim-remote`
 2. Ensure you are using a tool that launches Neovim correctly within the Shoal environment.
 3. Check `shoal info <session>` to see if an `nvim_socket` path is assigned.

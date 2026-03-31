@@ -31,23 +31,24 @@ pre-commit install --hook-type commit-msg
 
 A [`justfile`](justfile) provides all common dev commands. Run `just --list` to see them:
 
-| Command | What it does |
-|---------|-------------|
-| `just ci` | Run all CI checks (lint, typecheck, test, fish-check, security) |
-| `just lint` | Lint with ruff |
-| `just fmt` | Auto-format with ruff |
-| `just typecheck` | Type check with mypy |
-| `just test` | Run tests (exclude integration) |
-| `just test-all` | Run all tests including integration |
-| `just cov` | Run tests with coverage report |
-| `just fish-check` | Validate fish template syntax |
-| `just security` | Run Bandit security scan |
-| `just release X.Y.Z` | Bump version, commit, and tag |
-| `just setup` | Install pre-commit hooks |
+| Command              | What it does                                                    |
+| -------------------- | --------------------------------------------------------------- |
+| `just ci`            | Run all CI checks (lint, typecheck, test, fish-check, security) |
+| `just lint`          | Lint with ruff                                                  |
+| `just fmt`           | Auto-format with ruff                                           |
+| `just typecheck`     | Type check with mypy                                            |
+| `just test`          | Run tests (exclude integration)                                 |
+| `just test-all`      | Run all tests including integration                             |
+| `just cov`           | Run tests with coverage report                                  |
+| `just fish-check`    | Validate fish template syntax                                   |
+| `just security`      | Run Bandit security scan                                        |
+| `just release X.Y.Z` | Bump version, commit, and tag                                   |
+| `just setup`         | Install pre-commit hooks                                        |
 
 ## Standards
 
 ### Code Style
+
 We use `ruff` for linting and formatting:
 
 ```bash
@@ -56,6 +57,7 @@ just fmt
 ```
 
 ### Type Checking
+
 We use `mypy` for static type analysis:
 
 ```bash
@@ -63,6 +65,7 @@ just typecheck
 ```
 
 ### Testing
+
 All new features should include tests. Run the test suite with:
 
 ```bash
@@ -89,6 +92,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) for all c
 **Format**: `<type>: <description>`
 
 **Example**:
+
 ```
 feat: add session name validation at all entry points
 

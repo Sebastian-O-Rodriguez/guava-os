@@ -49,6 +49,7 @@ Hooks are defined in `.claude/settings.json` and run automatically at specific l
 **Trigger**: After every `Edit` or `Write` tool call on a `.py` file.
 
 **What it does**: Runs `ruff format` and `ruff check --fix` on the edited file. This means:
+
 - Code is always formatted before you see it
 - Simple lint issues (unused imports, import ordering) are fixed automatically
 - Pre-commit hooks won't fail on formatting issues
@@ -103,6 +104,7 @@ Pick up where the last session left off, or record what you did for the next ses
 The handoff section lives at the bottom of `ROADMAP.md`. Each Claude Code session that does significant work should write a handoff entry before ending. The next session starts with `/shoal-handoff` to understand context without re-reading the entire codebase.
 
 Each entry records:
+
 - **What we did**: Concrete accomplishments (commits, features, test counts)
 - **What to do next**: Prioritized action items for the next session
 
@@ -120,15 +122,15 @@ A lightweight test runner that Claude delegates to automatically after code chan
 
 ### File-to-Test Mapping
 
-| Source | Test |
-|--------|------|
-| `src/shoal/services/lifecycle.py` | `tests/test_lifecycle.py` |
-| `src/shoal/services/mcp_pool.py` | `tests/test_mcp_pool.py` |
-| `src/shoal/services/mcp_proxy.py` | `tests/test_mcp_proxy.py` |
+| Source                                | Test                          |
+| ------------------------------------- | ----------------------------- |
+| `src/shoal/services/lifecycle.py`     | `tests/test_lifecycle.py`     |
+| `src/shoal/services/mcp_pool.py`      | `tests/test_mcp_pool.py`      |
+| `src/shoal/services/mcp_proxy.py`     | `tests/test_mcp_proxy.py`     |
 | `src/shoal/services/mcp_configure.py` | `tests/test_mcp_configure.py` |
-| `src/shoal/api/server.py` | `tests/test_api.py` |
-| `src/shoal/cli/*.py` | `tests/test_cli_mcp.py` |
-| `src/shoal/core/config.py` | `tests/test_config.py` |
+| `src/shoal/api/server.py`             | `tests/test_api.py`           |
+| `src/shoal/cli/*.py`                  | `tests/test_cli_mcp.py`       |
+| `src/shoal/core/config.py`            | `tests/test_config.py`        |
 
 ### What You See
 
@@ -149,16 +151,16 @@ You don't need to invoke this manually — Claude handles it. If you want to for
 
 Permissions in `.claude/settings.local.json` control which Bash commands Claude can run without asking. The shoal config pre-approves:
 
-| Permission | Why |
-|------------|-----|
-| `just:*` | All justfile targets (ci, test, lint, fmt, etc.) |
-| `uv run:*` | Python tool execution via uv |
-| `ruff check:*` / `ruff format:*` | Lint and format (also used by auto-format hook) |
-| `mypy:*` | Type checking |
-| `fish -n:*` | Fish template syntax validation |
-| `git:*` | All git operations |
-| `pre-commit run:*` | Pre-commit hook execution |
-| `python3:*` | Direct Python execution |
+| Permission                       | Why                                              |
+| -------------------------------- | ------------------------------------------------ |
+| `just:*`                         | All justfile targets (ci, test, lint, fmt, etc.) |
+| `uv run:*`                       | Python tool execution via uv                     |
+| `ruff check:*` / `ruff format:*` | Lint and format (also used by auto-format hook)  |
+| `mypy:*`                         | Type checking                                    |
+| `fish -n:*`                      | Fish template syntax validation                  |
+| `git:*`                          | All git operations                               |
+| `pre-commit run:*`               | Pre-commit hook execution                        |
+| `python3:*`                      | Direct Python execution                          |
 
 These are in `settings.local.json` (gitignored) because permission preferences are personal. If Claude asks permission for something you think should be pre-approved, add it here.
 
@@ -214,6 +216,7 @@ Or use the global `/create-skill` command which scaffolds the full directory str
 ### New agent
 
 Create `.claude/agents/my-agent.md` with YAML frontmatter. Key fields:
+
 - `model`: haiku (cheap/fast), sonnet (balanced), opus (complex reasoning)
 - `tools`: Tool allowlist
 - `description`: Include "use proactively" if Claude should auto-delegate
@@ -221,6 +224,7 @@ Create `.claude/agents/my-agent.md` with YAML frontmatter. Key fields:
 ### New hook
 
 Add to the appropriate event in `.claude/settings.json`:
+
 - `PreToolUse` — block dangerous operations (exit code 2 to block)
 - `PostToolUse` — auto-fix after edits (formatting, linting)
 - `SessionStart` — inject context (use `"matcher": "compact"` for post-compaction)
@@ -228,9 +232,9 @@ Add to the appropriate event in `.claude/settings.json`:
 
 ### Project vs personal
 
-| Location | Scope | Git |
-|----------|-------|-----|
-| `.claude/settings.json` | Shared conventions (hooks, deny rules) | Committed |
-| `.claude/settings.local.json` | Personal preferences (allow rules) | Gitignored |
-| `.claude/skills/`, `.claude/agents/` | Project-specific tools | Committed |
-| `~/.claude/skills/`, `~/.claude/agents/` | Personal tools (all projects) | Via dotfiles |
+| Location                                 | Scope                                  | Git          |
+| ---------------------------------------- | -------------------------------------- | ------------ |
+| `.claude/settings.json`                  | Shared conventions (hooks, deny rules) | Committed    |
+| `.claude/settings.local.json`            | Personal preferences (allow rules)     | Gitignored   |
+| `.claude/skills/`, `.claude/agents/`     | Project-specific tools                 | Committed    |
+| `~/.claude/skills/`, `~/.claude/agents/` | Personal tools (all projects)          | Via dotfiles |

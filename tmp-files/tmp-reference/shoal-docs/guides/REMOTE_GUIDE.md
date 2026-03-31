@@ -58,13 +58,13 @@ Remote hosts are configured in `~/.config/shoal/config.toml` under `[remote.<nam
 
 ### Fields
 
-| Field           | Type   | Default | Description                          |
-|-----------------|--------|---------|--------------------------------------|
-| `host`          | string | —       | Hostname or IP address (required)    |
-| `api_port`      | int    | `8000`  | Port the Shoal API listens on        |
-| `port`          | int    | `22`    | SSH port                             |
-| `user`          | string | —       | SSH username (omit to use default)   |
-| `identity_file` | string | —       | Path to SSH private key              |
+| Field           | Type   | Default | Description                        |
+| --------------- | ------ | ------- | ---------------------------------- |
+| `host`          | string | —       | Hostname or IP address (required)  |
+| `api_port`      | int    | `8000`  | Port the Shoal API listens on      |
+| `port`          | int    | `22`    | SSH port                           |
+| `user`          | string | —       | SSH username (omit to use default) |
+| `identity_file` | string | —       | Path to SSH private key            |
 
 ### Examples
 

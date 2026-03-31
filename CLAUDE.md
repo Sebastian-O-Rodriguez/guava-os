@@ -9,14 +9,14 @@ Create habits, check them off, track streaks, view monthly grids, see progress t
 
 ## Stack
 
-| Layer | Tech |
-|-------|------|
-| App | Next.js 15 (App Router) + TypeScript |
-| Deploy | Vercel |
-| DB | PostgreSQL + Prisma |
-| UI | Tailwind CSS + shadcn/ui |
-| Charts | Tremor (metrics) + Observable Plot (custom) |
-| Deferred | assistant-ui (reflections/insights) |
+| Layer    | Tech                                        |
+| -------- | ------------------------------------------- |
+| App      | Next.js 15 (App Router) + TypeScript        |
+| Deploy   | Vercel                                      |
+| DB       | PostgreSQL + Prisma                         |
+| UI       | Tailwind CSS + shadcn/ui                    |
+| Charts   | Tremor (metrics) + Observable Plot (custom) |
+| Deferred | assistant-ui (reflections/insights)         |
 
 **No** microservices, separate backends, queues, event pipelines, enterprise auth, or scale infra.
 
@@ -61,13 +61,13 @@ integrations, marketplace, complex gamification.
 
 This repo uses Claude Code multiagent orchestration. Agents live in `.claude/agents/`.
 
-| Agent | Role | When |
-|-------|------|------|
-| robo | Orchestrator — plans sprints, dispatches agents, collects reports | Sprint planning + execution |
-| architect | Schema design, API contracts, component structure | Before implementation |
-| backend | Server actions, Prisma queries, data logic | Implementation |
-| frontend | React components, pages, dashboard UI | Implementation |
-| qa | Testing, review, quality gates | After implementation |
+| Agent     | Role                                                              | When                        |
+| --------- | ----------------------------------------------------------------- | --------------------------- |
+| robo      | Orchestrator — plans sprints, dispatches agents, collects reports | Sprint planning + execution |
+| architect | Schema design, API contracts, component structure                 | Before implementation       |
+| backend   | Server actions, Prisma queries, data logic                        | Implementation              |
+| frontend  | React components, pages, dashboard UI                             | Implementation              |
+| qa        | Testing, review, quality gates                                    | After implementation        |
 
 ### Dispatch
 
@@ -95,18 +95,18 @@ claude --worktree feat/monthly-grid --agent frontend
 
 ## Quality Gates
 
-| Gate | How |
-|------|-----|
-| Type check | `tsc --noEmit` |
-| Lint | `eslint . --max-warnings 0` |
-| Format | `prettier --check .` |
-| Build | `next build` |
-| Tests | `vitest run` |
+| Gate       | How                         |
+| ---------- | --------------------------- |
+| Type check | `tsc --noEmit`              |
+| Lint       | `eslint . --max-warnings 0` |
+| Format     | `prettier --check .`        |
+| Build      | `next build`                |
+| Tests      | `vitest run`                |
 
 ## Approval Matrix
 
-| Action | Who |
-|--------|-----|
-| Write code, run tests, create branches | Auto (agents) |
-| Task re-prioritization within sprint | Robo |
+| Action                                            | Who             |
+| ------------------------------------------------- | --------------- |
+| Write code, run tests, create branches            | Auto (agents)   |
+| Task re-prioritization within sprint              | Robo            |
 | Roadmap changes, new deps, schema changes, deploy | CTO (Sebastian) |

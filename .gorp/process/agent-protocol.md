@@ -44,6 +44,7 @@ Agents write reports to `.gorp/journal/<agent>-YYYY-MM-DD.md`:
 
 ```markdown
 ## Task [ID] — [Title]
+
 Status: done | in-progress | blocked
 Files: modified file list
 Tests: X passing, Y% coverage
@@ -55,6 +56,7 @@ Blockers: issues encountered (if any)
 
 ```markdown
 ## BLOCKED — [one-line summary]
+
 Severity: low | medium | high | critical
 Affected tasks: [IDs]
 Context: what was tried, what failed

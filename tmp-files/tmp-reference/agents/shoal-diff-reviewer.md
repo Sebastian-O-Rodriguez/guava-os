@@ -23,6 +23,7 @@ Run each check against the staged diff:
 **Type Hints** — Scan for new/modified function definitions (`def ` or `async def`). Flag any missing parameter or return type annotations.
 
 **Async Violations** — Look for blocking calls in async functions:
+
 - `subprocess.run()` or `subprocess.call()` without `asyncio.to_thread()`
 - `time.sleep()` instead of `asyncio.sleep()`
 - `open()` for file I/O in async context
@@ -30,6 +31,7 @@ Run each check against the staged diff:
 **Missing Tests** — For each new/modified file under `src/shoal/`, check if a corresponding `tests/test_*.py` file exists. Flag new modules with no test file.
 
 **Lint/Type Check** — Run:
+
 - `uv run ruff check --diff` on changed files
 - `uv run mypy --strict --no-error-summary` on changed files (cap output at 10 lines)
 

@@ -8,18 +8,18 @@ Operational control system for property managers. Self-service SaaS.
 
 ## Stack
 
-| Layer | Technology | Location |
-|-------|-----------|----------|
-| Backend | NestJS 10 + Prisma 6.16 | `apps/api/` |
-| Frontend | Next.js 15 (App Router) + Tailwind v4 | `apps/web2/` |
-| Database | PostgreSQL 16 | Managed (Azure target) |
-| Auth | Clerk | `@clerk/backend` v3, `@clerk/nextjs` v7 |
-| Shared types | Zod schemas | `packages/types/` |
-| Shared UI | React components | `packages/ui/` |
-| DB client | Prisma client | `packages/db/` |
-| Widgets | Widget system | `packages/widgets/` |
-| Package manager | pnpm 9.15.1 | Monorepo-wide |
-| Build | Turborepo 2.5.8 | Monorepo-wide |
+| Layer           | Technology                            | Location                                |
+| --------------- | ------------------------------------- | --------------------------------------- |
+| Backend         | NestJS 10 + Prisma 6.16               | `apps/api/`                             |
+| Frontend        | Next.js 15 (App Router) + Tailwind v4 | `apps/web2/`                            |
+| Database        | PostgreSQL 16                         | Managed (Azure target)                  |
+| Auth            | Clerk                                 | `@clerk/backend` v3, `@clerk/nextjs` v7 |
+| Shared types    | Zod schemas                           | `packages/types/`                       |
+| Shared UI       | React components                      | `packages/ui/`                          |
+| DB client       | Prisma client                         | `packages/db/`                          |
+| Widgets         | Widget system                         | `packages/widgets/`                     |
+| Package manager | pnpm 9.15.1                           | Monorepo-wide                           |
+| Build           | Turborepo 2.5.8                       | Monorepo-wide                           |
 
 ## Local Development
 

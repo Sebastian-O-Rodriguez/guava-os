@@ -3,22 +3,22 @@ name: API E2E
 on:
   push:
     paths:
-      - 'apps/api/**'
-      - 'packages/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'turbo.json'
-      - 'package.json'
-      - '.github/workflows/api-e2e.yml'
+      - "apps/api/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "package.json"
+      - ".github/workflows/api-e2e.yml"
   pull_request:
     paths:
-      - 'apps/api/**'
-      - 'packages/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'turbo.json'
-      - 'package.json'
-      - '.github/workflows/api-e2e.yml'
+      - "apps/api/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "package.json"
+      - ".github/workflows/api-e2e.yml"
 
 jobs:
   e2e:
@@ -50,14 +50,14 @@ jobs:
       API_URL: http://localhost:3001/v1
       JWT_SECRET: test-jwt-secret-e2e-32-chars-minimum
       JWT_SECRET_CURRENT: test-jwt-secret-e2e-32-chars-minimum
-      JWT_SECRET_PREVIOUS: ''
+      JWT_SECRET_PREVIOUS: ""
       JWT_ISSUER: pmlad-api-e2e
       JWT_AUDIENCE: pmlad-clients
       API_KEY: test-api-key-e2e
       ADMIN_BOOTSTRAP_TOKEN: test-bootstrap-token-32-bytes-minimum-e2e
-      RATE_LIMIT_ENABLED: 'true'
-      BOOTSTRAP_ENABLED: 'true'
-      RL_TEST_PREFIX: 'rl:${{ github.run_id }}:${{ github.run_attempt }}'
+      RATE_LIMIT_ENABLED: "true"
+      BOOTSTRAP_ENABLED: "true"
+      RL_TEST_PREFIX: "rl:${{ github.run_id }}:${{ github.run_attempt }}"
 
     steps:
       - name: Checkout

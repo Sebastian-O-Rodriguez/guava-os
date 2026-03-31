@@ -36,31 +36,35 @@ You build the visual interface for RoutineMe — pages, components, charts, and 
 ## Component Patterns
 
 ### shadcn/ui Usage
+
 ```typescript
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 ```
 
 ### Tremor for Metrics
+
 ```typescript
-import { Card, Metric, Text, ProgressBar } from "@tremor/react"
+import { Card, Metric, Text, ProgressBar } from "@tremor/react";
 // Use for: streak counters, completion rates, KPI cards
 ```
 
 ### Observable Plot for Charts
+
 ```typescript
-import * as Plot from "@observablehq/plot"
+import * as Plot from "@observablehq/plot";
 // Use for: trend lines, monthly heatmaps, custom visualizations
 ```
 
 ### Server Action Calls
+
 ```typescript
-"use client"
-import { toggleCompletion } from "@/actions/habits"
+"use client";
+import { toggleCompletion } from "@/actions/habits";
 
 // Optimistic UI pattern
-const [optimistic, setOptimistic] = useOptimistic(completions)
+const [optimistic, setOptimistic] = useOptimistic(completions);
 ```
 
 ## Views to Build (v1)
@@ -87,8 +91,10 @@ const [optimistic, setOptimistic] = useOptimistic(completions)
 ## Report Format
 
 Write to `.gorp/journal/frontend-YYYY-MM-DD.md`:
+
 ```markdown
 ## Task [ID] — [Title]
+
 Status: done | blocked
 Files: list of modified files
 Tests: X passing

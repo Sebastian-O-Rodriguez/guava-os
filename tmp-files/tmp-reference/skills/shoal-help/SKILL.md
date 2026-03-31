@@ -13,36 +13,36 @@ Print the reference card below directly to the user. Do not paraphrase or summar
 
 ## Skills (invoke with `/name`)
 
-| Skill | What it does |
-|-------|-------------|
-| `/shoal-verify [target]` | Run CI pipeline. Targets: `lint`, `typecheck`, `test`, `test-all`, `fish`, `cov`. Empty = full `just ci`. |
+| Skill                      | What it does                                                                                                                                  |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/shoal-verify [target]`   | Run CI pipeline. Targets: `lint`, `typecheck`, `test`, `test-all`, `fish`, `cov`. Empty = full `just ci`.                                     |
 | `/shoal-release <version>` | Cut a release: verify clean tree → `just ci` → bump `pyproject.toml` + `__init__.py` → update CHANGELOG → commit → tag → confirm before push. |
-| `/shoal-coverage [module]` | Run tests with coverage. Shows files below 80% gate, cross-references with recent git changes. Optional per-module targeting. |
-| `/shoal-handoff [update]` | Read ROADMAP.md handoff section for session context. Pass `update` to write a new handoff entry. |
-| `/shoal-help [section]` | This reference card. |
+| `/shoal-coverage [module]` | Run tests with coverage. Shows files below 80% gate, cross-references with recent git changes. Optional per-module targeting.                 |
+| `/shoal-handoff [update]`  | Read ROADMAP.md handoff section for session context. Pass `update` to write a new handoff entry.                                              |
+| `/shoal-help [section]`    | This reference card.                                                                                                                          |
 
 ## Agents (invoked automatically via Task tool)
 
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| `shoal-test-runner` | haiku | Run targeted tests after code changes. Maps source files to test files. Auto-invoked after writing Python code. |
+| Agent                 | Model  | Purpose                                                                                                                  |
+| --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `shoal-test-runner`   | haiku  | Run targeted tests after code changes. Maps source files to test files. Auto-invoked after writing Python code.          |
 | `shoal-diff-reviewer` | sonnet | Review staged changes for: missing type hints, async violations, missing tests, ruff/mypy issues. Use before committing. |
-| `shoal-lint-checker` | haiku | Fast ruff + mypy --strict check (no tests). Quick type safety validation. |
+| `shoal-lint-checker`  | haiku  | Fast ruff + mypy --strict check (no tests). Quick type safety validation.                                                |
 
 ## Hooks (fire automatically)
 
-| Hook | Trigger | What it does |
-|------|---------|-------------|
-| **ruff format + check** | PostToolUse `Edit\|Write` | Auto-formats and auto-fixes Python files after every edit. 10s timeout. |
-| **mypy --strict** | PostToolUse `Edit\|Write` | Type-checks edited Python files. Shows first 5 errors. 15s timeout. |
-| **test-reminder** | PostToolUse `Edit\|Write` | Injects "run tests" context when editing `src/shoal/*.py` files. Non-blocking. |
-| **git-guard** | PreToolUse `Bash` | Blocks destructive git commands: `push --force`, `reset --hard`, `branch -D`, `clean -f`, `checkout .`, `restore .`. Allows `--force-with-lease`. |
-| **SessionStart** | Every session start | Injects project context reminder (Python 3.12+, just ci, mypy --strict, 618 tests, 80% coverage gate). |
+| Hook                    | Trigger                   | What it does                                                                                                                                      |
+| ----------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ruff format + check** | PostToolUse `Edit\|Write` | Auto-formats and auto-fixes Python files after every edit. 10s timeout.                                                                           |
+| **mypy --strict**       | PostToolUse `Edit\|Write` | Type-checks edited Python files. Shows first 5 errors. 15s timeout.                                                                               |
+| **test-reminder**       | PostToolUse `Edit\|Write` | Injects "run tests" context when editing `src/shoal/*.py` files. Non-blocking.                                                                    |
+| **git-guard**           | PreToolUse `Bash`         | Blocks destructive git commands: `push --force`, `reset --hard`, `branch -D`, `clean -f`, `checkout .`, `restore .`. Allows `--force-with-lease`. |
+| **SessionStart**        | Every session start       | Injects project context reminder (Python 3.12+, just ci, mypy --strict, 618 tests, 80% coverage gate).                                            |
 
 ## MCP Servers
 
-| Server | Registration |
-|--------|-------------|
+| Server               | Registration                                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `shoal-orchestrator` | Registered in `.mcp.json`. Entry point: `shoal-mcp-server` (stdio). Exposes 6 tools: `list_sessions`, `session_status`, `session_info`, `send_keys`, `create_session`, `kill_session`. |
 
 ## Project Permissions (`.claude/settings.local.json`)
@@ -64,10 +64,10 @@ just fish-check    # Fish template syntax
 
 ## Keybindings
 
-| Chord | Action |
-|-------|--------|
+| Chord           | Action             |
+| --------------- | ------------------ |
 | `Ctrl+K Ctrl+I` | Stash current chat |
-| `Ctrl+K Ctrl+T` | Toggle todo list |
+| `Ctrl+K Ctrl+T` | Toggle todo list   |
 
 ## File Locations
 

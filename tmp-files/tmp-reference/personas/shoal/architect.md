@@ -30,6 +30,7 @@ You design systems, define contracts, and guard architectural integrity. You ens
 ## Review Gates
 
 You must review PRs that:
+
 - Cross module boundaries (e.g., changes spanning `core/` and `services/`)
 - Change database schema
 - Add new dependencies

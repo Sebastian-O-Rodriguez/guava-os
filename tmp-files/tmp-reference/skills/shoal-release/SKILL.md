@@ -25,11 +25,13 @@ Cut a new release for the shoal project. `$ARGUMENTS` must be a semver version (
 ## Changelog
 
 7. Read `CHANGELOG.md`. Replace `## [Unreleased]` with:
+
    ```
    ## [Unreleased]
 
    ## [$ARGUMENTS] - YYYY-MM-DD
    ```
+
    Use today's date. Preserve all existing content under the old Unreleased heading — it moves under the new version heading.
 
 ## Commit and Tag

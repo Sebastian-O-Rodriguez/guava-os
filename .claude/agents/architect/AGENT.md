@@ -48,6 +48,7 @@ daily_notes  { id, date, reflection }
 ## Output Format
 
 When producing designs, include:
+
 1. Prisma schema changes (exact code)
 2. Server action signatures
 3. Component data requirements

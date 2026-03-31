@@ -34,8 +34,6 @@
     "deny": [],
     "ask": []
   },
-  "enabledMcpjsonServers": [
-    "shoal-orchestrator"
-  ],
+  "enabledMcpjsonServers": ["shoal-orchestrator"],
   "enableAllProjectMcpServers": true
 }

@@ -9,7 +9,5 @@
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "shoal-orchestrator"
-  ]
+  "enabledMcpjsonServers": ["shoal-orchestrator"]
 }

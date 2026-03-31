@@ -26,6 +26,7 @@
 ## Quality
 
 Run before every PR:
+
 ```bash
 npx tsc --noEmit
 npx eslint . --max-warnings 0

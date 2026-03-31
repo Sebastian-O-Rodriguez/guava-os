@@ -10,14 +10,14 @@ For process and conventions, see [`.shoal/project/process.md`](.shoal/project/pr
 
 ## Codebase
 
-| Path | Purpose | Status |
-|------|---------|--------|
-| `apps/api` | Backend (NestJS + Prisma + PostgreSQL) | Active |
-| `apps/web2` | Frontend (Next.js 15 + shadcn/ui + Tailwind v4) | Active (canonical) |
-| `packages/types` | Canonical Zod schemas + OpenAPI bindings | Active |
-| `packages/ui` | Legacy UI components + tokens | **Deprecated** (Phase 7a) |
-| `packages/db` | Prisma client | Active |
-| `packages/widgets` | Widget system (Tremor/Plot) | Active |
+| Path               | Purpose                                         | Status                    |
+| ------------------ | ----------------------------------------------- | ------------------------- |
+| `apps/api`         | Backend (NestJS + Prisma + PostgreSQL)          | Active                    |
+| `apps/web2`        | Frontend (Next.js 15 + shadcn/ui + Tailwind v4) | Active (canonical)        |
+| `packages/types`   | Canonical Zod schemas + OpenAPI bindings        | Active                    |
+| `packages/ui`      | Legacy UI components + tokens                   | **Deprecated** (Phase 7a) |
+| `packages/db`      | Prisma client                                   | Active                    |
+| `packages/widgets` | Widget system (Tremor/Plot)                     | Active                    |
 
 `apps/web` is deleted. Do not reference.
 
@@ -35,14 +35,14 @@ For process and conventions, see [`.shoal/project/process.md`](.shoal/project/pr
 
 ## Coding Standards
 
-| Category | Rule |
-|----------|------|
-| Formatting | Prettier + ESLint (strict TS) |
-| Naming | Descriptive, domain-consistent |
-| Types | Explicit, no `any`, Zod mirrors DTOs |
-| Imports | Workspace aliases (`@pmlad/*`) |
-| React | Functional, typed, pure |
-| Errors | HTTP/Prisma pattern: 409, 404, 204 |
+| Category   | Rule                                 |
+| ---------- | ------------------------------------ |
+| Formatting | Prettier + ESLint (strict TS)        |
+| Naming     | Descriptive, domain-consistent       |
+| Types      | Explicit, no `any`, Zod mirrors DTOs |
+| Imports    | Workspace aliases (`@pmlad/*`)       |
+| React      | Functional, typed, pure              |
+| Errors     | HTTP/Prisma pattern: 409, 404, 204   |
 
 ---
 
@@ -66,14 +66,14 @@ Docker: `docker compose --env-file .env.compose up -d`
 
 ## Change Policy
 
-| Category | Allowed | CTO Approval |
-|----------|---------|-------------|
-| Bug fixes, tests, refactors | Yes | No |
-| Minor feature within module | Yes | No |
-| New dependency | Needs approval | Yes |
-| Schema / Prisma migration | Needs approval | Yes |
-| CI / build pipeline change | Needs approval | Yes |
-| Destructive data ops | No | N/A |
+| Category                    | Allowed        | CTO Approval |
+| --------------------------- | -------------- | ------------ |
+| Bug fixes, tests, refactors | Yes            | No           |
+| Minor feature within module | Yes            | No           |
+| New dependency              | Needs approval | Yes          |
+| Schema / Prisma migration   | Needs approval | Yes          |
+| CI / build pipeline change  | Needs approval | Yes          |
+| Destructive data ops        | No             | N/A          |
 
 ---
 

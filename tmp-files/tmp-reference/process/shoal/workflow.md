@@ -29,6 +29,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 ## Approval Matrix
 
 ### Auto-approve (agents do freely)
+
 - Write and edit code in assigned task scope
 - Run tests and linters
 - Create feature branches and worktrees
@@ -36,6 +37,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 - Read any project file
 
 ### Needs robo approval
+
 - Merge to main
 - Delete files or branches
 - Change API contracts or public interfaces
@@ -44,6 +46,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 - Restart failed agent sessions
 
 ### Needs user approval
+
 - Roadmap changes or new milestones
 - Add, remove, or upgrade dependencies
 - Architectural pivots or major design changes
@@ -66,6 +69,7 @@ User sets the pace. Sprints can be as short as a single task or as long as a ful
 ## Release Process
 
 Releases use existing automation:
+
 - `just release X.Y.Z` bumps version + creates tag
 - GitHub Actions publishes on tag push
 - See `CHANGELOG.md` for release history

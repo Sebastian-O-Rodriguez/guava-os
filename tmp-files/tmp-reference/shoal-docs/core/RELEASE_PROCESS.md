@@ -11,6 +11,7 @@ Shoal follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html): 
 - **PATCH** (e.g., 0.4.0 → 0.4.1): Bug fixes, docs updates, or minor polish.
 
 ### Pre-1.0 Flexibility
+
 Before v1.0.0, MINOR versions may include breaking changes as we stabilize the API surface.
 
 ---
@@ -18,6 +19,7 @@ Before v1.0.0, MINOR versions may include breaking changes as we stabilize the A
 ## Release Checklist
 
 ### 1. Pre-Release: Code Preparation
+
 - [ ] All planned features/fixes are merged to `main`
 - [ ] All tests pass: `pytest`
 - [ ] Linting passes: `ruff check . && ruff format .`
@@ -28,12 +30,14 @@ Before v1.0.0, MINOR versions may include breaking changes as we stabilize the A
   - Robo supervisor workflow (if changed)
 
 ### 2. Update Documentation
+
 - [ ] **CHANGELOG.md**: Move `[Unreleased]` items to `[X.Y.Z] - YYYY-MM-DD`
 - [ ] **ROADMAP.md**: Mark completed items, update next milestone
 - [ ] **README.md**: Update version badge, features, or examples if needed
 - [ ] **pyproject.toml**: Bump `version = "X.Y.Z"`
 
 ### 3. Commit & Tag
+
 ```bash
 # Commit version bump
 git add pyproject.toml CHANGELOG.md ROADMAP.md README.md
@@ -47,6 +51,7 @@ git push origin main --tags
 ```
 
 ### 4. GitHub Release
+
 - Go to [Releases](https://github.com/usmobile/shoal/releases) → "Draft a new release"
 - Select the tag `vX.Y.Z`
 - Release title: `vX.Y.Z: <One-Liner Summary>`
@@ -54,18 +59,24 @@ git push origin main --tags
 - Attach any demo videos, screenshots, or binary assets
 
 ### 5. Internal Announcement
+
 - Notify the team in Slack/email
 - Highlight key changes and migration steps (if any)
 
 ### 6. Post-Release: Prepare Next Version
+
 - [ ] Add new `[Unreleased]` section to `CHANGELOG.md`:
+
   ```md
   ## [Unreleased]
 
   ### Added
+
   ### Changed
+
   ### Fixed
   ```
+
 - [ ] Commit: `git commit -m "chore: prepare for next release"`
 
 ---
@@ -74,14 +85,15 @@ git push origin main --tags
 
 **When should I create a new release?**
 
-| Scenario | Version Type | Example |
-|----------|--------------|---------|
-| Breaking CLI command or config change | **MAJOR** | Remove `shoal add`, change `config.toml` schema |
-| New feature or command | **MINOR** | Add `shoal export` command |
-| Significant refactor (internal only) | **MINOR** | Migrate to async architecture |
-| Bug fix, docs update, or polish | **PATCH** | Fix crash in `shoal status`, update README |
+| Scenario                              | Version Type | Example                                         |
+| ------------------------------------- | ------------ | ----------------------------------------------- |
+| Breaking CLI command or config change | **MAJOR**    | Remove `shoal add`, change `config.toml` schema |
+| New feature or command                | **MINOR**    | Add `shoal export` command                      |
+| Significant refactor (internal only)  | **MINOR**    | Migrate to async architecture                   |
+| Bug fix, docs update, or polish       | **PATCH**    | Fix crash in `shoal status`, update README      |
 
 **When to release?**
+
 - **PATCH**: As soon as a critical bug is fixed.
 - **MINOR**: When a feature is complete, tested, and documented.
 - **MAJOR**: Only after thorough testing and migration guide preparation (rare pre-1.0).
@@ -143,6 +155,7 @@ When the CLI surface, config schema, and core workflows are stable enough for pr
 ## Tooling & Automation
 
 Future improvements:
+
 - [ ] Add `bump-version.sh` script to automate version updates
 - [ ] CI/CD: Auto-publish GitHub releases on tag push
 - [ ] Pre-commit hook to check for `[Unreleased]` section in CHANGELOG.md

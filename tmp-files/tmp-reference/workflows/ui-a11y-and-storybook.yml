@@ -4,10 +4,10 @@ on:
   push: { branches: [main] }
   pull_request:
     paths:
-      - 'apps/web2/**'
-      - 'packages/ui/**'
-      - 'packages/types/**'
-      - '.github/workflows/ui-a11y-and-storybook.yml'
+      - "apps/web2/**"
+      - "packages/ui/**"
+      - "packages/types/**"
+      - ".github/workflows/ui-a11y-and-storybook.yml"
 
 jobs:
   ui-validation:
@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Enable Corepack and use pnpm@10.17.1
         run: |

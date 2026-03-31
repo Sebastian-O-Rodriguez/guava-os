@@ -14,6 +14,7 @@ Team workflow pitfalls. For codebase gotchas (fish templates, hatchling, MCP poo
 ## Journal Everything
 
 If it's not journaled, it didn't happen. Journal:
+
 - Task start and completion
 - Blockers encountered and how they were resolved
 - Design decisions and their rationale
@@ -22,24 +23,29 @@ If it's not journaled, it didn't happen. Journal:
 ## Common Failure Modes
 
 ### "Tests pass locally but CI fails"
+
 - Check Python version (3.12+ required)
 - Run `just ci` locally — it mirrors the CI pipeline exactly
 - Integration tests need tmux running
 
 ### "mypy complains about a type I can't figure out"
+
 - All function signatures need explicit types — mypy --strict
 - Use `asyncio.to_thread()` for blocking calls in async contexts
 - Check `py.typed` marker is present
 
 ### "Ruff and I disagree"
+
 - Ruff wins. Don't add `# noqa` without a comment explaining why.
 - Check `pyproject.toml` for the active rule sets before fighting the linter.
 
 ### "I broke the pre-commit hook"
+
 - Don't use `--no-verify`. Fix the issue.
 - `uv run pre-commit run --all-files` to see what's failing
 
 ### "Merge conflict in sprint file"
+
 - Robo owns `current-sprint.md`. Let robo regenerate it.
 - Don't hand-edit sprint files — update via robo.
 
