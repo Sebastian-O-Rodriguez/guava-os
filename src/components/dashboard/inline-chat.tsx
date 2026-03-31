@@ -68,7 +68,7 @@ export function InlineChat() {
   return (
     <div className="flex flex-col gap-2">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <div className="flex-1 flex items-center rounded-xl border border-zinc-800/60 bg-zinc-900/80 px-4 py-2.5 gap-3 transition-colors focus-within:border-zinc-700">
+        <div className="flex-1 flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm px-4 py-2 gap-3 transition-colors focus-within:border-white/15">
           <input
             ref={inputRef}
             type="text"
@@ -88,7 +88,7 @@ export function InlineChat() {
           size="icon"
           aria-label="Send message"
           disabled={!input.trim() || isPending}
-          className="rounded-xl border border-zinc-800/60 bg-zinc-900/80 text-muted-foreground hover:border-zinc-700 hover:text-foreground hover:bg-zinc-900/80"
+          className="rounded-xl border border-white/[0.08] bg-white/[0.03] text-muted-foreground hover:border-white/15 hover:text-foreground hover:bg-white/[0.06]"
         >
           <ArrowRightIcon className="size-4" aria-hidden="true" />
         </Button>
@@ -96,13 +96,13 @@ export function InlineChat() {
 
       <div aria-live="polite" aria-atomic="true">
         {response && (
-          <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/60 px-4 py-2.5 text-sm text-muted-foreground animate-fade-in">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm px-4 py-2 text-sm text-zinc-300 animate-fade-in">
             {response}
           </div>
         )}
 
         {isPending && (
-          <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-400 animate-fade-in">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm px-4 py-2 text-sm text-zinc-400 animate-fade-in">
             Processing...
           </div>
         )}

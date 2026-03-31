@@ -47,16 +47,16 @@ export function DayHeader({ dateString, isoDate, isToday }: DayHeaderProps) {
         size="icon-sm"
         aria-label="Previous day"
         onClick={goBack}
-        className="text-zinc-400 hover:text-zinc-200 hover:bg-transparent"
+        className="text-white/40 hover:text-white/80 hover:bg-transparent"
       >
         <ChevronLeft size={20} />
       </Button>
 
       <div className="flex flex-col items-center gap-0.5">
-        <span className="text-xl font-semibold text-foreground tracking-tight">
+        <span className="text-lg font-semibold text-white/90 tracking-tight">
           The Stub is the Way
         </span>
-        <span className="text-sm text-muted-foreground">{dateString}</span>
+        <span className="text-xs text-white/40">{dateString}</span>
       </div>
 
       <Button
@@ -66,7 +66,7 @@ export function DayHeader({ dateString, isoDate, isToday }: DayHeaderProps) {
         aria-label="Next day"
         onClick={goForward}
         disabled={isToday}
-        className="text-zinc-400 hover:text-zinc-200 hover:bg-transparent disabled:text-zinc-700 disabled:opacity-100"
+        className="text-white/40 hover:text-white/80 hover:bg-transparent disabled:text-white/10 disabled:opacity-100"
       >
         <ChevronRight size={20} />
       </Button>

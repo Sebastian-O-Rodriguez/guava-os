@@ -6,7 +6,7 @@ export function VendingBackground() {
   const { RiveComponent, rive } = useRive({
     src: "/animations/vending-machine.riv",
     autoplay: true,
-    layout: new Layout({ fit: Fit.Cover }),
+    layout: new Layout({ fit: Fit.Contain }),
   });
 
   return (

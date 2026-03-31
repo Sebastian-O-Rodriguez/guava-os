@@ -204,7 +204,7 @@ export function MetricsCard({
   // --- Render --------------------------------------------------------------
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 sm:p-6">
+    <div className="bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-3 sm:p-5">
       <div
         role="group"
         aria-label="All metrics"

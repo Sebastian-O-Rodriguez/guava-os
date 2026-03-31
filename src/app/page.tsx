@@ -92,17 +92,14 @@ export default async function DashboardPage({
       <VendingBackground />
 
       {/* Content layer — floats above background */}
-      <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header — top */}
-        <header className="px-4 pt-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-4xl">
+      <div className="relative z-10 min-h-screen flex flex-col justify-end">
+        {/* Bottom-anchored content */}
+        <div className="px-4 pb-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-4xl flex flex-col gap-3">
+            {/* Header */}
             <DayHeader dateString={formatDate(viewDate)} isoDate={viewIso} isToday={isToday} />
-          </div>
-        </header>
 
-        {/* Metrics — pushed toward bottom */}
-        <div className="flex-1 flex items-end pb-8 px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-4xl flex flex-col gap-6">
+            {/* Chat — only on current date */}
             {isToday && <InlineChat />}
 
             {(hasNutrition || hasFitness) && (
@@ -137,3 +134,6 @@ export default async function DashboardPage({
     </div>
   );
 }
+
+// Note: InlineChat already has isToday guard in the JSX above.
+// Chat bar only renders when viewing today's date.
