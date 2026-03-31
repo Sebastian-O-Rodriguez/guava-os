@@ -7,7 +7,7 @@ Private single-user habit tracker for Sebastian. Personal operating tool, not a 
 Daily habit tracking with <60 second sessions. Premium dark dashboard aesthetic.
 Create habits, check them off, track streaks, view monthly grids, see progress trends.
 
-## Stack
+## Stack (v2 — Next.js Web App)
 
 | Layer    | Tech                                        |
 | -------- | ------------------------------------------- |
@@ -18,14 +18,35 @@ Create habits, check them off, track streaks, view monthly grids, see progress t
 | Charts   | Tremor (metrics) + Observable Plot (custom) |
 | Deferred | assistant-ui (reflections/insights)         |
 
+## Stack (v3 — Expo App)
+
+| Layer      | Tech                                            |
+| ---------- | ----------------------------------------------- |
+| App        | Expo SDK 54 + Expo Router + TypeScript          |
+| UI         | Tamagui (cross-platform)                        |
+| Animations | Motion (web) + Reanimated (native)              |
+| Gauges     | Rive (.riv state machines) + Motion springs     |
+| Auth       | Supabase Auth (planned)                         |
+| DB         | PostgreSQL + Prisma (same as v2)                |
+| Deploy     | EAS Build (native) + EAS Hosting (web)          |
+
 **No** microservices, separate backends, queues, event pipelines, enterprise auth, or scale infra.
 
-## Architecture
+## Architecture (v2 — Next.js)
 
 - One Next.js app, server actions + route handlers
 - Prisma ORM with PostgreSQL
 - Single-user, no auth system (simple env-based session or cookie)
 - Vercel deployment with managed Postgres (Neon/Supabase)
+
+## Architecture (v3 — Expo)
+
+- Expo Router file-based routing (`app/` directory in `expo-app/`)
+- API routes (`app/api/*+api.ts`) replace Next.js server actions
+- Tamagui for cross-platform UI components
+- Rive vending machine background with metric jar gauges
+- Client-side data fetching (`useEffect` + fetch to API routes)
+- Single unified MetricsCard (no separate Nutrition/Fitness cards)
 
 ## Data Model
 
@@ -95,13 +116,16 @@ claude --worktree feat/monthly-grid --agent frontend
 
 ## Quality Gates
 
-| Gate       | How                         |
-| ---------- | --------------------------- |
-| Type check | `tsc --noEmit`              |
-| Lint       | `eslint . --max-warnings 0` |
-| Format     | `prettier --check .`        |
-| Build      | `next build`                |
-| Tests      | `vitest run`                |
+| Gate             | How                                              |
+| ---------------- | ------------------------------------------------ |
+| Type check       | `tsc --noEmit`                                   |
+| Lint             | `eslint . --max-warnings 0`                      |
+| Format           | `prettier --check .`                             |
+| Build            | `next build`                                     |
+| Tests            | `vitest run`                                     |
+| Expo Type check  | `cd expo-app && npx tsc --noEmit`                |
+| Expo Web build   | `cd expo-app && npx expo export --platform web`  |
+| Expo Dev         | `cd expo-app && npx expo start --web`            |
 
 ## Approval Matrix
 

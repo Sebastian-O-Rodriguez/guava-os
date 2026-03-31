@@ -7,8 +7,8 @@ import {
   getWeeklyRunningSummary,
 } from "@/actions/logs";
 import { getCategories } from "@/actions/categories";
-import { NutritionCard } from "@/components/dashboard/nutrition-card";
-import { FitnessCard } from "@/components/dashboard/fitness-card";
+import { VendingBackground } from "@/components/dashboard/vending-background";
+import { MetricsCard } from "@/components/dashboard/metrics-card";
 import { CustomCard } from "@/components/dashboard/custom-card";
 import { InlineChat } from "@/components/dashboard/inline-chat";
 import { DayHeader } from "@/components/dashboard/day-header";
@@ -87,44 +87,51 @@ export default async function DashboardPage({
   const hasFitness = hasGym || hasRunning;
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-6">
-          <DayHeader dateString={formatDate(viewDate)} isoDate={viewIso} isToday={isToday} />
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Rive vending machine background — full screen, z-0 */}
+      <VendingBackground />
+
+      {/* Content layer — floats above background */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Header — top */}
+        <header className="px-4 pt-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-4xl">
+            <DayHeader dateString={formatDate(viewDate)} isoDate={viewIso} isToday={isToday} />
+          </div>
         </header>
 
-        <div className="flex flex-col gap-6">
-          {isToday && <InlineChat />}
+        {/* Metrics — pushed toward bottom */}
+        <div className="flex-1 flex items-end pb-8 px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-4xl flex flex-col gap-6">
+            {isToday && <InlineChat />}
 
-          {hasNutrition && (
-            <NutritionCard
-              summary={nutritionSummary}
-              goals={nutritionProgress?.goals ?? []}
-              readOnly={!isToday}
-            />
-          )}
+            {(hasNutrition || hasFitness) && (
+              <MetricsCard
+                nutritionSummary={nutritionSummary}
+                nutritionGoals={nutritionProgress?.goals ?? []}
+                gymSummary={gymSummary}
+                gymGoals={gymProgress?.goals ?? []}
+                runningSummary={runningSummary}
+                runGoals={runProgress?.goals ?? []}
+                readOnly={!isToday}
+                hasNutrition={hasNutrition}
+                hasGym={hasGym}
+                hasRunning={hasRunning}
+              />
+            )}
 
-          {hasFitness && (
-            <FitnessCard
-              gymSummary={gymSummary}
-              gymGoals={gymProgress?.goals ?? []}
-              runningSummary={runningSummary}
-              runGoals={runProgress?.goals ?? []}
-              readOnly={!isToday}
-            />
-          )}
+            {customProgress.map((cat) => (
+              <CustomCard key={cat.categoryId} category={cat} />
+            ))}
 
-          {customProgress.map((cat) => (
-            <CustomCard key={cat.categoryId} category={cat} />
-          ))}
-
-          {!hasNutrition && !hasFitness && customProgress.length === 0 && (
-            <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-8 text-center">
-              <p className="text-muted-foreground text-sm">
-                No categories set up yet. Use the chat to get started.
-              </p>
-            </div>
-          )}
+            {!hasNutrition && !hasFitness && customProgress.length === 0 && (
+              <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-8 text-center">
+                <p className="text-muted-foreground text-sm">
+                  No categories set up yet. Use the chat to get started.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
