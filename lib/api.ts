@@ -1,5 +1,5 @@
 /**
  * Base URL for API calls.
- * Points to the Next.js backend on Vercel.
+ * Empty string = same origin (EAS Hosting serves both frontend + API routes).
  */
-export const API_BASE = "https://routineme-api.vercel.app";
+export const API_BASE = "";
