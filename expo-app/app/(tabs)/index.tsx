@@ -7,6 +7,7 @@ import { DayHeader } from "../../components/dashboard/day-header";
 import { InlineChat } from "../../components/dashboard/inline-chat";
 import { MetricsCard } from "../../components/dashboard/metrics-card";
 import { AppNav } from "../../components/app-nav";
+import { API_BASE } from "../../lib/api";
 import type { MetricsCardProps } from "../../components/dashboard/metrics-card";
 import type {
   NutritionDailySummary,
@@ -68,11 +69,11 @@ async function fetchDashboardData(date: Date): Promise<DashboardData> {
   const iso = toISODateString(date);
 
   const [progressRes, nutritionRes, gymRes, runRes, categoriesRes] = await Promise.all([
-    fetch(`/api/logs?type=progress&date=${iso}`),
-    fetch(`/api/logs?type=nutrition_summary&date=${iso}`),
-    fetch(`/api/logs?type=gym_summary&date=${iso}`),
-    fetch(`/api/logs?type=run_summary&date=${iso}`),
-    fetch(`/api/categories`),
+    fetch(`${API_BASE}/api/logs?type=progress&date=${iso}`),
+    fetch(`${API_BASE}/api/logs?type=nutrition_summary&date=${iso}`),
+    fetch(`${API_BASE}/api/logs?type=gym_summary&date=${iso}`),
+    fetch(`${API_BASE}/api/logs?type=run_summary&date=${iso}`),
+    fetch(`${API_BASE}/api/categories`),
   ]);
 
   const [progress, nutrition, gym, run, categories] = await Promise.all([

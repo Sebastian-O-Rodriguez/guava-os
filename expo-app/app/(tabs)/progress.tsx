@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, Platform, View } from "react-native";
 import { YStack, XStack, Text } from "tamagui";
 import type { CategoryProgress, GymBodyPartCount, RunningSummary } from "../../lib/types";
+import { API_BASE } from "../../lib/api";
 
 // ---------------------------------------------------------------------------
 // Data fetching
@@ -15,9 +16,9 @@ type ProgressData = {
 
 async function fetchProgressData(): Promise<ProgressData> {
   const [progressRes, gymRes, runRes] = await Promise.all([
-    fetch(`/api/logs?type=progress`),
-    fetch(`/api/logs?type=gym_summary`),
-    fetch(`/api/logs?type=run_summary`),
+    fetch(`${API_BASE}/api/logs?type=progress`),
+    fetch(`${API_BASE}/api/logs?type=gym_summary`),
+    fetch(`${API_BASE}/api/logs?type=run_summary`),
   ]);
 
   const [progress, gym, run] = await Promise.all([

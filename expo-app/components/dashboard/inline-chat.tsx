@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Platform, View } from "react-native";
 import { XStack, YStack, Input, Button, Text } from "tamagui";
+import { API_BASE } from "../../lib/api";
 
 type InlineChatProps = {
   /** Base URL for the API — required on native where relative paths don't work */
@@ -77,7 +78,7 @@ function SendIcon() {
 // Component
 // ---------------------------------------------------------------------------
 
-export function InlineChat({ apiBaseUrl = "" }: InlineChatProps) {
+export function InlineChat({ apiBaseUrl = API_BASE }: InlineChatProps) {
   const [input, setInput] = useState("");
   const [response, setResponse] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

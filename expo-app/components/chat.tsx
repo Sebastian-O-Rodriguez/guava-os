@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Platform, ScrollView as RNScrollView, View } from "react-native";
 import { YStack, XStack, Text, Button, Input, ScrollView } from "tamagui";
+import { API_BASE } from "../lib/api";
 
 type Message = {
   role: "user" | "assistant";
@@ -98,7 +99,7 @@ function LoadingDots() {
 // Component
 // ---------------------------------------------------------------------------
 
-export function Chat({ compact = false, apiBaseUrl = "" }: ChatProps) {
+export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

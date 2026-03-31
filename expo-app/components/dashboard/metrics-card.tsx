@@ -2,6 +2,7 @@ import { useTransition } from "react";
 import { Platform, View } from "react-native";
 import { XStack, YStack } from "tamagui";
 import { motion } from "motion/react";
+import { API_BASE } from "../../lib/api";
 import { LiquidGauge } from "./liquid-gauge";
 import type { GaugeActionCallbacks } from "./liquid-gauge";
 
@@ -87,7 +88,7 @@ export function MetricsCard({
   hasNutrition = true,
   hasGym = true,
   hasRunning: hasRunningProp,
-  apiBaseUrl = "",
+  apiBaseUrl = API_BASE,
 }: MetricsCardProps) {
   const [, startTransition] = useTransition();
 
