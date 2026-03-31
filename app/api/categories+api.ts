@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { prisma } from "../../lib/db";
-import { getOrCreateUser } from "../../lib/user";
+import { supabaseAdmin } from "../../lib/supabase";
+import { getOrCreateUser } from "../../lib/user-sb";
 import type { CategoryType } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
@@ -49,13 +49,20 @@ export async function GET(request: Request): Promise<Response> {
     const includeArchived = url.searchParams.get("archived") === "true";
 
     const userId = await getOrCreateUser();
-    const categories = await prisma.category.findMany({
-      where: {
-        userId,
-        ...(includeArchived ? {} : { active: true }),
-      },
-      orderBy: { createdAt: "asc" },
-    });
+
+    let query = supabaseAdmin
+      .from("categories")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (!includeArchived) {
+      query = query.eq("active", true);
+    }
+
+    const { data: categories, error } = await query;
+
+    if (error) throw error;
 
     return Response.json({ success: true, data: categories as CategoryData[] });
   } catch (err) {
@@ -80,15 +87,20 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const userId = await getOrCreateUser();
-    const category = await prisma.category.create({
-      data: {
-        userId,
+
+    const { data: category, error } = await supabaseAdmin
+      .from("categories")
+      .insert({
+        user_id: userId,
         name: parsed.data.name,
         type: parsed.data.type,
         icon: parsed.data.icon ?? null,
         color: parsed.data.color ?? null,
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return Response.json({ success: true, data: category as CategoryData }, { status: 201 });
   } catch (err) {
@@ -120,15 +132,25 @@ export async function PATCH(request: Request): Promise<Response> {
 
     const userId = await getOrCreateUser();
 
-    const existing = await prisma.category.findFirst({ where: { id, userId } });
+    const { data: existing } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single();
+
     if (!existing) {
       return Response.json({ success: false, error: "Category not found" }, { status: 404 });
     }
 
-    const category = await prisma.category.update({
-      where: { id },
-      data: parsed.data,
-    });
+    const { data: category, error } = await supabaseAdmin
+      .from("categories")
+      .update(parsed.data)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return Response.json({ success: true, data: category as CategoryData });
   } catch (err) {
@@ -157,12 +179,20 @@ export async function DELETE(request: Request): Promise<Response> {
 
     const userId = await getOrCreateUser();
 
-    const existing = await prisma.category.findFirst({ where: { id, userId } });
+    const { data: existing } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single();
+
     if (!existing) {
       return Response.json({ success: false, error: "Category not found" }, { status: 404 });
     }
 
-    await prisma.category.delete({ where: { id } });
+    const { error } = await supabaseAdmin.from("categories").delete().eq("id", id);
+
+    if (error) throw error;
 
     return Response.json({ success: true, data: { deleted: true } });
   } catch (err) {

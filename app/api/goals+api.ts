@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { prisma } from "../../lib/db";
-import { getOrCreateUser } from "../../lib/user";
+import { supabaseAdmin } from "../../lib/supabase";
+import { getOrCreateUser } from "../../lib/user-sb";
 import type { GoalPeriod } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
@@ -47,20 +47,52 @@ export async function GET(request: Request): Promise<Response> {
 
     if (categoryId) {
       // Verify ownership
-      const category = await prisma.category.findFirst({ where: { id: categoryId, userId } });
+      const { data: category } = await supabaseAdmin
+        .from("categories")
+        .select("id")
+        .eq("id", categoryId)
+        .eq("user_id", userId)
+        .single();
+
       if (!category) {
         return Response.json({ success: false, error: "Category not found" }, { status: 404 });
       }
 
-      goals = (await prisma.goal.findMany({
-        where: { categoryId, active: true },
-        orderBy: { createdAt: "asc" },
-      })) as GoalData[];
+      const { data, error } = await supabaseAdmin
+        .from("goals")
+        .select("*")
+        .eq("category_id", categoryId)
+        .eq("active", true)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      goals = (data ?? []) as GoalData[];
     } else {
-      goals = (await prisma.goal.findMany({
-        where: { category: { userId }, active: true },
-        orderBy: [{ categoryId: "asc" }, { createdAt: "asc" }],
-      })) as GoalData[];
+      // Fetch all active category IDs for this user first, then fetch goals
+      const { data: categories, error: catError } = await supabaseAdmin
+        .from("categories")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("active", true);
+
+      if (catError) throw catError;
+
+      const categoryIds = (categories ?? []).map((c: { id: string }) => c.id);
+
+      if (categoryIds.length === 0) {
+        return Response.json({ success: true, data: [] });
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from("goals")
+        .select("*")
+        .in("category_id", categoryIds)
+        .eq("active", true)
+        .order("category_id", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      goals = (data ?? []) as GoalData[];
     }
 
     return Response.json({ success: true, data: goals });
@@ -88,43 +120,61 @@ export async function POST(request: Request): Promise<Response> {
     const userId = await getOrCreateUser();
 
     // Verify the category belongs to this user
-    const category = await prisma.category.findFirst({
-      where: { id: parsed.data.categoryId, userId },
-    });
+    const { data: category } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("id", parsed.data.categoryId)
+      .eq("user_id", userId)
+      .single();
+
     if (!category) {
       return Response.json({ success: false, error: "Category not found" }, { status: 404 });
     }
 
     // Upsert: find existing goal by (categoryId, metric) or create new
-    const existing = await prisma.goal.findFirst({
-      where: {
-        categoryId: parsed.data.categoryId,
-        metric: parsed.data.metric,
-        active: true,
-      },
-    });
+    const { data: existing } = await supabaseAdmin
+      .from("goals")
+      .select("id")
+      .eq("category_id", parsed.data.categoryId)
+      .eq("metric", parsed.data.metric)
+      .eq("active", true)
+      .single();
 
     let goal: GoalData;
+    let isNew: boolean;
+
     if (existing) {
-      goal = (await prisma.goal.update({
-        where: { id: existing.id },
-        data: {
+      const { data: updated, error } = await supabaseAdmin
+        .from("goals")
+        .update({
           target: parsed.data.target,
           period: parsed.data.period,
-        },
-      })) as GoalData;
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      goal = updated as GoalData;
+      isNew = false;
     } else {
-      goal = (await prisma.goal.create({
-        data: {
-          categoryId: parsed.data.categoryId,
+      const { data: created, error } = await supabaseAdmin
+        .from("goals")
+        .insert({
+          category_id: parsed.data.categoryId,
           metric: parsed.data.metric,
           target: parsed.data.target,
           period: parsed.data.period,
-        },
-      })) as GoalData;
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      goal = created as GoalData;
+      isNew = true;
     }
 
-    return Response.json({ success: true, data: goal }, { status: existing ? 200 : 201 });
+    return Response.json({ success: true, data: goal }, { status: isNew ? 201 : 200 });
   } catch (err) {
     console.error("[POST /api/goals]", err);
     return Response.json({ success: false, error: "Failed to upsert goal" }, { status: 500 });
@@ -151,15 +201,22 @@ export async function DELETE(request: Request): Promise<Response> {
 
     const userId = await getOrCreateUser();
 
-    // Verify ownership via category
-    const goal = await prisma.goal.findFirst({
-      where: { id, category: { userId } },
-    });
-    if (!goal) {
+    // Verify ownership via category join
+    const { data: goal } = await supabaseAdmin
+      .from("goals")
+      .select("id, categories!inner(user_id)")
+      .eq("id", id)
+      .single();
+
+    const goalRow = goal as { id: string; categories: { user_id: string } } | null;
+
+    if (!goalRow || goalRow.categories.user_id !== userId) {
       return Response.json({ success: false, error: "Goal not found" }, { status: 404 });
     }
 
-    await prisma.goal.delete({ where: { id } });
+    const { error } = await supabaseAdmin.from("goals").delete().eq("id", id);
+
+    if (error) throw error;
 
     return Response.json({ success: true, data: { deleted: true } });
   } catch (err) {

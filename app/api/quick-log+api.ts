@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { prisma } from "../../lib/db";
-import { getOrCreateUser } from "../../lib/user";
+import { supabaseAdmin } from "../../lib/supabase";
+import { getOrCreateUser } from "../../lib/user-sb";
 import { normalizeDate, getWeekStart, getWeekEnd } from "../../lib/dates";
 
 // ---------------------------------------------------------------------------
@@ -39,6 +39,14 @@ const QuickLogSchema = z.discriminatedUnion("action", [
     miles: z.number().positive(),
   }),
 ]);
+
+// ---------------------------------------------------------------------------
+// Helper: ISO date string (YYYY-MM-DD) from a Date
+// ---------------------------------------------------------------------------
+
+function toISODate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
 
 // ---------------------------------------------------------------------------
 // POST /api/quick-log — dispatch based on action type in body
@@ -99,9 +107,14 @@ async function handleAddNutrition(
   macro: "calories" | "protein" | "fat" | "carbs",
   amount: number,
 ): Promise<Response> {
-  const nutritionCat = await prisma.category.findFirst({
-    where: { userId, type: "nutrition", active: true },
-  });
+  const { data: nutritionCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "nutrition")
+    .eq("active", true)
+    .single();
+
   if (!nutritionCat) {
     return Response.json({ success: false, error: "No nutrition category" }, { status: 404 });
   }
@@ -109,13 +122,13 @@ async function handleAddNutrition(
   const entry = { item: `+${amount} ${macro}`, calories: 0, protein: 0, fat: 0, carbs: 0 };
   entry[macro] = amount;
 
-  await prisma.log.create({
-    data: {
-      categoryId: nutritionCat.id,
-      date: normalizeDate(new Date()),
-      data: entry as object,
-    },
+  const { error } = await supabaseAdmin.from("logs").insert({
+    category_id: nutritionCat.id,
+    date: toISODate(normalizeDate(new Date())),
+    data: entry,
   });
+
+  if (error) throw error;
 
   return Response.json({ success: true });
 }
@@ -125,9 +138,14 @@ async function handleRemoveNutrition(
   macro: "calories" | "protein" | "fat" | "carbs",
   amount: number,
 ): Promise<Response> {
-  const nutritionCat = await prisma.category.findFirst({
-    where: { userId, type: "nutrition", active: true },
-  });
+  const { data: nutritionCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "nutrition")
+    .eq("active", true)
+    .single();
+
   if (!nutritionCat) {
     return Response.json({ success: false, error: "No nutrition category" }, { status: 404 });
   }
@@ -135,136 +153,172 @@ async function handleRemoveNutrition(
   const entry = { item: `-${amount} ${macro}`, calories: 0, protein: 0, fat: 0, carbs: 0 };
   entry[macro] = -amount;
 
-  await prisma.log.create({
-    data: {
-      categoryId: nutritionCat.id,
-      date: normalizeDate(new Date()),
-      data: entry as object,
-    },
+  const { error } = await supabaseAdmin.from("logs").insert({
+    category_id: nutritionCat.id,
+    date: toISODate(normalizeDate(new Date())),
+    data: entry,
   });
+
+  if (error) throw error;
 
   return Response.json({ success: true });
 }
 
 async function handleIncrementGym(userId: string, bodyPart: string): Promise<Response> {
-  const gymCat = await prisma.category.findFirst({
-    where: { userId, type: "gym", active: true },
-  });
+  const { data: gymCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "gym")
+    .eq("active", true)
+    .single();
+
   if (!gymCat) {
     return Response.json({ success: false, error: "No gym category" }, { status: 404 });
   }
 
-  await prisma.log.create({
-    data: {
-      categoryId: gymCat.id,
-      date: normalizeDate(new Date()),
-      data: { bodyPart: bodyPart.toLowerCase() } as object,
-    },
+  const { error } = await supabaseAdmin.from("logs").insert({
+    category_id: gymCat.id,
+    date: toISODate(normalizeDate(new Date())),
+    data: { bodyPart: bodyPart.toLowerCase() },
   });
+
+  if (error) throw error;
 
   return Response.json({ success: true });
 }
 
 async function handleDecrementGym(userId: string, bodyPart: string): Promise<Response> {
-  const gymCat = await prisma.category.findFirst({
-    where: { userId, type: "gym", active: true },
-  });
+  const { data: gymCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "gym")
+    .eq("active", true)
+    .single();
+
   if (!gymCat) {
     return Response.json({ success: false, error: "No gym category" }, { status: 404 });
   }
 
   const now = new Date();
-  const existing = await prisma.log.findMany({
-    where: {
-      categoryId: gymCat.id,
-      date: { gte: getWeekStart(now), lte: getWeekEnd(now) },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const isoStart = toISODate(getWeekStart(now));
+  const isoEnd = toISODate(getWeekEnd(now));
 
-  const match = existing.find((log) => {
+  const { data: existing, error: fetchError } = await supabaseAdmin
+    .from("logs")
+    .select("id, data")
+    .eq("category_id", gymCat.id)
+    .gte("date", isoStart)
+    .lte("date", isoEnd)
+    .order("created_at", { ascending: false });
+
+  if (fetchError) throw fetchError;
+
+  const match = (existing ?? []).find((log) => {
     const d = log.data as { bodyPart?: string };
     return d.bodyPart?.toLowerCase() === bodyPart.toLowerCase();
   });
 
   if (match) {
-    await prisma.log.delete({ where: { id: match.id } });
+    const { error } = await supabaseAdmin.from("logs").delete().eq("id", match.id);
+    if (error) throw error;
   }
 
   return Response.json({ success: true });
 }
 
 async function handleToggleGym(userId: string, bodyPart: string): Promise<Response> {
-  const gymCat = await prisma.category.findFirst({
-    where: { userId, type: "gym", active: true },
-  });
+  const { data: gymCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "gym")
+    .eq("active", true)
+    .single();
+
   if (!gymCat) {
     return Response.json({ success: false, error: "No gym category" }, { status: 404 });
   }
 
   const now = new Date();
-  const existing = await prisma.log.findMany({
-    where: {
-      categoryId: gymCat.id,
-      date: { gte: getWeekStart(now), lte: getWeekEnd(now) },
-    },
-  });
+  const isoStart = toISODate(getWeekStart(now));
+  const isoEnd = toISODate(getWeekEnd(now));
 
-  const match = existing.find((log) => {
+  const { data: existing, error: fetchError } = await supabaseAdmin
+    .from("logs")
+    .select("id, data")
+    .eq("category_id", gymCat.id)
+    .gte("date", isoStart)
+    .lte("date", isoEnd);
+
+  if (fetchError) throw fetchError;
+
+  const match = (existing ?? []).find((log) => {
     const d = log.data as { bodyPart?: string };
     return d.bodyPart?.toLowerCase() === bodyPart.toLowerCase();
   });
 
   if (match) {
-    await prisma.log.delete({ where: { id: match.id } });
+    const { error } = await supabaseAdmin.from("logs").delete().eq("id", match.id);
+    if (error) throw error;
     return Response.json({ success: true, toggled: false });
   } else {
-    await prisma.log.create({
-      data: {
-        categoryId: gymCat.id,
-        date: normalizeDate(now),
-        data: { bodyPart: bodyPart.toLowerCase() } as object,
-      },
+    const { error } = await supabaseAdmin.from("logs").insert({
+      category_id: gymCat.id,
+      date: toISODate(normalizeDate(now)),
+      data: { bodyPart: bodyPart.toLowerCase() },
     });
+    if (error) throw error;
     return Response.json({ success: true, toggled: true });
   }
 }
 
 async function handleAddRun(userId: string, miles: number): Promise<Response> {
-  const runCat = await prisma.category.findFirst({
-    where: { userId, type: "running", active: true },
-  });
+  const { data: runCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "running")
+    .eq("active", true)
+    .single();
+
   if (!runCat) {
     return Response.json({ success: false, error: "No running category" }, { status: 404 });
   }
 
-  await prisma.log.create({
-    data: {
-      categoryId: runCat.id,
-      date: normalizeDate(new Date()),
-      data: { miles } as object,
-    },
+  const { error } = await supabaseAdmin.from("logs").insert({
+    category_id: runCat.id,
+    date: toISODate(normalizeDate(new Date())),
+    data: { miles },
   });
+
+  if (error) throw error;
 
   return Response.json({ success: true });
 }
 
 async function handleRemoveRun(userId: string, miles: number): Promise<Response> {
-  const runCat = await prisma.category.findFirst({
-    where: { userId, type: "running", active: true },
-  });
+  const { data: runCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "running")
+    .eq("active", true)
+    .single();
+
   if (!runCat) {
     return Response.json({ success: false, error: "No running category" }, { status: 404 });
   }
 
   // Create a negative log entry (mirrors Next.js behavior)
-  await prisma.log.create({
-    data: {
-      categoryId: runCat.id,
-      date: normalizeDate(new Date()),
-      data: { miles: -miles } as object,
-    },
+  const { error } = await supabaseAdmin.from("logs").insert({
+    category_id: runCat.id,
+    date: toISODate(normalizeDate(new Date())),
+    data: { miles: -miles },
   });
+
+  if (error) throw error;
 
   return Response.json({ success: true });
 }

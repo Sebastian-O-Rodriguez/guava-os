@@ -8,13 +8,21 @@ import {
 } from "./chat-scenarios";
 import { normalizeDate, getWeekStart, getWeekEnd } from "./dates";
 import type { CategoryType, NutritionLogData, GymLogData, RunLogData } from "./types";
-import { prisma } from "./db";
-import { getOrCreateUser } from "./user";
+import { supabaseAdmin } from "./supabase";
+import { getOrCreateUser } from "./user-sb";
 
 export type ExecutorResult = { message: string; data?: unknown };
 
+// ---------------------------------------------------------------------------
+// Helper: ISO date string (YYYY-MM-DD) from a Date
+// ---------------------------------------------------------------------------
+
+function toISODate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 /**
- * Deterministic executor: maps a classified scenario + raw params to Prisma
+ * Deterministic executor: maps a classified scenario + raw params to Supabase
  * calls and returns a template response. No LLM is involved here.
  */
 export async function executeScenario(
@@ -62,36 +70,44 @@ async function handleLogNutrition(raw: Record<string, unknown>): Promise<Executo
   }
 
   const userId = await getOrCreateUser();
-  const nutritionCat = await prisma.category.findFirst({
-    where: { userId, type: "nutrition", active: true },
-  });
+
+  const { data: nutritionCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "nutrition")
+    .eq("active", true)
+    .single();
+
   if (!nutritionCat) {
     return { message: "Failed to find or create your Nutrition category." };
   }
 
-  const today = normalizeDate(new Date());
+  const today = toISODate(normalizeDate(new Date()));
 
   try {
-    await prisma.log.createMany({
-      data: parsed.data.entries.map((entry) => ({
-        categoryId: nutritionCat.id,
-        date: today,
-        data: entry as object,
-      })),
-    });
+    const rows = parsed.data.entries.map((entry) => ({
+      category_id: nutritionCat.id,
+      date: today,
+      data: entry,
+    }));
+    const { error } = await supabaseAdmin.from("logs").insert(rows);
+    if (error) throw error;
   } catch (err) {
     console.error("[handleLogNutrition]", err);
     return { message: "Failed to log nutrition entries." };
   }
 
   // Fetch updated daily totals for the response template
-  const logs = await prisma.log.findMany({
-    where: { categoryId: nutritionCat.id, date: today },
-  });
+  const { data: logs } = await supabaseAdmin
+    .from("logs")
+    .select("data")
+    .eq("category_id", nutritionCat.id)
+    .eq("date", today);
 
-  const totals = logs.reduce(
+  const totals = (logs ?? []).reduce(
     (acc, log) => {
-      const entry = log.data as Partial<NutritionLogData>;
+      const entry = (log.data as unknown) as Partial<NutritionLogData>;
       return {
         calories: acc.calories + (entry.calories ?? 0),
         protein: acc.protein + (entry.protein ?? 0),
@@ -118,40 +134,46 @@ async function handleLogGym(raw: Record<string, unknown>): Promise<ExecutorResul
   }
 
   const userId = await getOrCreateUser();
-  const gymCat = await prisma.category.findFirst({
-    where: { userId, type: "gym", active: true },
-  });
+
+  const { data: gymCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "gym")
+    .eq("active", true)
+    .single();
+
   if (!gymCat) {
     return { message: "Failed to find or create your Gym category." };
   }
 
   const normalizedBodyPart = parsed.data.bodyPart.toLowerCase();
-  const today = normalizeDate(new Date());
+  const today = toISODate(normalizeDate(new Date()));
 
   try {
-    await prisma.log.create({
-      data: {
-        categoryId: gymCat.id,
-        date: today,
-        data: { bodyPart: normalizedBodyPart, notes: parsed.data.notes } as object,
-      },
+    const { error } = await supabaseAdmin.from("logs").insert({
+      category_id: gymCat.id,
+      date: today,
+      data: { bodyPart: normalizedBodyPart, notes: parsed.data.notes },
     });
+    if (error) throw error;
   } catch (err) {
     console.error("[handleLogGym]", err);
     return { message: "Failed to log gym session." };
   }
 
   // Fetch weekly summary
-  const weekLogs = await prisma.log.findMany({
-    where: {
-      categoryId: gymCat.id,
-      date: { gte: getWeekStart(new Date()), lte: getWeekEnd(new Date()) },
-    },
-  });
+  const now = new Date();
+  const { data: weekLogs } = await supabaseAdmin
+    .from("logs")
+    .select("data")
+    .eq("category_id", gymCat.id)
+    .gte("date", toISODate(getWeekStart(now)))
+    .lte("date", toISODate(getWeekEnd(now)));
 
   const counts = new Map<string, number>();
-  for (const log of weekLogs) {
-    const entry = log.data as Partial<GymLogData>;
+  for (const log of weekLogs ?? []) {
+    const entry = (log.data as unknown) as Partial<GymLogData>;
     const bp = entry.bodyPart ?? "unknown";
     counts.set(bp, (counts.get(bp) ?? 0) + 1);
   }
@@ -177,46 +199,56 @@ async function handleLogRun(raw: Record<string, unknown>): Promise<ExecutorResul
   }
 
   const userId = await getOrCreateUser();
-  const runCat = await prisma.category.findFirst({
-    where: { userId, type: "running", active: true },
-  });
+
+  const { data: runCat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("type", "running")
+    .eq("active", true)
+    .single();
+
   if (!runCat) {
     return { message: "Failed to find or create your Running category." };
   }
 
   const safeMiles = Math.min(Math.max(parsed.data.miles, 0), 1_000);
-  const today = normalizeDate(new Date());
+  const today = toISODate(normalizeDate(new Date()));
 
   try {
-    await prisma.log.create({
-      data: {
-        categoryId: runCat.id,
-        date: today,
-        data: { miles: safeMiles, duration: parsed.data.duration, notes: parsed.data.notes } as object,
-      },
+    const { error } = await supabaseAdmin.from("logs").insert({
+      category_id: runCat.id,
+      date: today,
+      data: { miles: safeMiles, duration: parsed.data.duration, notes: parsed.data.notes },
     });
+    if (error) throw error;
   } catch (err) {
     console.error("[handleLogRun]", err);
     return { message: "Failed to log run." };
   }
 
   // Fetch weekly running summary
-  const weekLogs = await prisma.log.findMany({
-    where: {
-      categoryId: runCat.id,
-      date: { gte: getWeekStart(new Date()), lte: getWeekEnd(new Date()) },
-    },
-  });
+  const now = new Date();
+  const { data: weekLogs } = await supabaseAdmin
+    .from("logs")
+    .select("data")
+    .eq("category_id", runCat.id)
+    .gte("date", toISODate(getWeekStart(now)))
+    .lte("date", toISODate(getWeekEnd(now)));
 
-  const totalMiles = weekLogs.reduce((sum, log) => {
-    const entry = log.data as Partial<RunLogData>;
+  const totalMiles = (weekLogs ?? []).reduce((sum, log) => {
+    const entry = (log.data as unknown) as Partial<RunLogData>;
     return sum + (entry.miles ?? 0);
   }, 0);
 
   // Try to find weekly miles goal
-  const milesGoal = await prisma.goal.findFirst({
-    where: { categoryId: runCat.id, metric: "miles", active: true },
-  });
+  const { data: milesGoal } = await supabaseAdmin
+    .from("goals")
+    .select("target")
+    .eq("category_id", runCat.id)
+    .eq("metric", "miles")
+    .eq("active", true)
+    .single();
 
   const goalText = milesGoal ? `/${milesGoal.target}` : "";
 
@@ -236,11 +268,17 @@ async function handleSetGoal(raw: Record<string, unknown>): Promise<ExecutorResu
   const userId = await getOrCreateUser();
 
   // Resolve category by name or type
-  const categories = await prisma.category.findMany({ where: { userId, active: true } });
+  const { data: categories } = await supabaseAdmin
+    .from("categories")
+    .select("id, name, type")
+    .eq("user_id", userId)
+    .eq("active", true);
+
   const lower = parsed.data.categoryName.toLowerCase();
+  const catList = (categories ?? []) as Array<{ id: string; name: string; type: string }>;
   const category =
-    categories.find((c) => c.type === lower) ??
-    categories.find((c) => c.name.toLowerCase().includes(lower));
+    catList.find((c) => c.type === lower) ??
+    catList.find((c) => c.name.toLowerCase().includes(lower));
 
   if (!category) {
     return {
@@ -250,25 +288,37 @@ async function handleSetGoal(raw: Record<string, unknown>): Promise<ExecutorResu
 
   const safeTarget = Math.min(Math.max(parsed.data.target, 0), 100_000);
 
-  const existing = await prisma.goal.findFirst({
-    where: { categoryId: category.id, metric: parsed.data.metric, active: true },
-  });
+  const { data: existing } = await supabaseAdmin
+    .from("goals")
+    .select("id")
+    .eq("category_id", category.id)
+    .eq("metric", parsed.data.metric)
+    .eq("active", true)
+    .single();
 
   let goal;
   if (existing) {
-    goal = await prisma.goal.update({
-      where: { id: existing.id },
-      data: { target: safeTarget, period: parsed.data.period },
-    });
+    const { data: updated, error } = await supabaseAdmin
+      .from("goals")
+      .update({ target: safeTarget, period: parsed.data.period })
+      .eq("id", existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+    goal = updated;
   } else {
-    goal = await prisma.goal.create({
-      data: {
-        categoryId: category.id,
+    const { data: created, error } = await supabaseAdmin
+      .from("goals")
+      .insert({
+        category_id: category.id,
         metric: parsed.data.metric,
         target: safeTarget,
         period: parsed.data.period,
-      },
-    });
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    goal = created;
   }
 
   return {
@@ -289,13 +339,17 @@ async function handleAddCategory(raw: Record<string, unknown>): Promise<Executor
   const userId = await getOrCreateUser();
 
   try {
-    const category = await prisma.category.create({
-      data: {
-        userId,
+    const { data: category, error } = await supabaseAdmin
+      .from("categories")
+      .insert({
+        user_id: userId,
         name: safeName,
         type: parsed.data.type ?? "custom",
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return {
       message: `Created '${safeName}' category.`,
@@ -315,57 +369,85 @@ async function handleQueryProgress(raw: Record<string, unknown>): Promise<Execut
   const userId = await getOrCreateUser();
   const now = new Date();
 
-  const categories = await prisma.category.findMany({
-    where: { userId, active: true },
-    include: { goals: { where: { active: true } } },
-    orderBy: { createdAt: "asc" },
-  });
+  const { data: categories } = await supabaseAdmin
+    .from("categories")
+    .select("id, name, type")
+    .eq("user_id", userId)
+    .eq("active", true)
+    .order("created_at", { ascending: true });
 
-  if (categories.length === 0) {
+  if (!categories || categories.length === 0) {
     return {
       message:
         "No categories set up yet. Add a category and some goals to start tracking progress.",
     };
   }
 
+  const catList = categories as Array<{ id: string; name: string; type: string }>;
+
   const filtered = filterCategory
-    ? categories.filter((c) => c.name.toLowerCase().includes(filterCategory.toLowerCase()))
-    : categories;
+    ? catList.filter((c) => c.name.toLowerCase().includes(filterCategory.toLowerCase()))
+    : catList;
 
   if (filtered.length === 0) {
     return { message: `No category found matching "${filterCategory}".` };
+  }
+
+  // Fetch goals for all filtered categories in one query
+  const catIds = filtered.map((c) => c.id);
+  const { data: allGoals } = await supabaseAdmin
+    .from("goals")
+    .select("id, category_id, metric, target, period")
+    .in("category_id", catIds)
+    .eq("active", true);
+
+  const goalsByCat = new Map<string, Array<{ id: string; category_id: string; metric: string; target: number; period: string }>>();
+  for (const goal of allGoals ?? []) {
+    const g = goal as { id: string; category_id: string; metric: string; target: number; period: string };
+    if (!goalsByCat.has(g.category_id)) goalsByCat.set(g.category_id, []);
+    goalsByCat.get(g.category_id)!.push(g);
   }
 
   // For each category compute progress inline
   const lines: string[] = [`Progress summary (${timeframe}):`];
 
   for (const cat of filtered) {
-    if (cat.goals.length === 0) {
+    const catGoals = goalsByCat.get(cat.id) ?? [];
+
+    if (catGoals.length === 0) {
       lines.push(`  ${cat.name}: no goals set`);
       continue;
     }
 
-    const dailyGoals = cat.goals.filter((g) => g.period === "daily");
-    const weeklyGoals = cat.goals.filter((g) => g.period === "weekly");
+    const dailyGoals = catGoals.filter((g) => g.period === "daily");
+    const weeklyGoals = catGoals.filter((g) => g.period === "weekly");
 
-    const todayLogs =
+    const todayLogs: Array<{ data: unknown }> =
       dailyGoals.length > 0
-        ? await prisma.log.findMany({
-            where: { categoryId: cat.id, date: normalizeDate(now) },
-          })
+        ? await (async () => {
+            const { data } = await supabaseAdmin
+              .from("logs")
+              .select("data")
+              .eq("category_id", cat.id)
+              .eq("date", toISODate(normalizeDate(now)));
+            return data ?? [];
+          })()
         : [];
 
-    const weekLogs =
+    const weekLogs: Array<{ data: unknown }> =
       weeklyGoals.length > 0
-        ? await prisma.log.findMany({
-            where: {
-              categoryId: cat.id,
-              date: { gte: getWeekStart(now), lte: getWeekEnd(now) },
-            },
-          })
+        ? await (async () => {
+            const { data } = await supabaseAdmin
+              .from("logs")
+              .select("data")
+              .eq("category_id", cat.id)
+              .gte("date", toISODate(getWeekStart(now)))
+              .lte("date", toISODate(getWeekEnd(now)));
+            return data ?? [];
+          })()
         : [];
 
-    for (const goal of cat.goals) {
+    for (const goal of catGoals) {
       const logs = goal.period === "daily" ? todayLogs : weekLogs;
       const actual = computeActualForMetric(
         goal.metric,

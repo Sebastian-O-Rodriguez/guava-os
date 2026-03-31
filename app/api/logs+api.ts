@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { prisma } from "../../lib/db";
-import { getOrCreateUser } from "../../lib/user";
+import { supabaseAdmin } from "../../lib/supabase";
+import { getOrCreateUser } from "../../lib/user-sb";
 import { normalizeDate, getWeekStart, getWeekEnd } from "../../lib/dates";
 import type {
   LogData,
@@ -69,6 +69,14 @@ type LogRecord = {
 };
 
 // ---------------------------------------------------------------------------
+// Helpers: ISO date string (YYYY-MM-DD) from a Date
+// ---------------------------------------------------------------------------
+
+function toISODate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+// ---------------------------------------------------------------------------
 // GET /api/logs — query logs with filters
 //   ?categoryId=<id>&date=<YYYY-MM-DD>        → logs for category on date
 //   ?categoryId=<id>&startDate=<>&endDate=<>  → logs for date range
@@ -107,7 +115,14 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     const userId = await getOrCreateUser();
-    const category = await prisma.category.findFirst({ where: { id: categoryId, userId } });
+
+    const { data: category } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("id", categoryId)
+      .eq("user_id", userId)
+      .single();
+
     if (!category) {
       return Response.json({ success: false, error: "Category not found" }, { status: 404 });
     }
@@ -119,22 +134,29 @@ export async function GET(request: Request): Promise<Response> {
     let logs: LogRecord[];
 
     if (dateParam) {
-      const normalized = normalizeDate(new Date(dateParam));
-      logs = (await prisma.log.findMany({
-        where: { categoryId, date: normalized },
-        orderBy: { createdAt: "asc" },
-      })) as unknown as LogRecord[];
+      const isoDate = toISODate(normalizeDate(new Date(dateParam)));
+      const { data, error } = await supabaseAdmin
+        .from("logs")
+        .select("*")
+        .eq("category_id", categoryId)
+        .eq("date", isoDate)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      logs = (data ?? []) as unknown as LogRecord[];
     } else if (startDateParam && endDateParam) {
-      logs = (await prisma.log.findMany({
-        where: {
-          categoryId,
-          date: {
-            gte: normalizeDate(new Date(startDateParam)),
-            lte: normalizeDate(new Date(endDateParam)),
-          },
-        },
-        orderBy: { date: "asc" },
-      })) as unknown as LogRecord[];
+      const isoStart = toISODate(normalizeDate(new Date(startDateParam)));
+      const isoEnd = toISODate(normalizeDate(new Date(endDateParam)));
+      const { data, error } = await supabaseAdmin
+        .from("logs")
+        .select("*")
+        .eq("category_id", categoryId)
+        .gte("date", isoStart)
+        .lte("date", isoEnd)
+        .order("date", { ascending: true });
+
+      if (error) throw error;
+      logs = (data ?? []) as unknown as LogRecord[];
     } else {
       return Response.json(
         { success: false, error: "Provide date or startDate+endDate params" },
@@ -170,21 +192,26 @@ export async function POST(request: Request): Promise<Response> {
         );
       }
 
-      const category = await prisma.category.findFirst({
-        where: { id: parsed.data.categoryId, userId },
-      });
+      const { data: category } = await supabaseAdmin
+        .from("categories")
+        .select("id")
+        .eq("id", parsed.data.categoryId)
+        .eq("user_id", userId)
+        .single();
+
       if (!category) {
         return Response.json({ success: false, error: "Category not found" }, { status: 404 });
       }
 
-      const normalizedDate = normalizeDate(new Date(parsed.data.date));
-      await prisma.log.createMany({
-        data: parsed.data.entries.map((entry) => ({
-          categoryId: parsed.data.categoryId,
-          date: normalizedDate,
-          data: entry as object,
-        })),
-      });
+      const isoDate = toISODate(normalizeDate(new Date(parsed.data.date)));
+      const rows = parsed.data.entries.map((entry) => ({
+        category_id: parsed.data.categoryId,
+        date: isoDate,
+        data: entry,
+      }));
+
+      const { error } = await supabaseAdmin.from("logs").insert(rows);
+      if (error) throw error;
 
       return Response.json(
         { success: true, data: { count: parsed.data.entries.length } },
@@ -201,20 +228,29 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const category = await prisma.category.findFirst({
-      where: { id: parsed.data.categoryId, userId },
-    });
+    const { data: category } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("id", parsed.data.categoryId)
+      .eq("user_id", userId)
+      .single();
+
     if (!category) {
       return Response.json({ success: false, error: "Category not found" }, { status: 404 });
     }
 
-    const log = await prisma.log.create({
-      data: {
-        categoryId: parsed.data.categoryId,
-        date: normalizeDate(new Date(parsed.data.date)),
-        data: parsed.data.data as object,
-      },
-    });
+    const isoDate = toISODate(normalizeDate(new Date(parsed.data.date)));
+    const { data: log, error } = await supabaseAdmin
+      .from("logs")
+      .insert({
+        category_id: parsed.data.categoryId,
+        date: isoDate,
+        data: parsed.data.data,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return Response.json(
       { success: true, data: log as unknown as LogRecord },
@@ -236,9 +272,13 @@ async function getNutritionSummary(url: URL): Promise<Response> {
     const dateParam = url.searchParams.get("date");
     const date = dateParam ? new Date(dateParam) : new Date();
 
-    const nutritionCategory = await prisma.category.findFirst({
-      where: { userId, type: "nutrition", active: true },
-    });
+    const { data: nutritionCategory } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("type", "nutrition")
+      .eq("active", true)
+      .single();
 
     if (!nutritionCategory) {
       return Response.json({
@@ -247,13 +287,18 @@ async function getNutritionSummary(url: URL): Promise<Response> {
       });
     }
 
-    const logs = await prisma.log.findMany({
-      where: { categoryId: nutritionCategory.id, date: normalizeDate(date) },
-    });
+    const isoDate = toISODate(normalizeDate(date));
+    const { data: logs, error } = await supabaseAdmin
+      .from("logs")
+      .select("data")
+      .eq("category_id", nutritionCategory.id)
+      .eq("date", isoDate);
 
-    const totals = logs.reduce<NutritionDailySummary>(
+    if (error) throw error;
+
+    const totals = (logs ?? []).reduce<NutritionDailySummary>(
       (acc, log) => {
-        const entry = log.data as Partial<NutritionLogData>;
+        const entry = (log.data as unknown) as Partial<NutritionLogData>;
         return {
           calories: acc.calories + (entry.calories ?? 0),
           protein: acc.protein + (entry.protein ?? 0),
@@ -280,24 +325,33 @@ async function getGymSummary(url: URL): Promise<Response> {
     const dateParam = url.searchParams.get("date");
     const now = dateParam ? new Date(dateParam) : new Date();
 
-    const gymCategory = await prisma.category.findFirst({
-      where: { userId, type: "gym", active: true },
-    });
+    const { data: gymCategory } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("type", "gym")
+      .eq("active", true)
+      .single();
 
     if (!gymCategory) {
       return Response.json({ success: true, data: [] as GymBodyPartCount[] });
     }
 
-    const logs = await prisma.log.findMany({
-      where: {
-        categoryId: gymCategory.id,
-        date: { gte: getWeekStart(now), lte: getWeekEnd(now) },
-      },
-    });
+    const isoStart = toISODate(getWeekStart(now));
+    const isoEnd = toISODate(getWeekEnd(now));
+
+    const { data: logs, error } = await supabaseAdmin
+      .from("logs")
+      .select("data")
+      .eq("category_id", gymCategory.id)
+      .gte("date", isoStart)
+      .lte("date", isoEnd);
+
+    if (error) throw error;
 
     const counts = new Map<string, number>();
-    for (const log of logs) {
-      const entry = log.data as Partial<GymLogData>;
+    for (const log of logs ?? []) {
+      const entry = (log.data as unknown) as Partial<GymLogData>;
       const bp = entry.bodyPart ?? "unknown";
       counts.set(bp, (counts.get(bp) ?? 0) + 1);
     }
@@ -323,9 +377,13 @@ async function getRunSummary(url: URL): Promise<Response> {
     const dateParam = url.searchParams.get("date");
     const now = dateParam ? new Date(dateParam) : new Date();
 
-    const runCategory = await prisma.category.findFirst({
-      where: { userId, type: "running", active: true },
-    });
+    const { data: runCategory } = await supabaseAdmin
+      .from("categories")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("type", "running")
+      .eq("active", true)
+      .single();
 
     if (!runCategory) {
       return Response.json({
@@ -334,16 +392,21 @@ async function getRunSummary(url: URL): Promise<Response> {
       });
     }
 
-    const logs = await prisma.log.findMany({
-      where: {
-        categoryId: runCategory.id,
-        date: { gte: getWeekStart(now), lte: getWeekEnd(now) },
-      },
-    });
+    const isoStart = toISODate(getWeekStart(now));
+    const isoEnd = toISODate(getWeekEnd(now));
 
-    const summary = logs.reduce<RunningSummary>(
+    const { data: logs, error } = await supabaseAdmin
+      .from("logs")
+      .select("data")
+      .eq("category_id", runCategory.id)
+      .gte("date", isoStart)
+      .lte("date", isoEnd);
+
+    if (error) throw error;
+
+    const summary = (logs ?? []).reduce<RunningSummary>(
       (acc, log) => {
-        const entry = log.data as Partial<RunLogData>;
+        const entry = (log.data as unknown) as Partial<RunLogData>;
         return {
           totalMiles: acc.totalMiles + (entry.miles ?? 0),
           sessions: acc.sessions + 1,
@@ -368,14 +431,43 @@ async function getCategoryProgressAll(url: URL): Promise<Response> {
     const dateParam = url.searchParams.get("date");
     const now = dateParam ? new Date(dateParam) : new Date();
 
-    const categories = await prisma.category.findMany({
-      where: { userId, active: true },
-      include: { goals: { where: { active: true } } },
-      orderBy: { createdAt: "asc" },
-    });
+    // Fetch all active categories
+    const { data: categories, error: catError } = await supabaseAdmin
+      .from("categories")
+      .select("id, name, type")
+      .eq("user_id", userId)
+      .eq("active", true)
+      .order("created_at", { ascending: true });
+
+    if (catError) throw catError;
+
+    if (!categories || categories.length === 0) {
+      return Response.json({ success: true, data: [] });
+    }
+
+    const categoryIds = categories.map((c: { id: string }) => c.id);
+
+    // Fetch all active goals for these categories in one query
+    const { data: allGoals, error: goalsError } = await supabaseAdmin
+      .from("goals")
+      .select("id, category_id, metric, target, period")
+      .in("category_id", categoryIds)
+      .eq("active", true);
+
+    if (goalsError) throw goalsError;
+
+    // Group goals by category
+    const goalsByCategory = new Map<string, typeof allGoals>();
+    for (const goal of allGoals ?? []) {
+      const catId = (goal as { category_id: string }).category_id;
+      if (!goalsByCategory.has(catId)) goalsByCategory.set(catId, []);
+      goalsByCategory.get(catId)!.push(goal);
+    }
 
     const results = await Promise.all(
-      categories.map((cat) => computeCategoryProgress(cat, now)),
+      (categories as Array<{ id: string; name: string; type: string }>).map((cat) =>
+        computeCategoryProgress(cat, goalsByCategory.get(cat.id) ?? [], now),
+      ),
     );
 
     return Response.json({ success: true, data: results });
@@ -392,23 +484,20 @@ async function getCategoryProgressAll(url: URL): Promise<Response> {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-type CategoryWithGoals = {
+type GoalRow = {
   id: string;
-  name: string;
-  type: string;
-  goals: Array<{
-    id: string;
-    metric: string;
-    target: number;
-    period: string;
-  }>;
+  category_id: string;
+  metric: string;
+  target: number;
+  period: string;
 };
 
 async function computeCategoryProgress(
-  category: CategoryWithGoals,
+  category: { id: string; name: string; type: string },
+  goals: GoalRow[],
   now: Date,
 ): Promise<CategoryProgress> {
-  if (category.goals.length === 0) {
+  if (goals.length === 0) {
     return {
       categoryId: category.id,
       categoryName: category.name,
@@ -417,27 +506,38 @@ async function computeCategoryProgress(
     };
   }
 
-  const dailyGoals = category.goals.filter((g) => g.period === "daily");
-  const weeklyGoals = category.goals.filter((g) => g.period === "weekly");
+  const dailyGoals = goals.filter((g) => g.period === "daily");
+  const weeklyGoals = goals.filter((g) => g.period === "weekly");
 
-  const todayLogs =
+  const todayLogs: Array<{ data: unknown }> =
     dailyGoals.length > 0
-      ? await prisma.log.findMany({
-          where: { categoryId: category.id, date: normalizeDate(now) },
-        })
+      ? await (async () => {
+          const isoDate = toISODate(normalizeDate(now));
+          const { data } = await supabaseAdmin
+            .from("logs")
+            .select("data")
+            .eq("category_id", category.id)
+            .eq("date", isoDate);
+          return data ?? [];
+        })()
       : [];
 
-  const weekLogs =
+  const weekLogs: Array<{ data: unknown }> =
     weeklyGoals.length > 0
-      ? await prisma.log.findMany({
-          where: {
-            categoryId: category.id,
-            date: { gte: getWeekStart(now), lte: getWeekEnd(now) },
-          },
-        })
+      ? await (async () => {
+          const isoStart = toISODate(getWeekStart(now));
+          const isoEnd = toISODate(getWeekEnd(now));
+          const { data } = await supabaseAdmin
+            .from("logs")
+            .select("data")
+            .eq("category_id", category.id)
+            .gte("date", isoStart)
+            .lte("date", isoEnd);
+          return data ?? [];
+        })()
       : [];
 
-  const goalProgressList = category.goals.map((goal) => {
+  const goalProgressList = goals.map((goal) => {
     const logs = goal.period === "daily" ? todayLogs : weekLogs;
     const actual = computeActualForMetric(
       goal.metric,
