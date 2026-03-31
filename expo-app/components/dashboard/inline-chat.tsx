@@ -148,9 +148,10 @@ export function InlineChat({ apiBaseUrl = "" }: InlineChatProps) {
               display: "flex",
               alignItems: "center",
               borderRadius: 12,
-              border: "1px solid rgba(39,39,42,0.6)",
-              backgroundColor: "rgba(24,24,27,0.8)",
-              padding: "10px 16px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: "rgba(255,255,255,0.03)",
+              backdropFilter: "blur(8px)",
+              padding: "8px 16px",
               gap: 12,
               transition: "border-color 150ms",
             }}
@@ -173,8 +174,9 @@ export function InlineChat({ apiBaseUrl = "" }: InlineChatProps) {
               width: 40,
               height: 40,
               borderRadius: 12,
-              border: "1px solid rgba(39,39,42,0.6)",
-              backgroundColor: "rgba(24,24,27,0.8)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: "rgba(255,255,255,0.03)",
+              backdropFilter: "blur(8px)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -194,9 +196,10 @@ export function InlineChat({ apiBaseUrl = "" }: InlineChatProps) {
             <div
               style={{
                 borderRadius: 12,
-                border: "1px solid rgba(39,39,42,0.4)",
-                backgroundColor: "rgba(24,24,27,0.6)",
-                padding: "10px 16px",
+                border: "1px solid rgba(255,255,255,0.06)",
+                backgroundColor: "rgba(255,255,255,0.03)",
+                backdropFilter: "blur(8px)",
+                padding: "8px 16px",
                 fontSize: 14,
                 color: "rgb(161,161,170)",
               }}
@@ -208,11 +211,12 @@ export function InlineChat({ apiBaseUrl = "" }: InlineChatProps) {
             <div
               style={{
                 borderRadius: 12,
-                border: "1px solid rgba(39,39,42,0.4)",
-                backgroundColor: "rgba(24,24,27,0.6)",
-                padding: "10px 16px",
+                border: "1px solid rgba(255,255,255,0.06)",
+                backgroundColor: "rgba(255,255,255,0.03)",
+                backdropFilter: "blur(8px)",
+                padding: "8px 16px",
                 fontSize: 14,
-                color: "rgb(161,161,170)",
+                color: "rgb(212,212,216)",
               }}
             >
               {response}

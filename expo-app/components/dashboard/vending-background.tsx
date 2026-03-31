@@ -2,9 +2,6 @@ import { Platform } from "react-native";
 import { YStack } from "tamagui";
 
 // Web-only: conditionally import Rive to avoid native bundler issues
-let RiveWebComponent: React.ComponentType<{
-  style: React.CSSProperties;
-}> | null = null;
 let useRiveHook: ((opts: {
   src: string;
   autoplay: boolean;
@@ -14,7 +11,6 @@ let LayoutClass: new (opts: { fit: unknown }) => unknown = function () { return 
 let FitEnum: Record<string, unknown> = {};
 
 if (Platform.OS === "web") {
-  // Dynamic requires only execute on web — safe to ignore TS/bundler warnings for native
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const rive = require("@rive-app/react-canvas");
@@ -27,7 +23,6 @@ if (Platform.OS === "web") {
 }
 
 function VendingBackgroundWeb() {
-  // useRiveHook is only defined on web, so this component only renders on web
   const { RiveComponent, rive } = useRiveHook!({
     src: "/animations/vending-machine.riv",
     autoplay: true,
@@ -60,7 +55,7 @@ function VendingBackgroundWeb() {
         <RiveComponent style={{ width: "100%", height: "100%", display: "block" }} />
       </div>
 
-      {/* Fallback background while .riv loads */}
+      {/* Fallback background colour shown while the .riv file loads */}
       <div
         style={{
           position: "absolute",
@@ -72,13 +67,12 @@ function VendingBackgroundWeb() {
         }}
       />
 
-      {/* Dark gradient overlay so text stays readable */}
+      {/* Subtle flat overlay — matches Next.js bg-zinc-950/40 */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background:
-            "linear-gradient(to top, rgba(9,9,11,0.9) 0%, rgba(9,9,11,0.5) 50%, rgba(9,9,11,0.3) 100%)",
+          backgroundColor: "rgba(9,9,11,0.4)",
           pointerEvents: "none",
         }}
       />

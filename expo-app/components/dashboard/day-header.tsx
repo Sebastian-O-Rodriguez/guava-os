@@ -41,7 +41,7 @@ function ChevronLeft({ disabled }: { disabled?: boolean }) {
         height={20}
         viewBox="0 0 24 24"
         fill="none"
-        stroke={disabled ? "rgb(63,63,70)" : "rgb(161,161,170)"}
+        stroke={disabled ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.4)"}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -66,7 +66,7 @@ function ChevronRight({ disabled }: { disabled?: boolean }) {
         height={20}
         viewBox="0 0 24 24"
         fill="none"
-        stroke={disabled ? "rgb(63,63,70)" : "rgb(161,161,170)"}
+        stroke={disabled ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.4)"}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -122,13 +122,17 @@ export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeade
         <Text
           fontSize={18}
           fontWeight="600"
-          color="$color"
+          color={Platform.OS === "web" ? "rgba(255,255,255,0.9)" : "$color"}
           letterSpacing={-0.3}
           textAlign="center"
         >
           The Stub is the Way
         </Text>
-        <Text fontSize={13} color="$placeholderColor" textAlign="center">
+        <Text
+          fontSize={13}
+          color={Platform.OS === "web" ? "rgba(255,255,255,0.4)" : "$placeholderColor"}
+          textAlign="center"
+        >
           {dateString}
         </Text>
       </YStack>

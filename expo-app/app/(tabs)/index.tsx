@@ -6,6 +6,7 @@ import { VendingBackground } from "../../components/dashboard/vending-background
 import { DayHeader } from "../../components/dashboard/day-header";
 import { InlineChat } from "../../components/dashboard/inline-chat";
 import { MetricsCard } from "../../components/dashboard/metrics-card";
+import { AppNav } from "../../components/app-nav";
 import type { MetricsCardProps } from "../../components/dashboard/metrics-card";
 import type {
   NutritionDailySummary,
@@ -147,6 +148,122 @@ export default function DashboardScreen() {
     setViewDate(next);
   }
 
+  // ---------------------------------------------------------------------------
+  // Web render — fixed background, AppNav fixed at top, content flush below
+  // ---------------------------------------------------------------------------
+
+  if (Platform.OS === "web") {
+    return (
+      <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
+        {/* Fixed animated background */}
+        <VendingBackground />
+
+        {/* Fixed nav — sits at z-50, h-10 */}
+        <AppNav currentPath="/" />
+
+        {/* Content — starts right under the nav (pt-10 = 40px nav height) */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 10,
+            paddingTop: 40, // nav height
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 896,
+              margin: "0 auto",
+              width: "100%",
+              padding: "8px 16px 32px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <DayHeader
+              dateString={dateString}
+              isoDate={isoDate}
+              isToday={isToday}
+              onNavigate={handleDateNavigate}
+            />
+
+            {isToday && <InlineChat />}
+
+            {loading && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 32,
+                  color: "rgba(255,255,255,0.4)",
+                  fontSize: 14,
+                }}
+              >
+                Loading...
+              </div>
+            )}
+
+            {error && !loading && (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 32,
+                  color: "rgba(255,255,255,0.4)",
+                  fontSize: 14,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && data && (data.hasNutrition || data.hasGym || data.hasRunning) && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+              >
+                <MetricsCard
+                  nutritionSummary={data.nutritionSummary}
+                  nutritionGoals={data.nutritionGoals}
+                  gymSummary={data.gymSummary}
+                  gymGoals={data.gymGoals}
+                  runningSummary={data.runningSummary}
+                  runGoals={data.runGoals}
+                  readOnly={!isToday}
+                  hasNutrition={data.hasNutrition}
+                  hasGym={data.hasGym}
+                  hasRunning={data.hasRunning}
+                />
+              </motion.div>
+            )}
+
+            {!loading && !error && data && !data.hasNutrition && !data.hasGym && !data.hasRunning && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                style={{
+                  borderRadius: 16,
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  padding: 32,
+                  textAlign: "center",
+                  color: "rgba(255,255,255,0.4)",
+                  fontSize: 14,
+                }}
+              >
+                No categories set up yet. Use the chat to get started.
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Native render — solid background + scroll view, AppNav at top
+  // ---------------------------------------------------------------------------
+
   const content = (
     <YStack flex={1} zIndex={10} padding={16} gap={12}>
       <DayHeader
@@ -193,8 +310,8 @@ export default function DashboardScreen() {
         <YStack
           borderRadius={16}
           borderWidth={1}
-          borderColor="rgba(39,39,42,0.6)"
-          backgroundColor="rgba(24,24,27,0.8)"
+          borderColor="rgba(255,255,255,0.06)"
+          backgroundColor="rgba(255,255,255,0.03)"
           padding={32}
           alignItems="center"
         >
@@ -206,102 +323,13 @@ export default function DashboardScreen() {
     </YStack>
   );
 
-  // On web: fixed background + scrollable content
-  if (Platform.OS === "web") {
-    return (
-      <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
-        <VendingBackground />
-        <div
-          style={{
-            position: "relative",
-            zIndex: 10,
-            minHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              maxWidth: 896,
-              margin: "0 auto",
-              width: "100%",
-              padding: "24px 16px 32px",
-              gap: 12,
-            }}
-          >
-            <DayHeader
-              dateString={dateString}
-              isoDate={isoDate}
-              isToday={isToday}
-              onNavigate={handleDateNavigate}
-            />
-
-            {isToday && <InlineChat />}
-
-            {loading && (
-              <div style={{ textAlign: "center", padding: 32, color: "rgb(113,113,122)", fontSize: 14 }}>
-                Loading...
-              </div>
-            )}
-
-            {error && !loading && (
-              <div style={{ textAlign: "center", padding: 32, color: "rgb(113,113,122)", fontSize: 14 }}>
-                {error}
-              </div>
-            )}
-
-            {!loading && !error && data && (data.hasNutrition || data.hasGym || data.hasRunning) && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-              >
-                <MetricsCard
-                  nutritionSummary={data.nutritionSummary}
-                  nutritionGoals={data.nutritionGoals}
-                  gymSummary={data.gymSummary}
-                  gymGoals={data.gymGoals}
-                  runningSummary={data.runningSummary}
-                  runGoals={data.runGoals}
-                  readOnly={!isToday}
-                  hasNutrition={data.hasNutrition}
-                  hasGym={data.hasGym}
-                  hasRunning={data.hasRunning}
-                />
-              </motion.div>
-            )}
-
-            {!loading && !error && data && !data.hasNutrition && !data.hasGym && !data.hasRunning && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                style={{
-                  borderRadius: 16,
-                  border: "1px solid rgba(39,39,42,0.6)",
-                  backgroundColor: "rgba(24,24,27,0.8)",
-                  padding: 32,
-                  textAlign: "center",
-                  color: "rgb(113,113,122)",
-                  fontSize: 14,
-                }}
-              >
-                No categories set up yet. Use the chat to get started.
-              </motion.div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Native: solid background + scroll view
   return (
     <View style={{ flex: 1, backgroundColor: "#09090b" }}>
       <VendingBackground />
+      {/* AppNav at very top on native */}
+      <View style={{ zIndex: 20 }}>
+        <AppNav currentPath="/" />
+      </View>
       <ScrollView
         style={{ flex: 1, zIndex: 10 }}
         contentContainerStyle={{ padding: 16, gap: 12 }}

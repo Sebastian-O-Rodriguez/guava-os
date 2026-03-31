@@ -364,11 +364,11 @@ export function MetricsCard({
           visible: { transition: { staggerChildren: 0.07 } },
         }}
         style={{
-          backgroundColor: "rgba(255,255,255,0.05)",
+          backgroundColor: "rgba(255,255,255,0.03)",
           backdropFilter: "blur(8px)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: 16,
-          padding: 16,
+          padding: "12px 20px",
         }}
         role="group"
         aria-label="All metrics"
@@ -401,9 +401,9 @@ export function MetricsCard({
   return (
     <View
       style={{
-        backgroundColor: "rgba(255,255,255,0.05)",
+        backgroundColor: "rgba(255,255,255,0.03)",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.1)",
+        borderColor: "rgba(255,255,255,0.08)",
         borderRadius: 16,
         padding: 16,
       }}
