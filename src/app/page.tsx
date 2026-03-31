@@ -11,13 +11,15 @@ import { VendingBackground } from "@/components/dashboard/vending-background";
 import { MetricsCard } from "@/components/dashboard/metrics-card";
 import { CustomCard } from "@/components/dashboard/custom-card";
 import { InlineChat } from "@/components/dashboard/inline-chat";
+import { DayHeader } from "@/components/dashboard/day-header";
 import { NavWithDate } from "@/components/dashboard/nav-with-date";
 
 function formatDate(date: Date): string {
-  const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long" });
   const day = date.getDate();
-  const month = date.toLocaleDateString("en-GB", { month: "short" });
-  return `${weekday}, ${day} ${month}`;
+  const month = date.toLocaleDateString("en-GB", { month: "long" });
+  const year = date.getFullYear();
+  return `${weekday}, ${day} ${month} ${year}`;
 }
 
 function parseDateParam(param: string | undefined): Date | null {
@@ -85,13 +87,13 @@ export default async function DashboardPage({
       <VendingBackground />
 
       {/* Override nav with date controls for dashboard */}
-      <NavWithDate isoDate={viewIso} dateString={formatDate(viewDate)} isToday={isToday} />
+      <NavWithDate />
 
-      {/* Content — flush under nav, anchored to bottom */}
-      <div className="relative z-10 min-h-screen flex flex-col justify-end">
-        <div className="px-4 pb-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-4xl flex flex-col gap-3">
-            {isToday && <InlineChat />}
+      {/* Content — flush under nav, overlays background */}
+      <div className="relative z-10 flex flex-col px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-4xl flex flex-col gap-3 pt-2">
+          <DayHeader dateString={formatDate(viewDate)} isoDate={viewIso} isToday={isToday} />
+          {isToday && <InlineChat />}
 
             {(hasNutrition || hasFitness) && (
               <MetricsCard
@@ -119,7 +121,6 @@ export default async function DashboardPage({
                 </p>
               </div>
             )}
-          </div>
         </div>
       </div>
     </div>

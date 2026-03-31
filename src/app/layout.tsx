@@ -43,7 +43,7 @@ export default function RootLayout({
           </a>
           <main
             id="main-content"
-            style={{ paddingTop: "calc(2.75rem + env(safe-area-inset-top))" }}
+            style={{ paddingTop: "calc(2.5rem + env(safe-area-inset-top))" }}
           >
             {children}
           </main>
