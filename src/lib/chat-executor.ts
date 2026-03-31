@@ -61,9 +61,7 @@ export async function executeScenario(
 // Scenario handlers
 // ---------------------------------------------------------------------------
 
-async function handleLogNutrition(
-  raw: Record<string, unknown>,
-): Promise<ExecutorResult> {
+async function handleLogNutrition(raw: Record<string, unknown>): Promise<ExecutorResult> {
   const parsed = logNutritionParamsSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -78,11 +76,7 @@ async function handleLogNutrition(
   }
 
   const today = normalizeDate(new Date());
-  const result = await createNutritionLogs(
-    categoryId,
-    today,
-    parsed.data.entries,
-  );
+  const result = await createNutritionLogs(categoryId, today, parsed.data.entries);
 
   if (!result.success) {
     return { message: `Failed to log nutrition: ${result.error}` };
@@ -105,9 +99,7 @@ async function handleLogNutrition(
   };
 }
 
-async function handleLogGym(
-  raw: Record<string, unknown>,
-): Promise<ExecutorResult> {
+async function handleLogGym(raw: Record<string, unknown>): Promise<ExecutorResult> {
   const parsed = logGymParamsSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -140,9 +132,7 @@ async function handleLogGym(
   const summaryResult = await getWeeklyGymSummary();
   const summaryText =
     summaryResult.success && summaryResult.data.length > 0
-      ? summaryResult.data
-          .map((b) => `${b.bodyPart} ×${b.count}`)
-          .join(", ")
+      ? summaryResult.data.map((b) => `${b.bodyPart} ×${b.count}`).join(", ")
       : "no sessions yet this week";
 
   return {
@@ -151,9 +141,7 @@ async function handleLogGym(
   };
 }
 
-async function handleLogRun(
-  raw: Record<string, unknown>,
-): Promise<ExecutorResult> {
+async function handleLogRun(raw: Record<string, unknown>): Promise<ExecutorResult> {
   const parsed = logRunParamsSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -166,12 +154,13 @@ async function handleLogRun(
     return { message: "Failed to find or create your Running category." };
   }
 
+  const safeMiles = Math.min(Math.max(parsed.data.miles, 0), 1_000);
   const today = normalizeDate(new Date());
   const result = await createLog({
     categoryId,
     date: today,
     data: {
-      miles: parsed.data.miles,
+      miles: safeMiles,
       duration: parsed.data.duration,
       notes: parsed.data.notes,
     },
@@ -185,7 +174,7 @@ async function handleLogRun(
   const summaryResult = await getWeeklyRunningSummary();
   if (!summaryResult.success) {
     return {
-      message: `Logged ${parsed.data.miles} mi run.`,
+      message: `Logged ${safeMiles} mi run.`,
       data: result.data,
     };
   }
@@ -206,14 +195,12 @@ async function handleLogRun(
   }
 
   return {
-    message: `Logged ${parsed.data.miles} mi run. This week: ${totalMiles}${goalMilesText} mi.`,
+    message: `Logged ${safeMiles} mi run. This week: ${totalMiles}${goalMilesText} mi.`,
     data: result.data,
   };
 }
 
-async function handleSetGoal(
-  raw: Record<string, unknown>,
-): Promise<ExecutorResult> {
+async function handleSetGoal(raw: Record<string, unknown>): Promise<ExecutorResult> {
   const parsed = setGoalParamsSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -229,10 +216,12 @@ async function handleSetGoal(
     };
   }
 
+  const safeTarget = Math.min(Math.max(parsed.data.target, 0), 100_000);
+
   const result = await upsertGoal({
     categoryId,
     metric: parsed.data.metric,
-    target: parsed.data.target,
+    target: safeTarget,
     period: parsed.data.period,
   });
 
@@ -241,14 +230,12 @@ async function handleSetGoal(
   }
 
   return {
-    message: `Set ${parsed.data.metric} goal to ${parsed.data.target} (${parsed.data.period}).`,
+    message: `Set ${parsed.data.metric} goal to ${safeTarget} (${parsed.data.period}).`,
     data: result.data,
   };
 }
 
-async function handleAddCategory(
-  raw: Record<string, unknown>,
-): Promise<ExecutorResult> {
+async function handleAddCategory(raw: Record<string, unknown>): Promise<ExecutorResult> {
   const parsed = addCategoryParamsSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -256,8 +243,10 @@ async function handleAddCategory(
     };
   }
 
+  const safeName = parsed.data.name.slice(0, 50);
+
   const result = await createCategory({
-    name: parsed.data.name,
+    name: safeName,
     type: parsed.data.type ?? "custom",
   });
 
@@ -266,14 +255,12 @@ async function handleAddCategory(
   }
 
   return {
-    message: `Created '${parsed.data.name}' category.`,
+    message: `Created '${safeName}' category.`,
     data: result.data,
   };
 }
 
-async function handleQueryProgress(
-  raw: Record<string, unknown>,
-): Promise<ExecutorResult> {
+async function handleQueryProgress(raw: Record<string, unknown>): Promise<ExecutorResult> {
   const parsed = queryProgressParamsSchema.safeParse(raw);
   // params are all optional so this should always succeed, but be safe
   const timeframe = parsed.success ? (parsed.data.timeframe ?? "week") : "week";
@@ -293,9 +280,7 @@ async function handleQueryProgress(
 
   // Filter by category name if provided
   const categories = filterCategory
-    ? result.data.filter((c) =>
-        c.categoryName.toLowerCase().includes(filterCategory.toLowerCase()),
-      )
+    ? result.data.filter((c) => c.categoryName.toLowerCase().includes(filterCategory.toLowerCase()))
     : result.data;
 
   if (categories.length === 0) {
@@ -364,8 +349,6 @@ async function resolveCategoryId(nameOrType: string): Promise<string | null> {
   if (byType) return byType.id;
 
   // Fuzzy name match
-  const byName = existing.data.find((c) =>
-    c.name.toLowerCase().includes(lower),
-  );
+  const byName = existing.data.find((c) => c.name.toLowerCase().includes(lower));
   return byName?.id ?? null;
 }

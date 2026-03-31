@@ -134,9 +134,7 @@ export async function updateCategory(
   }
 }
 
-export async function deleteCategory(
-  id: string,
-): Promise<ActionResult<{ deleted: true }>> {
+export async function deleteCategory(id: string): Promise<ActionResult<{ deleted: true }>> {
   try {
     const userId = await getOrCreateUser();
 

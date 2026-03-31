@@ -151,17 +151,36 @@
 /* Smooth page transitions */
 @layer base {
   @keyframes fade-in {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
   }
   @keyframes slide-up {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .animate-slide-up {
     animation: slide-up 0.25s ease-out;
+  }
+}
+
+/* Firefox backdrop-blur fallback: solid background when backdrop-filter is unsupported */
+@supports not (backdrop-filter: blur(1px)) {
+  nav[data-nav-root] {
+    background: rgb(9, 9, 11);
   }
 }

@@ -46,12 +46,7 @@ const CustomLogSchema = z.object({
   notes: z.string().optional(),
 });
 
-const LogDataSchema = z.union([
-  NutritionLogSchema,
-  GymLogSchema,
-  RunLogSchema,
-  CustomLogSchema,
-]);
+const LogDataSchema = z.union([NutritionLogSchema, GymLogSchema, RunLogSchema, CustomLogSchema]);
 
 const CreateLogSchema = z.object({
   categoryId: z.string().min(1),
@@ -270,14 +265,12 @@ export async function getDailyNutritionSummary(
 }
 
 /**
- * Count gym sessions grouped by body part for the current week (Mon–Sun).
+ * Count gym sessions grouped by body part for the week containing `date` (Mon–Sun).
  */
-export async function getWeeklyGymSummary(): Promise<
-  ActionResult<GymBodyPartCount[]>
-> {
+export async function getWeeklyGymSummary(date?: Date): Promise<ActionResult<GymBodyPartCount[]>> {
   try {
     const userId = await getOrCreateUser();
-    const now = new Date();
+    const now = date ?? new Date();
 
     const gymCategory = await prisma.category.findFirst({
       where: { userId, type: "gym", active: true },
@@ -305,9 +298,10 @@ export async function getWeeklyGymSummary(): Promise<
       counts.set(bp, (counts.get(bp) ?? 0) + 1);
     }
 
-    const result: GymBodyPartCount[] = Array.from(counts.entries()).map(
-      ([bodyPart, count]) => ({ bodyPart, count }),
-    );
+    const result: GymBodyPartCount[] = Array.from(counts.entries()).map(([bodyPart, count]) => ({
+      bodyPart,
+      count,
+    }));
 
     return { success: true, data: result };
   } catch (err) {
@@ -317,14 +311,12 @@ export async function getWeeklyGymSummary(): Promise<
 }
 
 /**
- * Sum miles and count running sessions for the current week (Mon–Sun).
+ * Sum miles and count running sessions for the week containing `date` (Mon–Sun).
  */
-export async function getWeeklyRunningSummary(): Promise<
-  ActionResult<RunningSummary>
-> {
+export async function getWeeklyRunningSummary(date?: Date): Promise<ActionResult<RunningSummary>> {
   try {
     const userId = await getOrCreateUser();
-    const now = new Date();
+    const now = date ?? new Date();
 
     const runCategory = await prisma.category.findFirst({
       where: { userId, type: "running", active: true },
@@ -394,9 +386,9 @@ export async function getCategoryProgress(
 /**
  * Dashboard-ready: all active categories with their goal progress.
  */
-export async function getAllCategoryProgress(): Promise<
-  ActionResult<CategoryProgress[]>
-> {
+export async function getAllCategoryProgress(
+  date?: Date,
+): Promise<ActionResult<CategoryProgress[]>> {
   try {
     const userId = await getOrCreateUser();
 
@@ -406,10 +398,8 @@ export async function getAllCategoryProgress(): Promise<
       orderBy: { createdAt: "asc" },
     });
 
-    const now = new Date();
-    const results = await Promise.all(
-      categories.map((cat) => computeCategoryProgress(cat, now)),
-    );
+    const now = date ?? new Date();
+    const results = await Promise.all(categories.map((cat) => computeCategoryProgress(cat, now)));
 
     return { success: true, data: results };
   } catch (err) {
@@ -483,8 +473,7 @@ async function computeCategoryProgress(
       category.type,
       logs.map((l) => l.data),
     );
-    const percentComplete =
-      goal.target > 0 ? Math.min(100, (actual / goal.target) * 100) : 0;
+    const percentComplete = goal.target > 0 ? Math.min(100, (actual / goal.target) * 100) : 0;
 
     return {
       goalId: goal.id,
@@ -518,8 +507,7 @@ function computeActualForMetric(
       // Nutrition metrics are summed directly from payload fields
       return logDataArray.reduce<number>((sum, raw) => {
         const entry = raw as Partial<NutritionLogData>;
-        const value =
-          (entry as Record<string, unknown>)[metric];
+        const value = (entry as Record<string, unknown>)[metric];
         return sum + (typeof value === "number" ? value : 0);
       }, 0);
     }

@@ -9,25 +9,24 @@ export async function POST(req: NextRequest) {
     const messages: ChatCompletionMessageParam[] = body.messages ?? [];
 
     if (messages.length === 0) {
-      return NextResponse.json(
-        { error: "No messages provided" },
-        { status: 400 },
-      );
+      return NextResponse.json({ message: "No messages provided", error: true }, { status: 400 });
     }
 
     // Only the latest user message is used for classification
-    const latestUserMessage = [...messages]
-      .reverse()
-      .find((m) => m.role === "user");
+    const latestUserMessage = [...messages].reverse().find((m) => m.role === "user");
 
-    const userContent =
-      typeof latestUserMessage?.content === "string"
-        ? latestUserMessage.content
-        : "";
+    const rawContent =
+      typeof latestUserMessage?.content === "string" ? latestUserMessage.content : "";
 
-    if (!userContent.trim()) {
+    const userContent = rawContent.trim();
+
+    if (!userContent) {
+      return NextResponse.json({ message: "No user message found", error: true }, { status: 400 });
+    }
+
+    if (userContent.length > 500) {
       return NextResponse.json(
-        { error: "No user message found" },
+        { message: "Message too long (max 500 characters)", error: true },
         { status: 400 },
       );
     }
@@ -36,7 +35,10 @@ export async function POST(req: NextRequest) {
     const classified = await classifyMessage(userContent);
 
     // Step 2: execute deterministically
-    const result = await executeScenario(classified.scenario, classified.params as Record<string, unknown>);
+    const result = await executeScenario(
+      classified.scenario,
+      classified.params as Record<string, unknown>,
+    );
 
     return NextResponse.json({
       message: result.message,
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Chat API error:", err);
     return NextResponse.json(
-      { error: "Failed to process chat request" },
+      { message: "Failed to process chat request", error: true },
       { status: 500 },
     );
   }

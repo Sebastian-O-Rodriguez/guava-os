@@ -1,9 +1,7 @@
 // RoutineMe v2 — Shared types
 
 // Consistent result type for server actions
-export type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+export type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
 // ---------------------------------------------------------------------------
 // Category types

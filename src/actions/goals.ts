@@ -100,9 +100,7 @@ export async function upsertGoal(
   }
 }
 
-export async function getGoalsForCategory(
-  categoryId: string,
-): Promise<ActionResult<GoalData[]>> {
+export async function getGoalsForCategory(categoryId: string): Promise<ActionResult<GoalData[]>> {
   try {
     const userId = await getOrCreateUser();
 
@@ -145,9 +143,7 @@ export async function getAllGoals(): Promise<ActionResult<GoalData[]>> {
   }
 }
 
-export async function deleteGoal(
-  id: string,
-): Promise<ActionResult<{ deleted: true }>> {
+export async function deleteGoal(id: string): Promise<ActionResult<{ deleted: true }>> {
   try {
     const userId = await getOrCreateUser();
 

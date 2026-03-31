@@ -35,6 +35,9 @@ export function Chat({ compact = false }: { compact?: boolean }) {
     setInput("");
     setLoading(true);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -45,6 +48,7 @@ export function Chat({ compact = false }: { compact?: boolean }) {
             content: m.content,
           })),
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -61,19 +65,23 @@ export function Chat({ compact = false }: { compact?: boolean }) {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
       console.error("Chat error:", err);
+      const isTimeout = err instanceof Error && err.name === "AbortError";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Something went wrong. Please try again.",
+          content: isTimeout
+            ? "Request timed out. Please try again."
+            : "Something went wrong. Please try again.",
         },
       ]);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         inputRef.current?.focus();
-      }, 100);
+      });
     }
   }
 
@@ -98,7 +106,11 @@ export function Chat({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className={cn("flex flex-col gap-4", compact ? "min-h-[100px]" : "min-h-[200px]")}>
+      <div
+        aria-live="polite"
+        aria-label="Conversation"
+        className={cn("flex flex-col gap-4", compact ? "min-h-[100px]" : "min-h-[200px]")}
+      >
         {messages.length === 0 && !loading && (
           <div
             className={cn(
@@ -163,9 +175,12 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         ))}
 
         {loading && (
-          <div className="flex items-start">
+          <div className="flex items-start" aria-label="Assistant is typing" aria-live="polite">
             <div className="rounded-2xl rounded-bl-md bg-zinc-800 px-4 py-3">
-              <LoaderIcon className="size-5 text-muted-foreground animate-spin" />
+              <LoaderIcon
+                className="size-5 text-muted-foreground animate-spin"
+                aria-hidden="true"
+              />
             </div>
           </div>
         )}
@@ -173,30 +188,32 @@ export function Chat({ compact = false }: { compact?: boolean }) {
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+      <form onSubmit={handleSubmit} aria-busy={loading} className="flex gap-2 items-end">
         <textarea
           ref={inputRef}
           value={input}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder="Log food, gym, run, or ask about progress..."
+          aria-label="Log activity or ask about progress"
           rows={1}
+          maxLength={500}
           disabled={loading}
           className={cn(
             "flex-1 resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground",
             "focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "disabled:text-zinc-500 disabled:cursor-not-allowed",
             "min-h-[44px] max-h-[120px]",
           )}
-          style={{ fieldSizing: "content" } as unknown as React.CSSProperties}
         />
         <Button
           type="submit"
           size="sm"
           disabled={loading || !input.trim()}
+          aria-label="Send message"
           className="h-[44px] px-4"
         >
-          <SendIcon className="size-4" />
+          <SendIcon className="size-4" aria-hidden="true" />
         </Button>
       </form>
     </div>

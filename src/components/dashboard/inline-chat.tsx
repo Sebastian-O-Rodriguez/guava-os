@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowRightIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function InlineChat() {
   const [input, setInput] = useState("");
@@ -9,6 +10,13 @@ export function InlineChat() {
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up banner timer on unmount to prevent state updates on dead component
+  useEffect(() => {
+    return () => {
+      if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
+    };
+  }, []);
 
   function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
@@ -19,6 +27,9 @@ export function InlineChat() {
     setInput("");
 
     startTransition(async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -26,6 +37,7 @@ export function InlineChat() {
           body: JSON.stringify({
             messages: [{ role: "user", content: msg }],
           }),
+          signal: controller.signal,
         });
 
         if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -36,10 +48,15 @@ export function InlineChat() {
 
         if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
         bannerTimeoutRef.current = setTimeout(() => setResponse(null), 4000);
-      } catch {
-        setResponse("Something went wrong. Try again.");
+      } catch (err) {
+        const isTimeout = err instanceof Error && err.name === "AbortError";
+        setResponse(
+          isTimeout ? "Request timed out. Try again." : "Something went wrong. Try again.",
+        );
         if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
         bannerTimeoutRef.current = setTimeout(() => setResponse(null), 4000);
+      } finally {
+        clearTimeout(timeoutId);
       }
     });
   }
@@ -59,30 +76,37 @@ export function InlineChat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Log food, gym, run, or ask about progress..."
+            maxLength={500}
             disabled={isPending}
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-zinc-600 outline-none disabled:opacity-50"
+            aria-label="Log activity or ask about progress"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-zinc-500 outline-none disabled:text-zinc-500 disabled:cursor-not-allowed"
           />
         </div>
-        <button
+        <Button
           type="submit"
+          variant="ghost"
+          size="icon"
+          aria-label="Send message"
           disabled={!input.trim() || isPending}
-          className="rounded-xl border border-zinc-800/60 bg-zinc-900/80 p-2.5 text-muted-foreground transition-all hover:border-zinc-700 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-xl border border-zinc-800/60 bg-zinc-900/80 text-muted-foreground hover:border-zinc-700 hover:text-foreground hover:bg-zinc-900/80"
         >
-          <ArrowRightIcon className="size-4" />
-        </button>
+          <ArrowRightIcon className="size-4" aria-hidden="true" />
+        </Button>
       </form>
 
-      {response && (
-        <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/60 px-4 py-2.5 text-sm text-muted-foreground animate-fade-in">
-          {response}
-        </div>
-      )}
+      <div aria-live="polite" aria-atomic="true">
+        {response && (
+          <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/60 px-4 py-2.5 text-sm text-muted-foreground animate-fade-in">
+            {response}
+          </div>
+        )}
 
-      {isPending && (
-        <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-600 animate-fade-in">
-          Processing...
-        </div>
-      )}
+        {isPending && (
+          <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-400 animate-fade-in">
+            Processing...
+          </div>
+        )}
+      </div>
     </div>
   );
 }

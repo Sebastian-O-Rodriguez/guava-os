@@ -1,8 +1,5 @@
 import { openrouter, CHAT_MODEL } from "@/lib/openrouter";
-import {
-  classifierOutputSchema,
-  type ClassifierOutput,
-} from "@/lib/chat-scenarios";
+import { classifierOutputSchema, type ClassifierOutput } from "@/lib/chat-scenarios";
 import { CLASSIFIER_PROMPT } from "@/lib/chat-prompt";
 
 /**
@@ -10,9 +7,7 @@ import { CLASSIFIER_PROMPT } from "@/lib/chat-prompt";
  * Returns a validated { scenario, params } object.
  * On any failure (network, parse, validation) returns scenario "unknown".
  */
-export async function classifyMessage(
-  userMessage: string,
-): Promise<ClassifierOutput> {
+export async function classifyMessage(userMessage: string): Promise<ClassifierOutput> {
   try {
     const response = await openrouter.chat.completions.create({
       model: CHAT_MODEL,
@@ -43,10 +38,7 @@ export async function classifyMessage(
 
     const result = classifierOutputSchema.safeParse(parsed);
     if (!result.success) {
-      console.error(
-        "[classifyMessage] Schema validation failed:",
-        result.error.issues,
-      );
+      console.error("[classifyMessage] Schema validation failed:", result.error.issues);
       return { scenario: "unknown", params: {} };
     }
 

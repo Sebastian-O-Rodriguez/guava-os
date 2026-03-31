@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { getAllCategoryProgress, getWeeklyGymSummary, getWeeklyRunningSummary } from "@/actions/logs";
+import {
+  getAllCategoryProgress,
+  getWeeklyGymSummary,
+  getWeeklyRunningSummary,
+} from "@/actions/logs";
 import type { CategoryProgress } from "@/lib/types";
 
 function pctColor(pct: number): string {
@@ -9,7 +13,13 @@ function pctColor(pct: number): string {
   return "text-muted-foreground";
 }
 
-function ProgressRow({ cat, goal }: { cat: CategoryProgress; goal: CategoryProgress["goals"][number] }) {
+function ProgressRow({
+  cat,
+  goal,
+}: {
+  cat: CategoryProgress;
+  goal: CategoryProgress["goals"][number];
+}) {
   const pct = Math.round(goal.percentComplete);
   const displayActual = Number.isInteger(goal.actual) ? goal.actual : goal.actual.toFixed(1);
   const displayTarget = Number.isInteger(goal.target) ? goal.target : goal.target.toFixed(1);
@@ -153,9 +163,11 @@ export default async function ProgressPage() {
                 </thead>
                 <tbody className="px-4">
                   {allProgress.flatMap((cat) =>
-                    cat.goals.length === 0 ? [] : cat.goals.map((goal) => (
-                      <ProgressRow key={goal.goalId} cat={cat} goal={goal} />
-                    ))
+                    cat.goals.length === 0
+                      ? []
+                      : cat.goals.map((goal) => (
+                          <ProgressRow key={goal.goalId} cat={cat} goal={goal} />
+                        )),
                   )}
                   {allProgress.every((c) => c.goals.length === 0) && (
                     <tr>

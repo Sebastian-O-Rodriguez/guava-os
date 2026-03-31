@@ -3,9 +3,7 @@
  * Copied from the legacy habits.ts so new modules don't depend on it.
  */
 export function normalizeDate(date: Date): Date {
-  return new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 }
 
 /**

@@ -21,7 +21,9 @@ declare module "react-liquid-gauge" {
     waveAmplitude?: number;
     waveFrequency?: number;
     gradient?: boolean;
-    gradientStops?: Array<{ key: string; stopColor: string; stopOpacity: number; offset: string }> | React.ReactNode;
+    gradientStops?:
+      | Array<{ key: string; stopColor: string; stopOpacity: number; offset: string }>
+      | React.ReactNode;
     onClick?: (event: React.MouseEvent) => void;
     innerRadius?: number;
     outerRadius?: number;

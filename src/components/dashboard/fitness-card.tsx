@@ -3,14 +3,21 @@
 import { useTransition } from "react";
 import { Footprints, ArrowUpFromLine, Dumbbell, Timer } from "lucide-react";
 import type { GymBodyPartCount, GoalProgress, RunningSummary } from "@/lib/types";
+import type { GaugeActionCallbacks } from "./liquid-gauge";
 import { LiquidGauge } from "./liquid-gauge";
-import { quickIncrementGym, quickDecrementGym, quickAddRun, quickDecrementRun } from "@/actions/quick-log";
+import {
+  quickIncrementGym,
+  quickDecrementGym,
+  quickAddRun,
+  quickDecrementRun,
+} from "@/actions/quick-log";
 
 type FitnessCardProps = {
   gymSummary: GymBodyPartCount[];
   gymGoals: GoalProgress[];
   runningSummary: RunningSummary;
   runGoals: GoalProgress[];
+  readOnly?: boolean;
 };
 
 function getGymIcon(bodyPart: string): React.ReactNode {
@@ -26,6 +33,7 @@ export function FitnessCard({
   gymGoals,
   runningSummary,
   runGoals,
+  readOnly = false,
 }: FitnessCardProps) {
   const [, startTransition] = useTransition();
 
@@ -50,30 +58,34 @@ export function FitnessCard({
   const runTarget = milesGoal?.target ?? 0;
 
   function handleGymIncrement(bodyPart: string) {
-    return () => {
+    return (_amount: number, cbs?: GaugeActionCallbacks) => {
       startTransition(async () => {
-        await quickIncrementGym(bodyPart);
+        const result = await quickIncrementGym(bodyPart);
+        if (!result.success) cbs?.rollback();
       });
     };
   }
 
   function handleGymDecrement(bodyPart: string) {
-    return () => {
+    return (_amount: number, cbs?: GaugeActionCallbacks) => {
       startTransition(async () => {
-        await quickDecrementGym(bodyPart);
+        const result = await quickDecrementGym(bodyPart);
+        if (!result.success) cbs?.rollback();
       });
     };
   }
 
-  function handleRunIncrement(amount: number) {
+  function handleRunIncrement(amount: number, cbs?: GaugeActionCallbacks) {
     startTransition(async () => {
-      await quickAddRun(amount);
+      const result = await quickAddRun(amount);
+      if (!result.success) cbs?.rollback();
     });
   }
 
-  function handleRunDecrement(amount: number) {
+  function handleRunDecrement(amount: number, cbs?: GaugeActionCallbacks) {
     startTransition(async () => {
-      await quickDecrementRun(amount);
+      const result = await quickDecrementRun(amount);
+      if (!result.success) cbs?.rollback();
     });
   }
 
@@ -93,7 +105,7 @@ export function FitnessCard({
     <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/80 shadow-card p-5 flex flex-col gap-4">
       <h2 className="font-semibold text-foreground">Fitness</h2>
 
-      <div className="flex justify-around items-end">
+      <div role="group" aria-label="Fitness gauges" className="flex justify-around items-end">
         {gymRows.map((row) => (
           <LiquidGauge
             key={row.bodyPart}
@@ -101,9 +113,10 @@ export function FitnessCard({
             value={row.done}
             max={row.target}
             tapAmount={1}
-            onIncrement={handleGymIncrement(row.bodyPart)}
-            onDecrement={handleGymDecrement(row.bodyPart)}
+            onIncrement={readOnly ? undefined : handleGymIncrement(row.bodyPart)}
+            onDecrement={readOnly ? undefined : handleGymDecrement(row.bodyPart)}
             icon={getGymIcon(row.bodyPart)}
+            readOnly={readOnly}
           />
         ))}
 
@@ -114,9 +127,10 @@ export function FitnessCard({
             max={runTarget > 0 ? runTarget : 10}
             unit="mi"
             tapAmount={1}
-            onIncrement={handleRunIncrement}
-            onDecrement={handleRunDecrement}
+            onIncrement={readOnly ? undefined : handleRunIncrement}
+            onDecrement={readOnly ? undefined : handleRunDecrement}
             icon={<Timer size={28} />}
+            readOnly={readOnly}
           />
         )}
       </div>
