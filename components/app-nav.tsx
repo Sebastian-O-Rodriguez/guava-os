@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { styled, XStack, YStack, View, Text, Button } from "tamagui";
+import { useThemeMode } from "../lib/theme-context";
 
 type NavLink = { label: string; href: string };
 
@@ -54,6 +55,7 @@ type AppNavProps = {
 export function AppNav({ currentPath }: AppNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
+  const { mode, toggle } = useThemeMode();
 
   function toggleMenu() {
     setMenuOpen((prev) => !prev);
@@ -86,6 +88,22 @@ export function AppNav({ currentPath }: AppNavProps) {
             textTransform="uppercase"
           >
             routineme
+          </Text>
+        </Button>
+
+        {/* Theme toggle */}
+        <Button
+          unstyled
+          onPress={toggle}
+          accessibilityLabel={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          width={32}
+          height={32}
+          alignItems="center"
+          justifyContent="center"
+          pressStyle={{ opacity: 0.6 }}
+        >
+          <Text fontSize={16} color="$color">
+            {mode === "dark" ? "\u263C" : "\u263E"}
           </Text>
         </Button>
 

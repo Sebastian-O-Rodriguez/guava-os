@@ -17,24 +17,13 @@ function offsetDate(isoDate: string, days: number): string {
   return `${ny}-${nm}-${nd}`;
 }
 
-function getTodayIso(): string {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = String(today.getMonth() + 1).padStart(2, "0");
-  const d = String(today.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeaderProps) {
+export function DayHeader({ dateString, isoDate, onNavigate }: DayHeaderProps) {
   function goBack() {
     onNavigate?.(offsetDate(isoDate, -1));
   }
 
   function goForward() {
-    if (isToday) return;
-    const next = offsetDate(isoDate, 1);
-    const todayIso = getTodayIso();
-    onNavigate?.(next === todayIso ? todayIso : next);
+    onNavigate?.(offsetDate(isoDate, 1));
   }
 
   return (
@@ -64,16 +53,14 @@ export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeade
       <Button
         unstyled
         onPress={goForward}
-        disabled={isToday}
         accessibilityLabel="Next day"
         width={32}
         height={32}
         alignItems="center"
         justifyContent="center"
         pressStyle={{ opacity: 0.6 }}
-        opacity={isToday ? 0.3 : 1}
       >
-        <Text fontSize={20} color={isToday ? "$zinc700" : "$zinc400"} lineHeight={20}>{"›"}</Text>
+        <Text fontSize={20} color="$zinc400" lineHeight={20}>{"›"}</Text>
       </Button>
     </XStack>
   );

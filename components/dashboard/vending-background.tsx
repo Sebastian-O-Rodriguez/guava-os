@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { View } from "tamagui";
+import { useThemeMode } from "../../lib/theme-context";
 
 // Web-only: conditionally import Rive to avoid native bundler issues
 // Platform.OS check is permitted here — Rive Canvas API is web-only
@@ -23,7 +24,12 @@ if (Platform.OS === "web") {
   }
 }
 
-function VendingBackgroundWeb() {
+type VendingBackgroundWebProps = {
+  overlayColor: string;
+  fallbackColor: string;
+};
+
+function VendingBackgroundWeb({ overlayColor, fallbackColor }: VendingBackgroundWebProps) {
   const { RiveComponent, rive } = useRiveHook!({
     src: "/animations/vending-machine.riv",
     autoplay: true,
@@ -64,19 +70,19 @@ function VendingBackgroundWeb() {
         style={{
           position: "absolute",
           inset: 0,
-          backgroundColor: "#09090b",
+          backgroundColor: fallbackColor,
           pointerEvents: "none",
           opacity: rive ? 0 : 1,
           transition: "opacity 600ms ease-out",
         }}
       />
 
-      {/* Subtle flat overlay */}
+      {/* Theme-aware flat overlay */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          backgroundColor: "rgba(9,9,11,0.4)",
+          backgroundColor: overlayColor,
           pointerEvents: "none",
         }}
       />
@@ -85,8 +91,12 @@ function VendingBackgroundWeb() {
 }
 
 export function VendingBackground() {
+  const { mode } = useThemeMode();
+  const overlayColor = mode === "dark" ? "rgba(9,9,11,0.4)" : "rgba(255,255,255,0.6)";
+  const fallbackColor = mode === "dark" ? "#09090b" : "#fafafa";
+
   if (Platform.OS === "web" && useRiveHook) {
-    return <VendingBackgroundWeb />;
+    return <VendingBackgroundWeb overlayColor={overlayColor} fallbackColor={fallbackColor} />;
   }
 
   // Native fallback — plain background fill

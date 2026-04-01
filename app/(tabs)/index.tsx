@@ -154,16 +154,13 @@ export default function DashboardScreen() {
   }, [isoDate, fetchKey]);
 
   const handleMutate = useCallback(() => {
-    setFetchKey((k) => k + 1);
+    // Small delay so the DB write completes before we refetch
+    setTimeout(() => setFetchKey((k) => k + 1), 500);
   }, []);
 
   function handleDateNavigate(newIso: string) {
     const [y, m, d] = newIso.split("-").map(Number);
-    const next = new Date(y, m - 1, d);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (next > today) return;
-    setViewDate(next);
+    setViewDate(new Date(y, m - 1, d));
   }
 
   const hasData = !loading && !error && data && (data.hasNutrition || data.hasGym || data.hasRunning);
@@ -193,7 +190,7 @@ export default function DashboardScreen() {
               onNavigate={handleDateNavigate}
             />
 
-            {isToday && <InlineChat onSuccess={handleMutate} />}
+            <InlineChat onSuccess={handleMutate} />
 
             {loading && (
               <Text

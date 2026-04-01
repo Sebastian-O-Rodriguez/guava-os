@@ -87,6 +87,7 @@ export function InlineChat({ apiBaseUrl = API_BASE, onSuccess }: InlineChatProps
           <Input
             unstyled
             flex={1}
+            backgroundColor="transparent"
             value={input}
             onChangeText={setInput}
             placeholder="Log food, gym, run, or ask about progress..."

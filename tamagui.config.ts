@@ -135,6 +135,63 @@ const darkTheme = {
 };
 
 // ---------------------------------------------------------------------------
+// Light theme
+// ---------------------------------------------------------------------------
+
+const lightTheme = {
+  // Base backgrounds
+  background: "#fafafa",
+  backgroundHover: "#f4f4f5",
+  backgroundPress: "#e4e4e7",
+  backgroundFocus: "#e4e4e7",
+
+  // Foreground
+  color: "rgba(0,0,0,0.85)",
+  colorHover: "rgba(0,0,0,0.9)",
+  colorPress: "rgba(0,0,0,0.75)",
+  colorFocus: "rgba(0,0,0,0.75)",
+
+  // Borders
+  borderColor: "#e4e4e7",
+  borderColorHover: "#d4d4d8",
+  borderColorFocus: "#a1a1aa",
+  borderColorPress: "#d4d4d8",
+
+  // Input placeholder
+  placeholderColor: "rgba(0,0,0,0.4)",
+
+  // Glass card surfaces (light mode: slightly darker tint)
+  glassBackground: "rgba(0,0,0,0.03)",
+  glassBorder: "rgba(0,0,0,0.08)",
+  glassBackgroundHover: "rgba(0,0,0,0.06)",
+  glassLid: "rgba(0,0,0,0.1)",
+
+  // Error / overflow border
+  errorBorder: "#ef4444",
+
+  // Shadows
+  shadowColor: "rgba(0,0,0,0.08)",
+  shadowColorHover: "rgba(0,0,0,0.12)",
+
+  // Gauge fills (same accent colors in both themes)
+  fillDefault: "#10b981",
+  fillHigh: "#34d399",
+  fillOverflow: "#38bdf8",
+  fillOverflowGlow: "rgba(56,189,248,0.2)",
+
+  // Status
+  success: "#34d399",
+  error: "#ef4444",
+  warning: "#fbbf24",
+
+  // Text variants
+  textPrimary: "rgba(0,0,0,0.85)",
+  textSecondary: "rgba(0,0,0,0.6)",
+  textMuted: "rgba(0,0,0,0.4)",
+  textDisabled: "rgba(0,0,0,0.2)",
+};
+
+// ---------------------------------------------------------------------------
 // App config
 // ---------------------------------------------------------------------------
 
@@ -146,6 +203,7 @@ const appConfig = createTamagui({
 
   themes: {
     dark: darkTheme,
+    light: lightTheme,
   },
 
   defaultTheme: "dark",
