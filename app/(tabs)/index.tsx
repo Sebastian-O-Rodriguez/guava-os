@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, ScrollView, Platform } from "react-native";
 import { YStack, Text } from "tamagui";
-import { motion } from "motion/react";
 import { VendingBackground } from "../../components/dashboard/vending-background";
 import { DayHeader } from "../../components/dashboard/day-header";
 import { InlineChat } from "../../components/dashboard/inline-chat";
@@ -55,7 +54,7 @@ type CategoryData = {
   active: boolean;
 };
 
-type DashboardData = Omit<MetricsCardProps, "readOnly" | "apiBaseUrl"> & {
+type DashboardData = Omit<MetricsCardProps, "readOnly" | "apiBaseUrl" | "onMutate"> & {
   hasNutrition: boolean;
   hasGym: boolean;
   hasRunning: boolean;
@@ -122,6 +121,7 @@ export default function DashboardScreen() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fetchKey, setFetchKey] = useState(0);
 
   const isToday = isTodayDate(viewDate);
   const isoDate = toISODateString(viewDate);
@@ -137,136 +137,31 @@ export default function DashboardScreen() {
         setError("Failed to load data");
       })
       .finally(() => setLoading(false));
-  }, [isoDate]);
+  }, [isoDate, fetchKey]);
+
+  // Called by MetricsCard after a successful mutation — refetch data
+  const handleMutate = useCallback(() => {
+    setFetchKey((k) => k + 1);
+  }, []);
 
   function handleDateNavigate(newIso: string) {
     const [y, m, d] = newIso.split("-").map(Number);
     const next = new Date(y, m - 1, d);
-    // Clamp to today — do not allow future dates
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (next > today) return;
     setViewDate(next);
   }
 
-  // ---------------------------------------------------------------------------
-  // Web render — fixed background, AppNav fixed at top, content flush below
-  // ---------------------------------------------------------------------------
-
-  if (Platform.OS === "web") {
-    return (
-      <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
-        {/* Fixed animated background */}
-        <VendingBackground />
-
-        {/* Fixed nav — sits at z-50, h-10 */}
-        <AppNav currentPath="/" />
-
-        {/* Content — starts right under the nav (pt-10 = 40px nav height) */}
-        <div
-          style={{
-            position: "relative",
-            zIndex: 10,
-            paddingTop: 40, // nav height
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 896,
-              margin: "0 auto",
-              width: "100%",
-              padding: "8px 16px 32px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            <DayHeader
-              dateString={dateString}
-              isoDate={isoDate}
-              isToday={isToday}
-              onNavigate={handleDateNavigate}
-            />
-
-            {isToday && <InlineChat />}
-
-            {loading && (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: 32,
-                  color: "rgba(255,255,255,0.4)",
-                  fontSize: 14,
-                }}
-              >
-                Loading...
-              </div>
-            )}
-
-            {error && !loading && (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: 32,
-                  color: "rgba(255,255,255,0.4)",
-                  fontSize: 14,
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            {!loading && !error && data && (data.hasNutrition || data.hasGym || data.hasRunning) && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-              >
-                <MetricsCard
-                  nutritionSummary={data.nutritionSummary}
-                  nutritionGoals={data.nutritionGoals}
-                  gymSummary={data.gymSummary}
-                  gymGoals={data.gymGoals}
-                  runningSummary={data.runningSummary}
-                  runGoals={data.runGoals}
-                  readOnly={!isToday}
-                  hasNutrition={data.hasNutrition}
-                  hasGym={data.hasGym}
-                  hasRunning={data.hasRunning}
-                />
-              </motion.div>
-            )}
-
-            {!loading && !error && data && !data.hasNutrition && !data.hasGym && !data.hasRunning && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                style={{
-                  borderRadius: 16,
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  backgroundColor: "rgba(255,255,255,0.03)",
-                  padding: 32,
-                  textAlign: "center",
-                  color: "rgba(255,255,255,0.4)",
-                  fontSize: 14,
-                }}
-              >
-                No categories set up yet. Use the chat to get started.
-              </motion.div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const hasData = !loading && !error && data && (data.hasNutrition || data.hasGym || data.hasRunning);
+  const isEmpty = !loading && !error && data && !data.hasNutrition && !data.hasGym && !data.hasRunning;
 
   // ---------------------------------------------------------------------------
-  // Native render — solid background + scroll view, AppNav at top
+  // Single card content — shared between web and native
   // ---------------------------------------------------------------------------
 
-  const content = (
-    <YStack flex={1} zIndex={10} padding={16} gap={12}>
+  const cardContent = (
+    <>
       <DayHeader
         dateString={dateString}
         isoDate={isoDate}
@@ -274,25 +169,21 @@ export default function DashboardScreen() {
         onNavigate={handleDateNavigate}
       />
 
-      {isToday && <InlineChat />}
+      {isToday && <InlineChat onSuccess={handleMutate} />}
 
       {loading && (
-        <YStack alignItems="center" justifyContent="center" flex={1}>
-          <Text color="$placeholderColor" fontSize={14}>
-            Loading...
-          </Text>
-        </YStack>
+        <div style={{ textAlign: "center", padding: 24, color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
+          Loading...
+        </div>
       )}
 
       {error && !loading && (
-        <YStack alignItems="center" justifyContent="center" flex={1}>
-          <Text color="$placeholderColor" fontSize={14}>
-            {error}
-          </Text>
-        </YStack>
+        <div style={{ textAlign: "center", padding: 24, color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
+          {error}
+        </div>
       )}
 
-      {!loading && !error && data && (data.hasNutrition || data.hasGym || data.hasRunning) && (
+      {hasData && (
         <MetricsCard
           nutritionSummary={data.nutritionSummary}
           nutritionGoals={data.nutritionGoals}
@@ -304,39 +195,88 @@ export default function DashboardScreen() {
           hasNutrition={data.hasNutrition}
           hasGym={data.hasGym}
           hasRunning={data.hasRunning}
+          onMutate={handleMutate}
         />
       )}
 
-      {!loading && !error && data && !data.hasNutrition && !data.hasGym && !data.hasRunning && (
-        <YStack
-          borderRadius={16}
-          borderWidth={1}
-          borderColor="rgba(255,255,255,0.06)"
-          backgroundColor="rgba(255,255,255,0.03)"
-          padding={32}
-          alignItems="center"
-        >
-          <Text color="$placeholderColor" fontSize={14} textAlign="center">
-            No categories set up yet. Use the chat to get started.
-          </Text>
-        </YStack>
+      {isEmpty && (
+        <div style={{ textAlign: "center", padding: 24, color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
+          No categories set up yet. Use the chat to get started.
+        </div>
       )}
-    </YStack>
+    </>
   );
+
+  // ---------------------------------------------------------------------------
+  // Web render
+  // ---------------------------------------------------------------------------
+
+  if (Platform.OS === "web") {
+    return (
+      <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
+        <VendingBackground />
+        <AppNav currentPath="/" />
+
+        <div
+          style={{
+            position: "relative",
+            zIndex: 10,
+            paddingTop: 40,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 640,
+              margin: "0 auto",
+              width: "100%",
+              padding: "8px 16px 32px",
+            }}
+          >
+            {/* Single card: DayHeader + Chat + Metrics */}
+            <div
+              style={{
+                borderRadius: 20,
+                border: "2px solid yellow", // TESTING — remove later
+                backgroundColor: "transparent",
+                padding: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                overflow: "hidden",
+              }}
+            >
+              {cardContent}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Native render
+  // ---------------------------------------------------------------------------
 
   return (
     <View style={{ flex: 1, backgroundColor: "#09090b" }}>
       <VendingBackground />
-      {/* AppNav at very top on native */}
       <View style={{ zIndex: 20 }}>
         <AppNav currentPath="/" />
       </View>
       <ScrollView
         style={{ flex: 1, zIndex: 10 }}
-        contentContainerStyle={{ padding: 16, gap: 12 }}
+        contentContainerStyle={{ padding: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        {content}
+        <YStack
+          borderRadius={20}
+          borderWidth={2}
+          borderColor="yellow"
+          padding={16}
+          gap={12}
+        >
+          {cardContent}
+        </YStack>
       </ScrollView>
     </View>
   );

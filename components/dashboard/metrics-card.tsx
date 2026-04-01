@@ -71,6 +71,8 @@ export type MetricsCardProps = {
   hasRunning?: boolean;
   /** Base URL for API calls — required in Expo since there are no relative paths */
   apiBaseUrl?: string;
+  /** Called after a successful mutation so the parent can refetch */
+  onMutate?: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -89,6 +91,7 @@ export function MetricsCard({
   hasGym = true,
   hasRunning: hasRunningProp,
   apiBaseUrl = API_BASE,
+  onMutate,
 }: MetricsCardProps) {
   const [, startTransition] = useTransition();
 
@@ -159,6 +162,7 @@ export function MetricsCard({
       startTransition(async () => {
         try {
           await callQuickLog("quickAddNutrition", { macro, amount });
+          onMutate?.();
         } catch {
           cbs?.rollback();
         }
@@ -171,6 +175,7 @@ export function MetricsCard({
       startTransition(async () => {
         try {
           await callQuickLog("quickRemoveNutrition", { macro, amount });
+          onMutate?.();
         } catch {
           cbs?.rollback();
         }
@@ -202,6 +207,7 @@ export function MetricsCard({
       startTransition(async () => {
         try {
           await callQuickLog("quickIncrementGym", { bodyPart });
+          onMutate?.();
         } catch {
           cbs?.rollback();
         }
@@ -214,6 +220,7 @@ export function MetricsCard({
       startTransition(async () => {
         try {
           await callQuickLog("quickDecrementGym", { bodyPart });
+          onMutate?.();
         } catch {
           cbs?.rollback();
         }

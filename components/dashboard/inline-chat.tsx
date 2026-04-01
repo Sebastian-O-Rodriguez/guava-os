@@ -6,6 +6,8 @@ import { API_BASE } from "../../lib/api";
 type InlineChatProps = {
   /** Base URL for the API — required on native where relative paths don't work */
   apiBaseUrl?: string;
+  /** Called after a successful chat action so the parent can refetch */
+  onSuccess?: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -78,7 +80,7 @@ function SendIcon() {
 // Component
 // ---------------------------------------------------------------------------
 
-export function InlineChat({ apiBaseUrl = API_BASE }: InlineChatProps) {
+export function InlineChat({ apiBaseUrl = API_BASE, onSuccess }: InlineChatProps) {
   const [input, setInput] = useState("");
   const [response, setResponse] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -116,6 +118,7 @@ export function InlineChat({ apiBaseUrl = API_BASE }: InlineChatProps) {
         const data = await res.json();
         const text: string = data.message ?? "Done.";
         setResponse(text);
+        onSuccess?.();
 
         if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current);
         bannerTimeoutRef.current = setTimeout(() => setResponse(null), 4000);
