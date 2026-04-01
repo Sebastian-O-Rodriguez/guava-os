@@ -3,11 +3,8 @@ import { XStack, YStack, Text, Button } from "tamagui";
 
 type DayHeaderProps = {
   dateString: string;
-  /** YYYY-MM-DD of the currently viewed date */
   isoDate: string;
-  /** True when the viewed date is today — disables the forward button */
   isToday: boolean;
-  /** Called with the new ISO date string when the user navigates */
   onNavigate?: (isoDate: string) => void;
 };
 
@@ -29,64 +26,6 @@ function getTodayIso(): string {
   return `${y}-${m}-${d}`;
 }
 
-// ---------------------------------------------------------------------------
-// Chevron icons — simple SVG on web, text on native
-// ---------------------------------------------------------------------------
-
-function ChevronLeft({ disabled }: { disabled?: boolean }) {
-  if (Platform.OS === "web") {
-    return (
-      <svg
-        width={20}
-        height={20}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={disabled ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.4)"}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <polyline points="15 18 9 12 15 6" />
-      </svg>
-    );
-  }
-  return (
-    <Text fontSize={20} color={disabled ? "$zinc700" : "$zinc400"} lineHeight={20}>
-      {"‹"}
-    </Text>
-  );
-}
-
-function ChevronRight({ disabled }: { disabled?: boolean }) {
-  if (Platform.OS === "web") {
-    return (
-      <svg
-        width={20}
-        height={20}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={disabled ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.4)"}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <polyline points="9 18 15 12 9 6" />
-      </svg>
-    );
-  }
-  return (
-    <Text fontSize={20} color={disabled ? "$zinc700" : "$zinc400"} lineHeight={20}>
-      {"›"}
-    </Text>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeaderProps) {
   function goBack() {
     onNavigate?.(offsetDate(isoDate, -1));
@@ -96,13 +35,71 @@ export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeade
     if (isToday) return;
     const next = offsetDate(isoDate, 1);
     const todayIso = getTodayIso();
-    // When next is today, navigate to today (canonical)
     onNavigate?.(next === todayIso ? todayIso : next);
   }
 
+  if (Platform.OS === "web") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <button
+          onClick={goBack}
+          aria-label="Previous day"
+          style={{
+            width: 32,
+            height: 32,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+            flexShrink: 0,
+          }}
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+
+        <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+          <div style={{ fontSize: 18, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: -0.3 }}>
+            The Stub is the Way
+          </div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
+            {dateString}
+          </div>
+        </div>
+
+        <button
+          onClick={goForward}
+          disabled={isToday}
+          aria-label="Next day"
+          style={{
+            width: 32,
+            height: 32,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "none",
+            border: "none",
+            cursor: isToday ? "default" : "pointer",
+            padding: 0,
+            opacity: isToday ? 0.2 : 1,
+            flexShrink: 0,
+          }}
+        >
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
+  // Native
   return (
     <XStack alignItems="center" justifyContent="space-between" gap={16}>
-      {/* Back button */}
       <Button
         unstyled
         onPress={goBack}
@@ -114,30 +111,18 @@ export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeade
         borderRadius={8}
         pressStyle={{ opacity: 0.6 }}
       >
-        <ChevronLeft />
+        <Text fontSize={20} color="$zinc400" lineHeight={20}>{"‹"}</Text>
       </Button>
 
-      {/* Title + date */}
       <YStack alignItems="center" gap={2} flex={1}>
-        <Text
-          fontSize={18}
-          fontWeight="600"
-          color={Platform.OS === "web" ? "rgba(255,255,255,0.9)" : "$color"}
-          letterSpacing={-0.3}
-          textAlign="center"
-        >
+        <Text fontSize={18} fontWeight="600" color="$color" letterSpacing={-0.3} textAlign="center">
           The Stub is the Way
         </Text>
-        <Text
-          fontSize={13}
-          color={Platform.OS === "web" ? "rgba(255,255,255,0.4)" : "$placeholderColor"}
-          textAlign="center"
-        >
+        <Text fontSize={13} color="$placeholderColor" textAlign="center">
           {dateString}
         </Text>
       </YStack>
 
-      {/* Forward button */}
       <Button
         unstyled
         onPress={goForward}
@@ -151,7 +136,7 @@ export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeade
         pressStyle={{ opacity: 0.6 }}
         opacity={isToday ? 0.3 : 1}
       >
-        <ChevronRight disabled={isToday} />
+        <Text fontSize={20} color={isToday ? "$zinc700" : "$zinc400"} lineHeight={20}>{"›"}</Text>
       </Button>
     </XStack>
   );

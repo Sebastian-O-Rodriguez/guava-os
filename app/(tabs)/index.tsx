@@ -230,6 +230,7 @@ export default function DashboardScreen() {
               margin: "0 auto",
               width: "100%",
               padding: "8px 16px 32px",
+              boxSizing: "border-box",
             }}
           >
             {/* Single card: DayHeader + Chat + Metrics */}
@@ -243,6 +244,8 @@ export default function DashboardScreen() {
                 flexDirection: "column",
                 gap: 12,
                 overflow: "hidden",
+                boxSizing: "border-box",
+                maxWidth: "100%",
               }}
             >
               {cardContent}
