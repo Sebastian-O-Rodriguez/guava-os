@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, ScrollView, Platform } from "react-native";
-import { YStack, Text } from "tamagui";
+import { styled, YStack, View, Text, ScrollView } from "tamagui";
 import { VendingBackground } from "../../components/dashboard/vending-background";
 import { DayHeader } from "../../components/dashboard/day-header";
 import { InlineChat } from "../../components/dashboard/inline-chat";
@@ -59,6 +58,21 @@ type DashboardData = Omit<MetricsCardProps, "readOnly" | "apiBaseUrl" | "onMutat
   hasGym: boolean;
   hasRunning: boolean;
 };
+
+// ---------------------------------------------------------------------------
+// Styled components
+// ---------------------------------------------------------------------------
+
+const DashboardCard = styled(YStack, {
+  name: "DashboardCard",
+  borderRadius: "$5",
+  borderWidth: 1,
+  borderColor: "$glassBorder",
+  backgroundColor: "transparent",
+  padding: "$4",
+  gap: "$3",
+  overflow: "hidden",
+});
 
 // ---------------------------------------------------------------------------
 // Fetch
@@ -139,7 +153,6 @@ export default function DashboardScreen() {
       .finally(() => setLoading(false));
   }, [isoDate, fetchKey]);
 
-  // Called by MetricsCard after a successful mutation — refetch data
   const handleMutate = useCallback(() => {
     setFetchKey((k) => k + 1);
   }, []);
@@ -156,129 +169,81 @@ export default function DashboardScreen() {
   const hasData = !loading && !error && data && (data.hasNutrition || data.hasGym || data.hasRunning);
   const isEmpty = !loading && !error && data && !data.hasNutrition && !data.hasGym && !data.hasRunning;
 
-  // ---------------------------------------------------------------------------
-  // Single card content — shared between web and native
-  // ---------------------------------------------------------------------------
-
-  const cardContent = (
-    <>
-      <DayHeader
-        dateString={dateString}
-        isoDate={isoDate}
-        isToday={isToday}
-        onNavigate={handleDateNavigate}
-      />
-
-      {isToday && <InlineChat onSuccess={handleMutate} />}
-
-      {loading && (
-        <div style={{ textAlign: "center", padding: 24, color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
-          Loading...
-        </div>
-      )}
-
-      {error && !loading && (
-        <div style={{ textAlign: "center", padding: 24, color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
-          {error}
-        </div>
-      )}
-
-      {hasData && (
-        <MetricsCard
-          nutritionSummary={data.nutritionSummary}
-          nutritionGoals={data.nutritionGoals}
-          gymSummary={data.gymSummary}
-          gymGoals={data.gymGoals}
-          runningSummary={data.runningSummary}
-          runGoals={data.runGoals}
-          readOnly={!isToday}
-          hasNutrition={data.hasNutrition}
-          hasGym={data.hasGym}
-          hasRunning={data.hasRunning}
-          onMutate={handleMutate}
-        />
-      )}
-
-      {isEmpty && (
-        <div style={{ textAlign: "center", padding: 24, color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
-          No categories set up yet. Use the chat to get started.
-        </div>
-      )}
-    </>
-  );
-
-  // ---------------------------------------------------------------------------
-  // Web render
-  // ---------------------------------------------------------------------------
-
-  if (Platform.OS === "web") {
-    return (
-      <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden" }}>
-        <VendingBackground />
-        <AppNav currentPath="/" />
-
-        <div
-          style={{
-            position: "relative",
-            zIndex: 10,
-            paddingTop: 40,
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 640,
-              margin: "0 auto",
-              width: "100%",
-              padding: "8px 16px 32px",
-              boxSizing: "border-box",
-            }}
-          >
-            {/* Single card: DayHeader + Chat + Metrics */}
-            <div
-              style={{
-                borderRadius: 20,
-                border: "2px solid yellow", // TESTING — remove later
-                backgroundColor: "transparent",
-                padding: 16,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                overflow: "hidden",
-                boxSizing: "border-box",
-                maxWidth: "100%",
-              }}
-            >
-              {cardContent}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Native render
-  // ---------------------------------------------------------------------------
-
   return (
-    <View style={{ flex: 1, backgroundColor: "#09090b" }}>
+    <View flex={1} backgroundColor="$background">
       <VendingBackground />
-      <View style={{ zIndex: 20 }}>
+
+      <View zIndex={20}>
         <AppNav currentPath="/" />
       </View>
+
       <ScrollView
-        style={{ flex: 1, zIndex: 10 }}
-        contentContainerStyle={{ padding: 16 }}
+        flex={1}
+        zIndex={10}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 32 }}
+        $md={{ contentContainerStyle: { padding: 12 } }}
       >
-        <YStack
-          borderRadius={20}
-          borderWidth={2}
-          borderColor="yellow"
-          padding={16}
-          gap={12}
-        >
-          {cardContent}
+        <YStack maxWidth={640} alignSelf="center" width="100%">
+          <DashboardCard>
+            <DayHeader
+              dateString={dateString}
+              isoDate={isoDate}
+              isToday={isToday}
+              onNavigate={handleDateNavigate}
+            />
+
+            {isToday && <InlineChat onSuccess={handleMutate} />}
+
+            {loading && (
+              <Text
+                textAlign="center"
+                padding="$6"
+                color="$placeholderColor"
+                fontSize={14}
+              >
+                Loading...
+              </Text>
+            )}
+
+            {error && !loading && (
+              <Text
+                textAlign="center"
+                padding="$6"
+                color="$placeholderColor"
+                fontSize={14}
+              >
+                {error}
+              </Text>
+            )}
+
+            {hasData && (
+              <MetricsCard
+                nutritionSummary={data.nutritionSummary}
+                nutritionGoals={data.nutritionGoals}
+                gymSummary={data.gymSummary}
+                gymGoals={data.gymGoals}
+                runningSummary={data.runningSummary}
+                runGoals={data.runGoals}
+                readOnly={!isToday}
+                hasNutrition={data.hasNutrition}
+                hasGym={data.hasGym}
+                hasRunning={data.hasRunning}
+                onMutate={handleMutate}
+              />
+            )}
+
+            {isEmpty && (
+              <Text
+                textAlign="center"
+                padding="$6"
+                color="$placeholderColor"
+                fontSize={14}
+              >
+                No categories set up yet. Use the chat to get started.
+              </Text>
+            )}
+          </DashboardCard>
         </YStack>
       </ScrollView>
     </View>

@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
-import { Platform, ScrollView as RNScrollView, View } from "react-native";
-import { YStack, XStack, Text, Button, Input, ScrollView } from "tamagui";
+import { styled, YStack, XStack, View, Text, Button, Input, ScrollView } from "tamagui";
 import { API_BASE } from "../lib/api";
 
 type Message = {
@@ -21,79 +20,57 @@ type ChatProps = {
 };
 
 // ---------------------------------------------------------------------------
-// Sparkles icon
+// Styled components
 // ---------------------------------------------------------------------------
 
-function SparklesIcon({ size = 24 }: { size?: number }) {
-  if (Platform.OS === "web") {
-    return (
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="rgb(52,211,153)"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
-        <path d="M5 17l.75 2.25L8 20l-2.25.75L5 23l-.75-2.25L2 20l2.25-.75z" />
-        <path d="M19 3l.75 2.25L22 6l-2.25.75L19 9l-.75-2.25L16 6l2.25-.75z" />
-      </svg>
-    );
-  }
-  return <Text fontSize={size} color="$emerald400">{"*"}</Text>;
-}
+const IconCircle = styled(View, {
+  name: "IconCircle",
+  borderWidth: 1,
+  alignItems: "center",
+  justifyContent: "center",
+  borderColor: "$fillDefault",
+  backgroundColor: "$fillDefault",
 
-// ---------------------------------------------------------------------------
-// Send icon
-// ---------------------------------------------------------------------------
+  variants: {
+    size: {
+      sm: { width: 48, height: 48, borderRadius: 24 },
+      md: { width: 64, height: 64, borderRadius: 32 },
+    },
+  } as const,
 
-function SendIcon() {
-  if (Platform.OS === "web") {
-    return (
-      <svg
-        width={16}
-        height={16}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <line x1="22" y1="2" x2="11" y2="13" />
-        <polygon points="22 2 15 22 11 13 2 9 22 2" />
-      </svg>
-    );
-  }
-  return <Text fontSize={14}>{"→"}</Text>;
-}
+  defaultVariants: {
+    size: "md",
+  },
+});
 
-// ---------------------------------------------------------------------------
-// Loading dots
-// ---------------------------------------------------------------------------
+const UserBubble = styled(View, {
+  name: "UserBubble",
+  borderRadius: 16,
+  borderBottomRightRadius: 4,
+  paddingHorizontal: "$4",
+  paddingVertical: "$3",
+  maxWidth: "85%",
+  backgroundColor: "$fillDefault",
+});
 
-function LoadingDots() {
-  return (
-    <View
-      style={{
-        borderRadius: 16,
-        backgroundColor: "rgb(39,39,42)",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        alignSelf: "flex-start",
-      }}
-    >
-      <Text color="$placeholderColor" fontSize={14}>
-        ...
-      </Text>
-    </View>
-  );
-}
+const AssistantBubble = styled(View, {
+  name: "AssistantBubble",
+  borderRadius: 16,
+  borderBottomLeftRadius: 4,
+  paddingHorizontal: "$4",
+  paddingVertical: "$3",
+  maxWidth: "85%",
+  backgroundColor: "$zinc800",
+});
+
+const LoadingBubble = styled(View, {
+  name: "LoadingBubble",
+  borderRadius: 16,
+  backgroundColor: "$zinc800",
+  paddingHorizontal: "$4",
+  paddingVertical: "$3",
+  alignSelf: "flex-start",
+});
 
 // ---------------------------------------------------------------------------
 // Component
@@ -103,7 +80,8 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const scrollViewRef = useRef<RNScrollView | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scrollViewRef = useRef<any>(null);
 
   async function handleSubmit() {
     const trimmed = input.trim();
@@ -152,7 +130,6 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
     } finally {
       clearTimeout(timeoutId);
       setLoading(false);
-      // Scroll to bottom after render
       requestAnimationFrame(() => {
         scrollViewRef.current?.scrollToEnd?.({ animated: true });
       });
@@ -169,25 +146,14 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
     <YStack
       alignItems="center"
       justifyContent="center"
-      gap={compact ? 16 : 24}
-      paddingVertical={compact ? 24 : 48}
+      gap={compact ? "$4" : "$6"}
+      paddingVertical={compact ? "$6" : "$12"}
     >
-      <View
-        style={{
-          width: compact ? 48 : 64,
-          height: compact ? 48 : 64,
-          borderRadius: compact ? 24 : 32,
-          backgroundColor: "rgba(16,185,129,0.1)",
-          borderWidth: 1,
-          borderColor: "rgba(16,185,129,0.2)",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <SparklesIcon size={compact ? 20 : 28} />
-      </View>
+      <IconCircle size={compact ? "sm" : "md"} opacity={0.15}>
+        <Text fontSize={compact ? 20 : 28} color="$color">{"*"}</Text>
+      </IconCircle>
 
-      <YStack alignItems="center" gap={4}>
+      <YStack alignItems="center" gap="$1">
         <Text
           fontSize={compact ? 14 : 16}
           fontWeight="600"
@@ -201,19 +167,19 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
         </Text>
       </YStack>
 
-      <YStack gap={8} width="100%" maxWidth={compact ? 9999 : 384}>
+      <YStack gap="$2" width="100%" maxWidth={compact ? 9999 : 384}>
         {EXAMPLE_PROMPTS.map((prompt, i) => (
           <Button
             key={i}
             unstyled
             onPress={() => handleExampleClick(prompt)}
-            borderRadius={12}
+            borderRadius="$4"
             borderWidth={1}
-            borderColor="$zinc800"
-            backgroundColor="$zinc900"
-            paddingHorizontal={compact ? 12 : 16}
-            paddingVertical={compact ? 8 : 12}
-            pressStyle={{ borderColor: "$zinc700", opacity: 0.8 }}
+            borderColor="$borderColor"
+            backgroundColor="$backgroundHover"
+            paddingHorizontal={compact ? "$3" : "$4"}
+            paddingVertical={compact ? "$2" : "$3"}
+            pressStyle={{ borderColor: "$borderColorHover", opacity: 0.8 }}
           >
             <Text fontSize={14} color="$placeholderColor" textAlign="left">
               "{prompt}"
@@ -232,77 +198,74 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
         <YStack
           key={i}
           alignItems={msg.role === "user" ? "flex-end" : "flex-start"}
-          gap={8}
+          gap="$2"
         >
-          <View
-            style={{
-              borderRadius: 16,
-              borderBottomRightRadius: msg.role === "user" ? 4 : 16,
-              borderBottomLeftRadius: msg.role === "assistant" ? 4 : 16,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              maxWidth: "85%",
-              backgroundColor: msg.role === "user" ? "rgb(16,185,129)" : "rgb(39,39,42)",
-            }}
-          >
-            <Text
-              fontSize={14}
-              lineHeight={22}
-              color={msg.role === "user" ? "white" : "$color"}
-            >
-              {msg.content}
-            </Text>
-          </View>
+          {msg.role === "user" ? (
+            <UserBubble>
+              <Text fontSize={14} lineHeight={22} color="$zinc50">
+                {msg.content}
+              </Text>
+            </UserBubble>
+          ) : (
+            <AssistantBubble>
+              <Text fontSize={14} lineHeight={22} color="$color">
+                {msg.content}
+              </Text>
+            </AssistantBubble>
+          )}
         </YStack>
       ))}
 
-      {loading && <LoadingDots />}
+      {loading && (
+        <LoadingBubble>
+          <Text color="$placeholderColor" fontSize={14}>
+            ...
+          </Text>
+        </LoadingBubble>
+      )}
     </>
   );
 
   // --- Input area ----------------------------------------------------------
 
   const inputArea = (
-    <XStack gap={8} alignItems="flex-end">
-      <View style={{ flex: 1 }}>
-        <Input
-          value={input}
-          onChangeText={setInput}
-          placeholder="Log food, gym, run, or ask about progress..."
-          style={{ placeholderTextColor: "rgb(113,113,122)" } as never}
-          disabled={loading}
-          maxLength={500}
-          returnKeyType="send"
-          onSubmitEditing={handleSubmit}
-          multiline
-          numberOfLines={1}
-          fontSize={14}
-          color="$color"
-          borderRadius={12}
-          borderWidth={1}
-          borderColor="$zinc700"
-          backgroundColor="$zinc900"
-          paddingHorizontal={16}
-          paddingVertical={12}
-          minHeight={44}
-          focusStyle={{
-            borderColor: "rgba(16,185,129,0.5)",
-          }}
-        />
-      </View>
+    <XStack gap="$2" alignItems="flex-end">
+      <Input
+        flex={1}
+        value={input}
+        onChangeText={setInput}
+        placeholder="Log food, gym, run, or ask about progress..."
+        placeholderTextColor="$placeholderColor"
+        disabled={loading}
+        maxLength={500}
+        returnKeyType="send"
+        onSubmitEditing={handleSubmit}
+        multiline
+        numberOfLines={1}
+        fontSize={14}
+        color="$color"
+        borderRadius="$4"
+        borderWidth={1}
+        borderColor="$borderColor"
+        backgroundColor="$backgroundHover"
+        paddingHorizontal="$4"
+        paddingVertical="$3"
+        minHeight={44}
+        focusStyle={{ borderColor: "$fillDefault" }}
+      />
 
       <Button
         onPress={handleSubmit}
         disabled={loading || !input.trim()}
         accessibilityLabel="Send message"
         height={44}
-        paddingHorizontal={16}
-        borderRadius={12}
-        backgroundColor="$emerald500"
+        paddingHorizontal="$4"
+        borderRadius="$4"
+        backgroundColor="$fillDefault"
         pressStyle={{ opacity: 0.8 }}
         disabledStyle={{ opacity: 0.4 }}
       >
-        <SendIcon />
+        <Text fontSize={14} color="$zinc50">{"→"}</Text>
       </Button>
     </XStack>
   );
@@ -310,7 +273,7 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
   // --- Compose layout ------------------------------------------------------
 
   return (
-    <YStack flex={1} gap={24}>
+    <YStack flex={1} gap="$6">
       <ScrollView
         ref={scrollViewRef}
         flex={1}
@@ -322,9 +285,9 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
         }}
       >
         <YStack
-          gap={16}
+          gap="$4"
           minHeight={compact ? 100 : 200}
-          padding={4}
+          padding="$1"
           aria-live="polite"
           aria-label="Conversation"
         >

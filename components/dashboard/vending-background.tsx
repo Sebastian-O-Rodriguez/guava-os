@@ -1,7 +1,8 @@
 import { Platform } from "react-native";
-import { YStack } from "tamagui";
+import { View } from "tamagui";
 
 // Web-only: conditionally import Rive to avoid native bundler issues
+// Platform.OS check is permitted here — Rive Canvas API is web-only
 let useRiveHook: ((opts: {
   src: string;
   autoplay: boolean;
@@ -30,6 +31,9 @@ function VendingBackgroundWeb() {
   });
 
   return (
+    // The outermost container uses a raw div because we need CSS position:fixed
+    // and the Rive canvas requires direct imperative DOM access — permitted
+    // per style guide section 4 (Rive / Canvas APIs exception).
     <div
       style={{
         position: "fixed",
@@ -67,7 +71,7 @@ function VendingBackgroundWeb() {
         }}
       />
 
-      {/* Subtle flat overlay — matches Next.js bg-zinc-950/40 */}
+      {/* Subtle flat overlay */}
       <div
         style={{
           position: "absolute",
@@ -80,24 +84,22 @@ function VendingBackgroundWeb() {
   );
 }
 
-function VendingBackgroundNative() {
+export function VendingBackground() {
+  if (Platform.OS === "web" && useRiveHook) {
+    return <VendingBackgroundWeb />;
+  }
+
+  // Native fallback — plain background fill
   return (
-    <YStack
+    <View
       position="absolute"
       top={0}
       left={0}
       right={0}
       bottom={0}
-      backgroundColor="#09090b"
+      backgroundColor="$background"
       zIndex={0}
       pointerEvents="none"
     />
   );
-}
-
-export function VendingBackground() {
-  if (Platform.OS === "web" && useRiveHook) {
-    return <VendingBackgroundWeb />;
-  }
-  return <VendingBackgroundNative />;
 }

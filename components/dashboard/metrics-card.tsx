@@ -1,6 +1,5 @@
 import { useTransition } from "react";
-import { Platform, View } from "react-native";
-import { XStack, YStack } from "tamagui";
+import { styled, XStack, YStack } from "tamagui";
 import { motion } from "motion/react";
 import { API_BASE } from "../../lib/api";
 import { LiquidGauge } from "./liquid-gauge";
@@ -37,14 +36,20 @@ export type GoalProgress = {
 };
 
 // ---------------------------------------------------------------------------
-// Icon helpers — plain text symbols for cross-platform compatibility
+// Styled glass card
 // ---------------------------------------------------------------------------
 
-function getGymIcon(bodyPart: string): React.ReactNode {
-  // Return null for now; icon prop is optional
-  // Native Lucide icons won't work here without extra setup
-  return null;
-}
+const GlassCard = styled(YStack, {
+  name: "GlassCard",
+  backgroundColor: "$glassBackground",
+  borderWidth: 1,
+  borderColor: "$glassBorder",
+  borderRadius: "$4",
+  padding: "$3",
+});
+
+// motion wrapper around a Tamagui component — acceptable per style guide
+const MotionXStack = motion(XStack);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -257,168 +262,93 @@ export function MetricsCard({
     });
   }
 
-  // --- Render --------------------------------------------------------------
+  // --- Build gauge items list (single pass) --------------------------------
 
-  // Glass card container — use div on web, Stack on native
-  const gauges = (
-    <>
-      {hasNutrition &&
-        displayMacros.map((macro) => (
-          <LiquidGauge
-            key={macro.key}
-            label={macro.label}
-            value={macro.value}
-            max={macro.target > 0 ? macro.target : 100}
-            unit={macro.unit}
-            size={80}
-            tapAmount={macro.tapAmount}
-            onIncrement={readOnly ? undefined : handleNutritionIncrement(macro.key)}
-            onDecrement={readOnly ? undefined : handleNutritionDecrement(macro.key)}
-            readOnly={readOnly}
-          />
-        ))}
+  const gaugeItems: React.ReactNode[] = [];
 
-      {hasGym &&
-        gymRows.map((row) => (
-          <LiquidGauge
-            key={row.bodyPart}
-            label={row.label}
-            value={row.done}
-            max={row.target}
-            tapAmount={1}
-            onIncrement={readOnly ? undefined : handleGymIncrement(row.bodyPart)}
-            onDecrement={readOnly ? undefined : handleGymDecrement(row.bodyPart)}
-            readOnly={readOnly}
-          />
-        ))}
-
-      {hasRunning && (
-        <LiquidGauge
-          label="Run"
-          value={runningSummary.totalMiles}
-          max={runTarget > 0 ? runTarget : 10}
-          unit="mi"
-          tapAmount={1}
-          onIncrement={readOnly ? undefined : handleRunIncrement}
-          onDecrement={readOnly ? undefined : handleRunDecrement}
-          readOnly={readOnly}
-        />
-      )}
-    </>
-  );
-
-  if (Platform.OS === "web") {
-    // Collect all gauge items so we can apply stagger by index
-    const gaugeItems: React.ReactNode[] = [];
-
-    if (hasNutrition) {
-      displayMacros.forEach((macro) => {
-        gaugeItems.push(
-          <LiquidGauge
-            key={macro.key}
-            label={macro.label}
-            value={macro.value}
-            max={macro.target > 0 ? macro.target : 100}
-            unit={macro.unit}
-            size={80}
-            tapAmount={macro.tapAmount}
-            onIncrement={readOnly ? undefined : handleNutritionIncrement(macro.key)}
-            onDecrement={readOnly ? undefined : handleNutritionDecrement(macro.key)}
-            readOnly={readOnly}
-          />,
-        );
-      });
-    }
-
-    if (hasGym) {
-      gymRows.forEach((row) => {
-        gaugeItems.push(
-          <LiquidGauge
-            key={row.bodyPart}
-            label={row.label}
-            value={row.done}
-            max={row.target}
-            tapAmount={1}
-            onIncrement={readOnly ? undefined : handleGymIncrement(row.bodyPart)}
-            onDecrement={readOnly ? undefined : handleGymDecrement(row.bodyPart)}
-            readOnly={readOnly}
-          />,
-        );
-      });
-    }
-
-    if (hasRunning) {
+  if (hasNutrition) {
+    displayMacros.forEach((macro) => {
       gaugeItems.push(
         <LiquidGauge
-          key="run"
-          label="Run"
-          value={runningSummary.totalMiles}
-          max={runTarget > 0 ? runTarget : 10}
-          unit="mi"
-          tapAmount={1}
-          onIncrement={readOnly ? undefined : handleRunIncrement}
-          onDecrement={readOnly ? undefined : handleRunDecrement}
+          key={macro.key}
+          label={macro.label}
+          value={macro.value}
+          max={macro.target > 0 ? macro.target : 100}
+          unit={macro.unit}
+          size={80}
+          tapAmount={macro.tapAmount}
+          onIncrement={readOnly ? undefined : handleNutritionIncrement(macro.key)}
+          onDecrement={readOnly ? undefined : handleNutritionDecrement(macro.key)}
           readOnly={readOnly}
         />,
       );
-    }
+    });
+  }
 
-    return (
-      <motion.div
+  if (hasGym) {
+    gymRows.forEach((row) => {
+      gaugeItems.push(
+        <LiquidGauge
+          key={row.bodyPart}
+          label={row.label}
+          value={row.done}
+          max={row.target}
+          tapAmount={1}
+          onIncrement={readOnly ? undefined : handleGymIncrement(row.bodyPart)}
+          onDecrement={readOnly ? undefined : handleGymDecrement(row.bodyPart)}
+          readOnly={readOnly}
+        />,
+      );
+    });
+  }
+
+  if (hasRunning) {
+    gaugeItems.push(
+      <LiquidGauge
+        key="run"
+        label="Run"
+        value={runningSummary.totalMiles}
+        max={runTarget > 0 ? runTarget : 10}
+        unit="mi"
+        tapAmount={1}
+        onIncrement={readOnly ? undefined : handleRunIncrement}
+        onDecrement={readOnly ? undefined : handleRunDecrement}
+        readOnly={readOnly}
+      />,
+    );
+  }
+
+  // --- Render --------------------------------------------------------------
+
+  return (
+    <GlassCard
+      role="group"
+      aria-label="All metrics"
+    >
+      <MotionXStack
         initial="hidden"
         animate="visible"
         variants={{
           hidden: {},
           visible: { transition: { staggerChildren: 0.07 } },
         }}
-        style={{
-          backgroundColor: "rgba(255,255,255,0.03)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 16,
-          padding: "12px 20px",
-        }}
-        role="group"
-        aria-label="All metrics"
+        flexWrap="wrap"
+        justifyContent="space-around"
+        alignItems="flex-end"
+        gap="$4"
       >
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "space-around",
-            alignItems: "flex-end",
-            gap: 16,
-          }}
-        >
-          {gaugeItems.map((item, i) => (
-            <motion.div
-              key={i}
-              variants={{
-                hidden: { opacity: 0, y: 12 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
-              }}
-            >
-              {item}
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <View
-      style={{
-        backgroundColor: "rgba(255,255,255,0.03)",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.08)",
-        borderRadius: 16,
-        padding: 16,
-      }}
-    >
-      <XStack flexWrap="wrap" justifyContent="space-around" alignItems="flex-end" gap={16}>
-        {gauges}
-      </XStack>
-    </View>
+        {gaugeItems.map((item, i) => (
+          <motion.div
+            key={i}
+            variants={{
+              hidden: { opacity: 0, y: 12 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
+            }}
+          >
+            {item}
+          </motion.div>
+        ))}
+      </MotionXStack>
+    </GlassCard>
   );
 }
