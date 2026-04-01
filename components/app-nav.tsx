@@ -76,6 +76,7 @@ export function AppNav({ currentPath }: AppNavProps) {
         {/* Logo */}
         <Button
           unstyled
+          backgroundColor="transparent"
           onPress={() => navigateTo("/")}
           accessibilityLabel="routineme home"
           pressStyle={{ opacity: 0.7 }}
@@ -94,6 +95,7 @@ export function AppNav({ currentPath }: AppNavProps) {
         {/* Theme toggle */}
         <Button
           unstyled
+          backgroundColor="transparent"
           onPress={toggle}
           accessibilityLabel={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           width={32}
@@ -110,6 +112,7 @@ export function AppNav({ currentPath }: AppNavProps) {
         {/* Hamburger / close button */}
         <Button
           unstyled
+          backgroundColor="transparent"
           onPress={toggleMenu}
           accessibilityLabel={menuOpen ? "Close menu" : "Open menu"}
           width={32}

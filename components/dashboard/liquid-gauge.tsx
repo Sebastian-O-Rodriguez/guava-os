@@ -79,9 +79,15 @@ export function LiquidGauge({
   const [optimisticValue, setOptimisticValue] = useState(value);
   const [errorFlash, setErrorFlash] = useState(false);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastServerValue = useRef(value);
 
+  // Only sync from server when the server value actually changed
+  // (not when parent re-renders with same stale value)
   useEffect(() => {
-    setOptimisticValue(value);
+    if (value !== lastServerValue.current) {
+      lastServerValue.current = value;
+      setOptimisticValue(value);
+    }
   }, [value]);
 
   useEffect(() => {

@@ -30,6 +30,7 @@ export function DayHeader({ dateString, isoDate, onNavigate }: DayHeaderProps) {
     <XStack alignItems="center" justifyContent="space-between" gap="$3">
       <Button
         unstyled
+        backgroundColor="transparent"
         onPress={goBack}
         accessibilityLabel="Previous day"
         width={32}
@@ -52,6 +53,7 @@ export function DayHeader({ dateString, isoDate, onNavigate }: DayHeaderProps) {
 
       <Button
         unstyled
+        backgroundColor="transparent"
         onPress={goForward}
         accessibilityLabel="Next day"
         width={32}

@@ -5,14 +5,14 @@ type ThemeMode = "dark" | "light";
 const ThemeContext = createContext<{
   mode: ThemeMode;
   toggle: () => void;
-}>({ mode: "dark", toggle: () => {} });
+}>({ mode: "light", toggle: () => {} });
 
 export function useThemeMode() {
   return useContext(ThemeContext);
 }
 
 export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>("dark");
+  const [mode, setMode] = useState<ThemeMode>("light");
 
   const toggle = useCallback(() => {
     setMode((prev) => (prev === "dark" ? "light" : "dark"));
