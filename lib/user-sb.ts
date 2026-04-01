@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import { generateId } from "./id";
 
 let cachedUserId: string | null = null;
 
@@ -15,7 +16,7 @@ export async function getOrCreateUser(): Promise<string> {
   // Create new user
   const { data: newUser, error } = await supabaseAdmin
     .from("users")
-    .insert({})
+    .insert({ id: generateId() })
     .select("id")
     .single();
 

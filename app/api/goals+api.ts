@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
 import { getOrCreateUser } from "../../lib/user-sb";
+import { generateId } from "../../lib/id";
 import type { GoalPeriod } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
@@ -161,6 +162,7 @@ export async function POST(request: Request): Promise<Response> {
       const { data: created, error } = await supabaseAdmin
         .from("goals")
         .insert({
+          id: generateId(),
           category_id: parsed.data.categoryId,
           metric: parsed.data.metric,
           target: parsed.data.target,

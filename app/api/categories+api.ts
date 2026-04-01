@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
 import { getOrCreateUser } from "../../lib/user-sb";
+import { generateId } from "../../lib/id";
 import type { CategoryType } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,7 @@ export async function POST(request: Request): Promise<Response> {
     const { data: category, error } = await supabaseAdmin
       .from("categories")
       .insert({
+        id: generateId(),
         user_id: userId,
         name: parsed.data.name,
         type: parsed.data.type,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
 import { getOrCreateUser } from "../../lib/user-sb";
+import { generateId } from "../../lib/id";
 import { normalizeDate, getWeekStart, getWeekEnd } from "../../lib/dates";
 import type {
   LogData,
@@ -243,6 +244,7 @@ export async function POST(request: Request): Promise<Response> {
     const { data: log, error } = await supabaseAdmin
       .from("logs")
       .insert({
+        id: generateId(),
         category_id: parsed.data.categoryId,
         date: isoDate,
         data: parsed.data.data,

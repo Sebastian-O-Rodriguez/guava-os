@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
 import { getOrCreateUser } from "../../lib/user-sb";
+import { generateId } from "../../lib/id";
 import { normalizeDate, getWeekStart, getWeekEnd } from "../../lib/dates";
 
 // ---------------------------------------------------------------------------
@@ -123,6 +124,7 @@ async function handleAddNutrition(
   entry[macro] = amount;
 
   const { error } = await supabaseAdmin.from("logs").insert({
+    id: generateId(),
     category_id: nutritionCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: entry,
@@ -154,6 +156,7 @@ async function handleRemoveNutrition(
   entry[macro] = -amount;
 
   const { error } = await supabaseAdmin.from("logs").insert({
+    id: generateId(),
     category_id: nutritionCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: entry,
@@ -178,6 +181,7 @@ async function handleIncrementGym(userId: string, bodyPart: string): Promise<Res
   }
 
   const { error } = await supabaseAdmin.from("logs").insert({
+    id: generateId(),
     category_id: gymCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: { bodyPart: bodyPart.toLowerCase() },
@@ -265,6 +269,7 @@ async function handleToggleGym(userId: string, bodyPart: string): Promise<Respon
     return Response.json({ success: true, toggled: false });
   } else {
     const { error } = await supabaseAdmin.from("logs").insert({
+      id: generateId(),
       category_id: gymCat.id,
       date: toISODate(normalizeDate(now)),
       data: { bodyPart: bodyPart.toLowerCase() },
@@ -288,6 +293,7 @@ async function handleAddRun(userId: string, miles: number): Promise<Response> {
   }
 
   const { error } = await supabaseAdmin.from("logs").insert({
+    id: generateId(),
     category_id: runCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: { miles },
@@ -313,6 +319,7 @@ async function handleRemoveRun(userId: string, miles: number): Promise<Response>
 
   // Create a negative log entry (mirrors Next.js behavior)
   const { error } = await supabaseAdmin.from("logs").insert({
+    id: generateId(),
     category_id: runCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: { miles: -miles },

@@ -10,6 +10,7 @@ import { normalizeDate, getWeekStart, getWeekEnd } from "./dates";
 import type { CategoryType, NutritionLogData, GymLogData, RunLogData } from "./types";
 import { supabaseAdmin } from "./supabase";
 import { getOrCreateUser } from "./user-sb";
+import { generateId } from "./id";
 
 export type ExecutorResult = { message: string; data?: unknown };
 
@@ -87,6 +88,7 @@ async function handleLogNutrition(raw: Record<string, unknown>): Promise<Executo
 
   try {
     const rows = parsed.data.entries.map((entry) => ({
+      id: generateId(),
       category_id: nutritionCat.id,
       date: today,
       data: entry,
@@ -152,6 +154,7 @@ async function handleLogGym(raw: Record<string, unknown>): Promise<ExecutorResul
 
   try {
     const { error } = await supabaseAdmin.from("logs").insert({
+      id: generateId(),
       category_id: gymCat.id,
       date: today,
       data: { bodyPart: normalizedBodyPart, notes: parsed.data.notes },
@@ -217,6 +220,7 @@ async function handleLogRun(raw: Record<string, unknown>): Promise<ExecutorResul
 
   try {
     const { error } = await supabaseAdmin.from("logs").insert({
+      id: generateId(),
       category_id: runCat.id,
       date: today,
       data: { miles: safeMiles, duration: parsed.data.duration, notes: parsed.data.notes },
@@ -310,6 +314,7 @@ async function handleSetGoal(raw: Record<string, unknown>): Promise<ExecutorResu
     const { data: created, error } = await supabaseAdmin
       .from("goals")
       .insert({
+        id: generateId(),
         category_id: category.id,
         metric: parsed.data.metric,
         target: safeTarget,
@@ -342,6 +347,7 @@ async function handleAddCategory(raw: Record<string, unknown>): Promise<Executor
     const { data: category, error } = await supabaseAdmin
       .from("categories")
       .insert({
+        id: generateId(),
         user_id: userId,
         name: safeName,
         type: parsed.data.type ?? "custom",
