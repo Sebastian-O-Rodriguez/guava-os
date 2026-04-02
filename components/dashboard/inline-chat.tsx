@@ -71,23 +71,23 @@ export function InlineChat({ apiBaseUrl = API_BASE, onSuccess }: InlineChatProps
   return (
     <YStack gap="$2">
       {/* Input row */}
-      <XStack alignItems="center" gap="$2">
+      <XStack items="center" gap="$2">
         <View
           flex={1}
           flexDirection="row"
-          alignItems="center"
-          borderRadius="$4"
+          items="center"
+          rounded="$4"
           borderWidth={1}
-          borderColor="$glassBorder"
-          backgroundColor="$glassBackground"
-          paddingHorizontal="$4"
-          paddingVertical="$2"
+          borderColor="$borderColor"
+          bg="$background"
+          px="$4"
+          py="$2"
           gap="$3"
         >
           <Input
             unstyled
             flex={1}
-            backgroundColor="transparent"
+            bg="transparent"
             value={input}
             onChangeText={setInput}
             placeholder="Log food, gym, run, or ask about progress..."
@@ -108,28 +108,28 @@ export function InlineChat({ apiBaseUrl = API_BASE, onSuccess }: InlineChatProps
           accessibilityLabel="Send message"
           width={40}
           height={40}
-          borderRadius="$4"
+          rounded="$4"
           borderWidth={1}
-          borderColor="$glassBorder"
-          backgroundColor="$glassBackground"
-          alignItems="center"
-          justifyContent="center"
+          borderColor="$borderColor"
+          bg="$background"
+          items="center"
+          justify="center"
           opacity={!input.trim() || isPending ? 0.4 : 1}
           pressStyle={{ opacity: 0.6 }}
         >
-          <Text fontSize={16} color="$zinc400">{"→"}</Text>
+          <Text fontSize={16} color="$color7">{"→"}</Text>
         </Button>
       </XStack>
 
       {/* Response / status banner */}
       {(isPending || response) && (
         <View
-          borderRadius="$4"
+          rounded="$4"
           borderWidth={1}
-          borderColor="$glassBorder"
-          backgroundColor="$glassBackground"
-          paddingHorizontal="$4"
-          paddingVertical="$2"
+          borderColor="$borderColor"
+          bg="$background"
+          px="$4"
+          py="$2"
         >
           <Text fontSize={14} color="$placeholderColor">
             {isPending ? "Processing..." : response}

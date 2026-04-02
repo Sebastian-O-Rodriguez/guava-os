@@ -59,9 +59,9 @@ export default function ChatScreen() {
   // Native: full-screen dark background
   return (
     <View style={{ flex: 1, backgroundColor: "#09090b" }}>
-      <YStack flex={1} padding={16} gap={16}>
+      <YStack flex={1} p={16} gap={16}>
         {/* Header */}
-        <YStack gap={4} paddingTop={8}>
+        <YStack gap={4} pt={8}>
           <Text fontSize={28} fontWeight="700" color="$color" letterSpacing={-0.5}>
             Chat
           </Text>

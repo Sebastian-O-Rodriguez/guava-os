@@ -26,15 +26,15 @@ type ChatProps = {
 const IconCircle = styled(View, {
   name: "IconCircle",
   borderWidth: 1,
-  alignItems: "center",
-  justifyContent: "center",
-  borderColor: "$fillDefault",
-  backgroundColor: "$fillDefault",
+  items: "center",
+  justify: "center",
+  borderColor: "$green9",
+  bg: "$green9",
 
   variants: {
     size: {
-      sm: { width: 48, height: 48, borderRadius: 24 },
-      md: { width: 64, height: 64, borderRadius: 32 },
+      sm: { width: 48, height: 48, rounded: 24 },
+      md: { width: 64, height: 64, rounded: 32 },
     },
   } as const,
 
@@ -45,31 +45,29 @@ const IconCircle = styled(View, {
 
 const UserBubble = styled(View, {
   name: "UserBubble",
-  borderRadius: 16,
-  borderBottomRightRadius: 4,
-  paddingHorizontal: "$4",
-  paddingVertical: "$3",
-  maxWidth: "85%",
-  backgroundColor: "$fillDefault",
+  rounded: 16,
+  px: "$4",
+  py: "$3",
+  maxW: "85%",
+  bg: "$green9",
 });
 
 const AssistantBubble = styled(View, {
   name: "AssistantBubble",
-  borderRadius: 16,
-  borderBottomLeftRadius: 4,
-  paddingHorizontal: "$4",
-  paddingVertical: "$3",
-  maxWidth: "85%",
-  backgroundColor: "$zinc800",
+  rounded: 16,
+  px: "$4",
+  py: "$3",
+  maxW: "85%",
+  bg: "$color3",
 });
 
 const LoadingBubble = styled(View, {
   name: "LoadingBubble",
-  borderRadius: 16,
-  backgroundColor: "$zinc800",
-  paddingHorizontal: "$4",
-  paddingVertical: "$3",
-  alignSelf: "flex-start",
+  rounded: 16,
+  bg: "$color3",
+  px: "$4",
+  py: "$3",
+  self: "flex-start",
 });
 
 // ---------------------------------------------------------------------------
@@ -144,44 +142,44 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
 
   const emptyState = (
     <YStack
-      alignItems="center"
-      justifyContent="center"
+      items="center"
+      justify="center"
       gap={compact ? "$4" : "$6"}
-      paddingVertical={compact ? "$6" : "$12"}
+      py={compact ? "$6" : "$12"}
     >
       <IconCircle size={compact ? "sm" : "md"} opacity={0.15}>
         <Text fontSize={compact ? 20 : 28} color="$color">{"*"}</Text>
       </IconCircle>
 
-      <YStack alignItems="center" gap="$1">
+      <YStack items="center" gap="$1">
         <Text
           fontSize={compact ? 14 : 16}
           fontWeight="600"
           color="$color"
-          textAlign="center"
+          text="center"
         >
           Log food, workouts, and runs
         </Text>
-        <Text fontSize={14} color="$placeholderColor" textAlign="center" maxWidth={320}>
+        <Text fontSize={14} color="$placeholderColor" text="center" maxW={320}>
           Tell me what you ate, where you trained, or how far you ran.
         </Text>
       </YStack>
 
-      <YStack gap="$2" width="100%" maxWidth={compact ? 9999 : 384}>
+      <YStack gap="$2" width="100%" maxW={compact ? 9999 : 384}>
         {EXAMPLE_PROMPTS.map((prompt, i) => (
           <Button
             key={i}
             unstyled
             onPress={() => handleExampleClick(prompt)}
-            borderRadius="$4"
+            rounded="$4"
             borderWidth={1}
             borderColor="$borderColor"
-            backgroundColor="$backgroundHover"
-            paddingHorizontal={compact ? "$3" : "$4"}
-            paddingVertical={compact ? "$2" : "$3"}
+            bg="$backgroundHover"
+            px={compact ? "$3" : "$4"}
+            py={compact ? "$2" : "$3"}
             pressStyle={{ borderColor: "$borderColorHover", opacity: 0.8 }}
           >
-            <Text fontSize={14} color="$placeholderColor" textAlign="left">
+            <Text fontSize={14} color="$placeholderColor" text="left">
               "{prompt}"
             </Text>
           </Button>
@@ -197,12 +195,12 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
       {messages.map((msg, i) => (
         <YStack
           key={i}
-          alignItems={msg.role === "user" ? "flex-end" : "flex-start"}
+          items={msg.role === "user" ? "flex-end" : "flex-start"}
           gap="$2"
         >
           {msg.role === "user" ? (
             <UserBubble>
-              <Text fontSize={14} lineHeight={22} color="$zinc50">
+              <Text fontSize={14} lineHeight={22} color="$color12">
                 {msg.content}
               </Text>
             </UserBubble>
@@ -229,7 +227,7 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
   // --- Input area ----------------------------------------------------------
 
   const inputArea = (
-    <XStack gap="$2" alignItems="flex-end">
+    <XStack gap="$2" items="flex-end">
       <Input
         flex={1}
         value={input}
@@ -244,14 +242,14 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
         numberOfLines={1}
         fontSize={14}
         color="$color"
-        borderRadius="$4"
+        rounded="$4"
         borderWidth={1}
         borderColor="$borderColor"
-        backgroundColor="$backgroundHover"
-        paddingHorizontal="$4"
-        paddingVertical="$3"
-        minHeight={44}
-        focusStyle={{ borderColor: "$fillDefault" }}
+        bg="$backgroundHover"
+        px="$4"
+        py="$3"
+        minH={44}
+        focusStyle={{ borderColor: "$green9" }}
       />
 
       <Button
@@ -259,13 +257,13 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
         disabled={loading || !input.trim()}
         accessibilityLabel="Send message"
         height={44}
-        paddingHorizontal="$4"
-        borderRadius="$4"
-        backgroundColor="$fillDefault"
+        px="$4"
+        rounded="$4"
+        bg="$green9"
         pressStyle={{ opacity: 0.8 }}
         disabledStyle={{ opacity: 0.4 }}
       >
-        <Text fontSize={14} color="$zinc50">{"→"}</Text>
+        <Text fontSize={14} color="$color12">{"→"}</Text>
       </Button>
     </XStack>
   );
@@ -286,8 +284,8 @@ export function Chat({ compact = false, apiBaseUrl = API_BASE }: ChatProps) {
       >
         <YStack
           gap="$4"
-          minHeight={compact ? 100 : 200}
-          padding="$1"
+          minH={compact ? 100 : 200}
+          p="$1"
           aria-live="polite"
           aria-label="Conversation"
         >

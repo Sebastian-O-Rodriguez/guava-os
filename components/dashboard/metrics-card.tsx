@@ -41,11 +41,11 @@ export type GoalProgress = {
 
 const GlassCard = styled(YStack, {
   name: "GlassCard",
-  backgroundColor: "$glassBackground",
+  bg: "$background",
   borderWidth: 1,
-  borderColor: "$glassBorder",
-  borderRadius: "$4",
-  padding: "$3",
+  borderColor: "$borderColor",
+  rounded: "$4",
+  p: "$3",
 });
 
 // motion wrapper around a Tamagui component — acceptable per style guide
@@ -333,8 +333,8 @@ export function MetricsCard({
           visible: { transition: { staggerChildren: 0.07 } },
         }}
         flexWrap="wrap"
-        justifyContent="space-around"
-        alignItems="flex-end"
+        justify="space-around"
+        items="flex-end"
         gap="$4"
       >
         {gaugeItems.map((item, i) => (

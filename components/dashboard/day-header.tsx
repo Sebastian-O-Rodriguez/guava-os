@@ -27,42 +27,42 @@ export function DayHeader({ dateString, isoDate, onNavigate }: DayHeaderProps) {
   }
 
   return (
-    <XStack alignItems="center" justifyContent="space-between" gap="$3">
+    <XStack items="center" justify="space-between" gap="$3">
       <Button
         unstyled
-        backgroundColor="transparent"
+        bg="transparent"
         onPress={goBack}
         accessibilityLabel="Previous day"
         width={32}
         height={32}
-        alignItems="center"
-        justifyContent="center"
+        items="center"
+        justify="center"
         pressStyle={{ opacity: 0.6 }}
       >
-        <Text fontSize={20} color="$zinc400" lineHeight={20}>{"‹"}</Text>
+        <Text fontSize={20} color="$color7" lineHeight={20}>{"‹"}</Text>
       </Button>
 
-      <YStack alignItems="center" gap="$1" flex={1}>
-        <Text fontSize={18} fontWeight="600" color="$color" letterSpacing={-0.3} textAlign="center">
+      <YStack items="center" gap="$1" flex={1}>
+        <Text fontSize={18} fontWeight="600" color="$color" letterSpacing={-0.3} text="center">
           The Stub is the Way
         </Text>
-        <Text fontSize={13} color="$placeholderColor" textAlign="center">
+        <Text fontSize={13} color="$placeholderColor" text="center">
           {dateString}
         </Text>
       </YStack>
 
       <Button
         unstyled
-        backgroundColor="transparent"
+        bg="transparent"
         onPress={goForward}
         accessibilityLabel="Next day"
         width={32}
         height={32}
-        alignItems="center"
-        justifyContent="center"
+        items="center"
+        justify="center"
         pressStyle={{ opacity: 0.6 }}
       >
-        <Text fontSize={20} color="$zinc400" lineHeight={20}>{"›"}</Text>
+        <Text fontSize={20} color="$color7" lineHeight={20}>{"›"}</Text>
       </Button>
     </XStack>
   );

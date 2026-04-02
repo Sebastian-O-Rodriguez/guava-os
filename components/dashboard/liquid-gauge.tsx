@@ -26,20 +26,20 @@ const JarContainer = styled(View, {
   name: "JarContainer",
   overflow: "hidden",
   borderWidth: 1,
-  borderColor: "$white12",
-  backgroundColor: "$white6",
+  borderColor: "rgba(255,255,255,0.12)",
+  bg: "rgba(255,255,255,0.06)",
 
   variants: {
     hasError: {
       true: {
-        borderColor: "$errorBorder",
+        borderColor: "$red9",
       },
       false: {},
     },
     isOver: {
       true: {
-        borderColor: "$fillOverflow",
-        shadowColor: "$fillOverflowGlow",
+        borderColor: "$blue9",
+        shadowColor: "rgba(59,130,246,0.4)",
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
@@ -49,7 +49,7 @@ const JarContainer = styled(View, {
     interactive: {
       true: {
         hoverStyle: {
-          borderColor: "$white15",
+          borderColor: "rgba(255,255,255,0.15)",
         },
         pressStyle: {
           opacity: 0.85,
@@ -107,11 +107,12 @@ export function LiquidGauge({
   const fillPct = Math.min(pct, 100);
   const isOver = optimisticValue > max && max > 0;
 
+  // Use raw colors since custom tokens are gone in v5
   const fillColor: string = isOver
-    ? "$fillOverflow"
+    ? "rgb(59,130,246)"   // blue-500
     : pct >= 90
-      ? "$fillHigh"
-      : "$fillDefault";
+      ? "rgb(52,211,153)" // emerald-400
+      : "rgb(16,185,129)"; // emerald-500
 
   const displayValue = Number.isInteger(optimisticValue)
     ? String(optimisticValue)
@@ -137,13 +138,13 @@ export function LiquidGauge({
   const canDecrement = !readOnly && onDecrement != null && optimisticValue > 0;
 
   return (
-    <YStack alignItems="center" gap="$1.5" userSelect="none">
+    <YStack items="center" gap="$1.5" select="none">
       {/* Label */}
       <Text
         fontSize={10}
         textTransform="uppercase"
         letterSpacing={1}
-        color="$zinc400"
+        color="$color7"
         fontWeight="500"
       >
         {label}
@@ -153,7 +154,7 @@ export function LiquidGauge({
       <JarContainer
         width={jarWidth}
         height={jarHeight}
-        borderRadius={12}
+        rounded={12}
         hasError={errorFlash}
         isOver={isOver}
         interactive={!readOnly}
@@ -167,26 +168,26 @@ export function LiquidGauge({
         }
       >
         {/* Fill level */}
-        <YStack
+        <View
           position="absolute"
-          bottom={0}
-          left={0}
-          right={0}
+          b={0}
+          l={0}
+          r={0}
           height={`${fillPct}%` as unknown as number}
-          backgroundColor={fillColor}
-          borderRadius={15}
+          bg={fillColor as never}
+          rounded={15}
         />
 
         {/* Icon overlay */}
         {icon && (
           <View
             position="absolute"
-            top={-8}
-            left={0}
-            right={0}
-            bottom={0}
-            alignItems="center"
-            justifyContent="center"
+            t={-8}
+            l={0}
+            r={0}
+            b={0}
+            items="center"
+            justify="center"
             opacity={0.1}
             pointerEvents="none"
           >
@@ -197,18 +198,18 @@ export function LiquidGauge({
         {/* Value + unit */}
         <View
           position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          alignItems="center"
-          justifyContent="center"
+          t={0}
+          l={0}
+          r={0}
+          b={0}
+          items="center"
+          justify="center"
           pointerEvents="none"
         >
           <Text
             fontSize={size * 0.2}
             fontWeight="700"
-            color="$white50"
+            color={"rgba(255,255,255,0.9)" as never}
             lineHeight={size * 0.22}
           >
             {displayValue}
@@ -217,7 +218,7 @@ export function LiquidGauge({
             <Text
               fontSize={size * 0.11}
               fontWeight="400"
-              color="$zinc400"
+              color="$color7"
               lineHeight={size * 0.14}
             >
               {unit}
@@ -228,12 +229,12 @@ export function LiquidGauge({
         {/* Jar lid / cap */}
         <View
           position="absolute"
-          top={0}
-          left="15%"
-          right="15%"
+          t={0}
+          l="15%"
+          r="15%"
           height={5}
-          backgroundColor="$glassLid"
-          borderRadius={4}
+          bg="rgba(255,255,255,0.15)"
+          rounded={4}
         />
       </JarContainer>
 
@@ -246,16 +247,16 @@ export function LiquidGauge({
           accessibilityLabel={`Decrease ${label}`}
           height={20}
           width={32}
-          borderRadius="$1"
+          rounded="$1"
           borderWidth={1}
-          borderColor="$white10"
-          backgroundColor="$white5"
-          alignItems="center"
-          justifyContent="center"
+          borderColor="rgba(255,255,255,0.10)"
+          bg="rgba(255,255,255,0.05)"
+          items="center"
+          justify="center"
           opacity={canDecrement ? 1 : 0}
           pressStyle={{ opacity: 0.6 }}
         >
-          <Text fontSize={12} fontWeight="600" color="$zinc400">
+          <Text fontSize={12} fontWeight="600" color="$color7">
             {"−"}
           </Text>
         </Button>

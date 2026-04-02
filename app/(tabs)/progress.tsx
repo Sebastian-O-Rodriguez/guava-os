@@ -124,12 +124,12 @@ function GoalRow({ categoryName, metric, period, actual, target, percentComplete
 
   return (
     <YStack
-      paddingVertical={12}
+      py={12}
       borderBottomWidth={1}
       borderBottomColor="rgba(39,39,42,0.6)"
       gap={6}
     >
-      <XStack justifyContent="space-between" alignItems="center">
+      <XStack justify="space-between" items="center">
         <Text fontSize={13} color="$placeholderColor" textTransform="capitalize">
           {categoryName} — {metric.replace(/_/g, " ")}
         </Text>
@@ -137,7 +137,7 @@ function GoalRow({ categoryName, metric, period, actual, target, percentComplete
           {period}
         </Text>
       </XStack>
-      <XStack alignItems="center" gap={8}>
+      <XStack items="center" gap={8}>
         <View
           style={{
             height: 6,
@@ -243,7 +243,7 @@ export default function ProgressScreen() {
       contentContainerStyle={{ padding: 16, gap: 24 }}
       showsVerticalScrollIndicator={false}
     >
-      <YStack gap={24} paddingBottom={32}>
+      <YStack gap={24} pb={32}>
         {/* Header */}
         <YStack gap={4}>
           <Text fontSize={28} fontWeight="700" color="$color" letterSpacing={-0.5}>
@@ -255,7 +255,7 @@ export default function ProgressScreen() {
         </YStack>
 
         {loading && (
-          <YStack alignItems="center" padding={32}>
+          <YStack items="center" p={32}>
             <Text fontSize={14} color="$placeholderColor">
               Loading...
             </Text>
@@ -263,7 +263,7 @@ export default function ProgressScreen() {
         )}
 
         {error && !loading && (
-          <YStack alignItems="center" padding={32}>
+          <YStack items="center" p={32}>
             <Text fontSize={14} color="$placeholderColor">
               {error}
             </Text>
@@ -465,7 +465,7 @@ function NativeProgressContent({ data }: { data: ProgressData }) {
           </Text>
           <XStack gap={12} flexWrap="wrap">
             {gymGoalsTotal > 0 && (
-              <YStack style={cardStyle} flex={1} minWidth={100} gap={4}>
+              <YStack style={cardStyle} flex={1} minW={100} gap={4}>
                 <Text fontSize={11} fontWeight="600" textTransform="uppercase" letterSpacing={1} color="$placeholderColor">
                   Gym
                 </Text>
@@ -479,7 +479,7 @@ function NativeProgressContent({ data }: { data: ProgressData }) {
               </YStack>
             )}
             {gymSummary.length > 0 && (
-              <YStack style={cardStyle} flex={1} minWidth={100} gap={4}>
+              <YStack style={cardStyle} flex={1} minW={100} gap={4}>
                 <Text fontSize={11} fontWeight="600" textTransform="uppercase" letterSpacing={1} color="$placeholderColor">
                   Body Parts
                 </Text>
@@ -488,7 +488,7 @@ function NativeProgressContent({ data }: { data: ProgressData }) {
               </YStack>
             )}
             {(runningSummary.sessions > 0 || runMilesGoal) && (
-              <YStack style={cardStyle} flex={1} minWidth={100} gap={4}>
+              <YStack style={cardStyle} flex={1} minW={100} gap={4}>
                 <Text fontSize={11} fontWeight="600" textTransform="uppercase" letterSpacing={1} color="$placeholderColor">
                   Running
                 </Text>
@@ -525,7 +525,7 @@ function NativeProgressContent({ data }: { data: ProgressData }) {
           All Goals
         </Text>
         {flatGoals.length === 0 ? (
-          <YStack style={cardStyle} padding={32} alignItems="center">
+          <YStack style={cardStyle} p={32} items="center">
             <Text fontSize={14} color="$placeholderColor">
               No goals configured yet.
             </Text>

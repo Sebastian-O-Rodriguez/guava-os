@@ -65,11 +65,11 @@ type DashboardData = Omit<MetricsCardProps, "readOnly" | "apiBaseUrl" | "onMutat
 
 const DashboardCard = styled(YStack, {
   name: "DashboardCard",
-  borderRadius: "$5",
+  rounded: "$5",
   borderWidth: 1,
-  borderColor: "$glassBorder",
-  backgroundColor: "transparent",
-  padding: "$4",
+  borderColor: "$borderColor",
+  bg: "transparent",
+  p: "$4",
   gap: "$3",
   overflow: "hidden",
 });
@@ -167,21 +167,21 @@ export default function DashboardScreen() {
   const isEmpty = !loading && !error && data && !data.hasNutrition && !data.hasGym && !data.hasRunning;
 
   return (
-    <View flex={1} backgroundColor="$background">
+    <View flex={1} bg="$background">
       <VendingBackground />
 
-      <View zIndex={20}>
+      <View z={20}>
         <AppNav currentPath="/" />
       </View>
 
       <ScrollView
         flex={1}
-        zIndex={10}
+        z={10}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 32 }}
-        $md={{ contentContainerStyle: { padding: 12 } }}
+        contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 32 } as object}
+        $md={{ contentContainerStyle: { padding: 12 } as object }}
       >
-        <YStack maxWidth={640} alignSelf="center" width="100%">
+        <YStack maxW={640} self="center" width="100%">
           <DashboardCard>
             <DayHeader
               dateString={dateString}
@@ -194,8 +194,8 @@ export default function DashboardScreen() {
 
             {loading && (
               <Text
-                textAlign="center"
-                padding="$6"
+                text="center"
+                p="$6"
                 color="$placeholderColor"
                 fontSize={14}
               >
@@ -205,8 +205,8 @@ export default function DashboardScreen() {
 
             {error && !loading && (
               <Text
-                textAlign="center"
-                padding="$6"
+                text="center"
+                p="$6"
                 color="$placeholderColor"
                 fontSize={14}
               >
@@ -232,8 +232,8 @@ export default function DashboardScreen() {
 
             {isEmpty && (
               <Text
-                textAlign="center"
-                padding="$6"
+                text="center"
+                p="$6"
                 color="$placeholderColor"
                 fontSize={14}
               >

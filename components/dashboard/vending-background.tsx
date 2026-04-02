@@ -103,12 +103,12 @@ export function VendingBackground() {
   return (
     <View
       position="absolute"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      backgroundColor="$background"
-      zIndex={0}
+      t={0}
+      l={0}
+      r={0}
+      b={0}
+      bg="$background"
+      z={0}
       pointerEvents="none"
     />
   );

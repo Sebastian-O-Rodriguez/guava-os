@@ -18,25 +18,25 @@ const NavBar = styled(XStack, {
   name: "NavBar",
   height: 44,
   borderBottomWidth: 1,
-  borderBottomColor: "$white6",
-  backgroundColor: "$background",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingHorizontal: "$4",
-  zIndex: 50,
+  borderBottomColor: "$color3",
+  bg: "$background",
+  items: "center",
+  justify: "space-between",
+  px: "$4",
+  z: 50,
 });
 
 const MenuDropdown = styled(YStack, {
   name: "MenuDropdown",
   position: "absolute",
-  top: 44,
-  right: "$4",
-  backgroundColor: "$backgroundHover",
+  t: 44,
+  r: "$4" as unknown as number,
+  bg: "$backgroundHover",
   borderWidth: 1,
-  borderColor: "$white10",
-  borderRadius: "$4",
+  borderColor: "$color4",
+  rounded: "$4",
   overflow: "hidden",
-  zIndex: 50,
+  z: 50,
 });
 
 // ---------------------------------------------------------------------------
@@ -71,12 +71,12 @@ export function AppNav({ currentPath }: AppNavProps) {
   }
 
   return (
-    <View zIndex={50}>
+    <View z={50}>
       <NavBar>
         {/* Logo */}
         <Button
           unstyled
-          backgroundColor="transparent"
+          bg="transparent"
           onPress={() => navigateTo("/")}
           accessibilityLabel="routineme home"
           pressStyle={{ opacity: 0.7 }}
@@ -85,7 +85,7 @@ export function AppNav({ currentPath }: AppNavProps) {
             fontSize={10}
             fontWeight="600"
             letterSpacing={2}
-            color="$zinc500"
+            color="$color7"
             textTransform="uppercase"
           >
             routineme
@@ -95,13 +95,13 @@ export function AppNav({ currentPath }: AppNavProps) {
         {/* Theme toggle */}
         <Button
           unstyled
-          backgroundColor="transparent"
+          bg="transparent"
           onPress={toggle}
           accessibilityLabel={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           width={32}
           height={32}
-          alignItems="center"
-          justifyContent="center"
+          items="center"
+          justify="center"
           pressStyle={{ opacity: 0.6 }}
         >
           <Text fontSize={16} color="$color">
@@ -112,16 +112,16 @@ export function AppNav({ currentPath }: AppNavProps) {
         {/* Hamburger / close button */}
         <Button
           unstyled
-          backgroundColor="transparent"
+          bg="transparent"
           onPress={toggleMenu}
           accessibilityLabel={menuOpen ? "Close menu" : "Open menu"}
           width={32}
           height={32}
-          alignItems="center"
-          justifyContent="center"
+          items="center"
+          justify="center"
           pressStyle={{ opacity: 0.6 }}
         >
-          <Text fontSize={18} color={menuOpen ? "$zinc200" : "$zinc500"}>
+          <Text fontSize={18} color={menuOpen ? "$color10" : "$color7"}>
             {menuOpen ? "✕" : "≡"}
           </Text>
         </Button>
@@ -133,11 +133,11 @@ export function AppNav({ currentPath }: AppNavProps) {
           {/* Backdrop tap-to-dismiss */}
           <View
             position="absolute"
-            top={44}
-            left={0}
-            right={0}
-            bottom={-9999}
-            zIndex={49}
+            t={44}
+            l={0}
+            r={0}
+            b={-9999}
+            z={49}
             onPress={closeMenu}
           />
 
@@ -149,15 +149,15 @@ export function AppNav({ currentPath }: AppNavProps) {
                   key={href}
                   unstyled
                   onPress={() => navigateTo(href)}
-                  paddingHorizontal="$5"
-                  paddingVertical="$3"
-                  backgroundColor={isActive ? "$white5" : "transparent"}
-                  pressStyle={{ backgroundColor: "$white8" }}
+                  px="$5"
+                  py="$3"
+                  bg={isActive ? "$color3" : "transparent"}
+                  pressStyle={{ bg: "$color4" }}
                 >
                   <Text
                     fontSize={14}
                     fontWeight="500"
-                    color={isActive ? "$emerald400" : "$zinc400"}
+                    color={isActive ? "$green9" : "$color7"}
                   >
                     {label}
                   </Text>
