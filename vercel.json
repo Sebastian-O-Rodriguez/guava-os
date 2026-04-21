@@ -1,6 +1,15 @@
 {
   "buildCommand": "npx expo export --platform web",
-  "outputDirectory": "dist",
   "installCommand": "npm install --legacy-peer-deps",
-  "framework": null
+  "framework": null,
+  "outputDirectory": "dist/client",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "dist/server/**",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/((?!_expo|assets|favicon.ico).*)", "destination": "/api/index" }
+  ]
 }
