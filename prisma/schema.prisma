@@ -63,6 +63,7 @@ model Category {
 // ---------------------------------------------------------------------------
 model Goal {
   id         String   @id @default(cuid())
+  userId     String   @map("user_id")
   categoryId String   @map("category_id")
   metric     String
   target     Float
@@ -74,6 +75,7 @@ model Goal {
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@index([categoryId, active])
+  @@index([userId])
   @@map("goals")
 }
 
@@ -88,6 +90,7 @@ model Goal {
 // ---------------------------------------------------------------------------
 model Log {
   id         String   @id @default(cuid())
+  userId     String   @map("user_id")
   categoryId String   @map("category_id")
   date       DateTime @db.Date
   data       Json
@@ -97,6 +100,8 @@ model Log {
 
   @@index([categoryId, date])
   @@index([date])
+  @@index([userId])
+  @@index([userId, date])
   @@map("logs")
 }
 

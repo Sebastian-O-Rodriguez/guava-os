@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
-import { getOrCreateUser } from "../../lib/user-sb";
+import { requireAuth } from "../../lib/auth-server";
 import { generateId } from "../../lib/id";
 import type { CategoryType } from "../../lib/types";
 
@@ -46,10 +46,12 @@ type CategoryData = {
 
 export async function GET(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const url = new URL(request.url);
     const includeArchived = url.searchParams.get("archived") === "true";
-
-    const userId = await getOrCreateUser();
 
     let query = supabaseAdmin
       .from("categories")
@@ -78,6 +80,10 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const body = await request.json();
     const parsed = CreateCategorySchema.safeParse(body);
     if (!parsed.success) {
@@ -86,8 +92,6 @@ export async function POST(request: Request): Promise<Response> {
         { status: 400 },
       );
     }
-
-    const userId = await getOrCreateUser();
 
     const { data: category, error } = await supabaseAdmin
       .from("categories")
@@ -117,6 +121,10 @@ export async function POST(request: Request): Promise<Response> {
 
 export async function PATCH(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const body = await request.json();
     const { id, ...rest } = body as { id?: string } & Record<string, unknown>;
 
@@ -131,8 +139,6 @@ export async function PATCH(request: Request): Promise<Response> {
         { status: 400 },
       );
     }
-
-    const userId = await getOrCreateUser();
 
     const { data: existing } = await supabaseAdmin
       .from("categories")
@@ -167,6 +173,10 @@ export async function PATCH(request: Request): Promise<Response> {
 
 export async function DELETE(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const url = new URL(request.url);
     let id = url.searchParams.get("id");
 
@@ -178,8 +188,6 @@ export async function DELETE(request: Request): Promise<Response> {
     if (!id) {
       return Response.json({ success: false, error: "Missing category id" }, { status: 400 });
     }
-
-    const userId = await getOrCreateUser();
 
     const { data: existing } = await supabaseAdmin
       .from("categories")

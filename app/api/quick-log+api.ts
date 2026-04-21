@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
-import { getOrCreateUser } from "../../lib/user-sb";
+import { requireAuth } from "../../lib/auth-server";
 import { generateId } from "../../lib/id";
 import { normalizeDate, getWeekStart, getWeekEnd } from "../../lib/dates";
 
@@ -39,6 +39,11 @@ const QuickLogSchema = z.discriminatedUnion("action", [
     action: z.literal("remove_run"),
     miles: z.number().positive(),
   }),
+  z.object({
+    action: z.literal("increment_goal"),
+    categoryId: z.string().min(1),
+    amount: z.number().positive(),
+  }),
 ]);
 
 // ---------------------------------------------------------------------------
@@ -55,6 +60,10 @@ function toISODate(date: Date): string {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const body = await request.json();
     const parsed = QuickLogSchema.safeParse(body);
 
@@ -65,7 +74,6 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const userId = await getOrCreateUser();
     const data = parsed.data;
 
     switch (data.action) {
@@ -89,6 +97,9 @@ export async function POST(request: Request): Promise<Response> {
 
       case "remove_run":
         return handleRemoveRun(userId, data.miles);
+
+      case "increment_goal":
+        return handleIncrementGoal(userId, data.categoryId, data.amount);
     }
   } catch (err) {
     console.error("[POST /api/quick-log]", err);
@@ -125,6 +136,7 @@ async function handleAddNutrition(
 
   const { error } = await supabaseAdmin.from("logs").insert({
     id: generateId(),
+    user_id: userId,
     category_id: nutritionCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: entry,
@@ -157,6 +169,7 @@ async function handleRemoveNutrition(
 
   const { error } = await supabaseAdmin.from("logs").insert({
     id: generateId(),
+    user_id: userId,
     category_id: nutritionCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: entry,
@@ -182,6 +195,7 @@ async function handleIncrementGym(userId: string, bodyPart: string): Promise<Res
 
   const { error } = await supabaseAdmin.from("logs").insert({
     id: generateId(),
+    user_id: userId,
     category_id: gymCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: { bodyPart: bodyPart.toLowerCase() },
@@ -270,6 +284,7 @@ async function handleToggleGym(userId: string, bodyPart: string): Promise<Respon
   } else {
     const { error } = await supabaseAdmin.from("logs").insert({
       id: generateId(),
+      user_id: userId,
       category_id: gymCat.id,
       date: toISODate(normalizeDate(now)),
       data: { bodyPart: bodyPart.toLowerCase() },
@@ -294,6 +309,7 @@ async function handleAddRun(userId: string, miles: number): Promise<Response> {
 
   const { error } = await supabaseAdmin.from("logs").insert({
     id: generateId(),
+    user_id: userId,
     category_id: runCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: { miles },
@@ -320,9 +336,41 @@ async function handleRemoveRun(userId: string, miles: number): Promise<Response>
   // Create a negative log entry (mirrors Next.js behavior)
   const { error } = await supabaseAdmin.from("logs").insert({
     id: generateId(),
+    user_id: userId,
     category_id: runCat.id,
     date: toISODate(normalizeDate(new Date())),
     data: { miles: -miles },
+  });
+
+  if (error) throw error;
+
+  return Response.json({ success: true });
+}
+
+async function handleIncrementGoal(
+  userId: string,
+  categoryId: string,
+  amount: number,
+): Promise<Response> {
+  // Verify category belongs to user
+  const { data: cat } = await supabaseAdmin
+    .from("categories")
+    .select("id")
+    .eq("id", categoryId)
+    .eq("user_id", userId)
+    .eq("active", true)
+    .single();
+
+  if (!cat) {
+    return Response.json({ success: false, error: "Category not found" }, { status: 404 });
+  }
+
+  const { error } = await supabaseAdmin.from("logs").insert({
+    id: generateId(),
+    user_id: userId,
+    category_id: categoryId,
+    date: toISODate(normalizeDate(new Date())),
+    data: { value: amount },
   });
 
   if (error) throw error;

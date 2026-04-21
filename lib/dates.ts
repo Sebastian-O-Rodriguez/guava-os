@@ -2,8 +2,25 @@
  * Strip time component — returns midnight UTC for the given calendar date.
  * Copied from the legacy habits.ts so new modules don't depend on it.
  */
+/**
+ * Strip time component — returns midnight UTC for the given date.
+ * Uses UTC accessors so dates parsed as UTC strings (e.g., "2026-04-05")
+ * are not shifted by the local timezone.
+ */
 export function normalizeDate(date: Date): Date {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+/**
+ * Get today's date as YYYY-MM-DD using local calendar date.
+ * Use this for "what day is it for the user" — not normalizeDate(new Date()).
+ */
+export function todayLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /**

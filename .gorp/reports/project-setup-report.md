@@ -13,27 +13,26 @@ ROUTINEME/
 │   ├── settings.json                  ← Hooks (auto-format, safety guards)
 │   ├── settings.local.json            ← Per-machine permission allowlist
 │   └── agents/                        ← Agent definitions (one AGENT.md each)
-│       ├── robo/AGENT.md              ← Orchestrator (opus model)
-│       ├── architect/AGENT.md         ← Schema/API design (sonnet)
-│       ├── backend/AGENT.md           ← Server actions, data logic (sonnet)
-│       ├── frontend/AGENT.md          ← UI components, pages (sonnet)
-│       └── qa/AGENT.md                ← Testing, review, quality gates (sonnet)
 ├── .gorp/
-│   ├── plans/
-│   │   ├── roadmap.md                 ← CTO-maintained, agents never modify
-│   │   └── current-sprint.md          ← Active sprint task breakdown
-│   ├── process/
-│   │   ├── conventions.md             ← Git, code, sprint standards
-│   │   ├── agent-protocol.md          ← Dispatch/report/blocker formats
-│   │   └── approval-matrix.md         ← Who can do what
-│   ├── prompts/
-│   │   └── dispatch.md.tmpl           ← Template for agent dispatch prompts
-│   └── journal/
-│       └── <agent>-YYYY-MM-DD.md      ← Daily agent reports (append-only)
-├── scripts/
-│   ├── dispatch.sh                    ← Parallel agent dispatcher
-│   └── quality-gate.sh               ← Run all quality gates
-└── src/                               ← Application code
+│   ├── plans/                         ← Roadmap + current sprint
+│   ├── process/                       ← Conventions, agent protocol, approval matrix
+│   ├── docs/                          ← Tamagui style guide
+│   ├── reports/                       ← This file
+│   └── journal/                       ← Daily agent reports (append-only)
+├── app/                               ← Expo Router pages + API routes
+│   ├── _layout.tsx                    ← Root layout (auth + theme providers)
+│   ├── auth.tsx                       ← Login/signup
+│   ├── index.tsx                      ← Home screen
+│   ├── dashboard.tsx                  ← Summary dashboard
+│   └── api/                           ← Server API routes (all require auth)
+├── components/                        ← UI components (nav, now, ui)
+├── hooks/                             ← React hooks (layout, data fetching)
+├── lib/                               ← Business logic, auth, chat, scripts
+│   └── scripts/                       ← Deterministic mutation + query scripts
+├── tests/                             ← Vitest test files
+├── prisma/                            ← Schema + migrations (reference, not active ORM)
+├── tamagui.config.ts                  ← Theme + token config
+└── themes.ts                          ← Dark/light palettes
 ```
 
 ---
@@ -47,24 +46,24 @@ ROUTINEME/
 | Section             | Purpose                                                          |
 | ------------------- | ---------------------------------------------------------------- |
 | **Product**         | One-liner description, target UX (<60s sessions)                 |
-| **Stack**           | Tech choices as a table (Next.js, Prisma, Tailwind, etc.)        |
-| **Architecture**    | Hard constraints (single app, server actions, no auth, Vercel)   |
-| **Data Model**      | Core tables in pseudocode                                        |
-| **Views**           | V1 feature list with brief descriptions                          |
-| **UX Rules**        | Behavioral constraints ("2-click max", "desktop-first")          |
-| **Non-Goals**       | Explicit exclusions (no social, no multi-user, no notifications) |
-| **Agent System**    | Table of agents + their roles + when to use them                 |
+| **Stack**           | Tech choices (Expo, Tamagui, Supabase Auth, OpenRouter)          |
+| **Architecture**    | Auth, API routes, Supabase, chat pipeline, scripts               |
+| **Data Model**      | Tables with user_id, RLS                                         |
+| **Views**           | Auth, Home, Dashboard + feature status table                     |
+| **UX Rules**        | Tap = primary, chat = secondary, DB = source of truth            |
+| **Non-Goals**       | Explicit exclusions                                              |
+| **Agent System**    | Table of agents + their roles                                    |
 | **Conventions**     | Commit format, branch naming, sprint tracking paths              |
-| **Quality Gates**   | Commands that must pass before shipping                          |
-| **Approval Matrix** | Who approves what (agents vs robo vs CTO)                        |
+| **Quality Gates**   | tsc, vitest, expo export                                         |
+| **Launch Checklist**| Pre-deploy verification items                                    |
 
 ### Key Design Decisions
 
 1. **Non-Goals are explicit** — prevents agents from scope-creeping
-2. **Architecture section is labeled "inviolable"** in agent files — agents treat it as law
-3. **The Agent System table** tells Claude Code which agent to use for which task type
-4. **Conventions section** ensures consistent git history across all agents
-5. **Quality Gates** are concrete shell commands, not vague guidelines
+2. **Architecture section** defines auth, data isolation, chat pipeline
+3. **Feature status table** — binary working/missing for each v1 feature
+4. **Quality Gates** are concrete shell commands, not vague guidelines
+5. **Launch checklist** — non-negotiable items before deploy
 
 ---
 

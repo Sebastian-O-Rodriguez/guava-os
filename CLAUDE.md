@@ -1,136 +1,151 @@
 # RoutineMe
 
-Private single-user habit tracker for Sebastian. Personal operating tool, not a startup.
+Multi-user habit + nutrition tracker. Daily usable, portfolio-ready.
 
 ## Product
 
-Daily habit tracking with <60 second sessions. Premium dark dashboard aesthetic.
-Create habits, check them off, track streaks, view monthly grids, see progress trends.
+Daily habit tracking with <60 second sessions.
+Create routines, tap to log, track streaks, view progress, log nutrition via chat.
 
-## Stack (v2 — Next.js Web App)
+## Stack (v3 — Expo App, ACTIVE)
 
-| Layer    | Tech                                        |
-| -------- | ------------------------------------------- |
-| App      | Next.js 15 (App Router) + TypeScript        |
-| Deploy   | Vercel                                      |
-| DB       | PostgreSQL + Prisma                         |
-| UI       | Tailwind CSS + shadcn/ui                    |
-| Charts   | Tremor (metrics) + Observable Plot (custom) |
-| Deferred | assistant-ui (reflections/insights)         |
+| Layer      | Tech                                       |
+| ---------- | ------------------------------------------ |
+| App        | Expo SDK 54 + Expo Router + TypeScript     |
+| UI         | Tamagui v5 (cross-platform)                |
+| Animations | Motion (web) + canvas requestAnimationFrame |
+| Auth       | Supabase Auth (email/password)             |
+| DB         | PostgreSQL via Supabase                    |
+| Chat AI    | OpenRouter (Claude Haiku 4.5)              |
+| Deploy     | Vercel (web) — EAS (native, deferred)      |
 
-## Stack (v3 — Expo App)
+**No** microservices, separate backends, queues, event pipelines, or scale infra.
 
-| Layer      | Tech                                            |
-| ---------- | ----------------------------------------------- |
-| App        | Expo SDK 54 + Expo Router + TypeScript          |
-| UI         | Tamagui (cross-platform)                        |
-| Animations | Motion (web) + Reanimated (native)              |
-| Gauges     | Rive (.riv state machines) + Motion springs     |
-| Auth       | Supabase Auth (planned)                         |
-| DB         | PostgreSQL + Prisma (same as v2)                |
-| Deploy     | EAS Build (native) + EAS Hosting (web)          |
+## Architecture
 
-**No** microservices, separate backends, queues, event pipelines, enterprise auth, or scale infra.
-
-## Architecture (v2 — Next.js)
-
-- One Next.js app, server actions + route handlers
-- Prisma ORM with PostgreSQL
-- Single-user, no auth system (simple env-based session or cookie)
-- Vercel deployment with managed Postgres (Neon/Supabase)
-
-## Architecture (v3 — Expo)
-
-- Expo Router file-based routing (`app/` directory in `expo-app/`)
-- API routes (`app/api/*+api.ts`) replace Next.js server actions
-- Tamagui for cross-platform UI components
-- Rive vending machine background with metric jar gauges
-- Client-side data fetching (`useEffect` + fetch to API routes)
-- Single unified MetricsCard (no separate Nutrition/Fitness cards)
+- Expo Router file-based routing (root `app/` directory)
+- API routes (`app/api/*+api.ts`) — server-side, require auth
+- Supabase JS client (not Prisma) for all DB operations
+- `supabaseAdmin` (service role key) in API routes — bypasses RLS
+- Client-side `authFetch()` attaches JWT to all API calls
+- Auth guard in `_layout.tsx` — unauthenticated users → `/auth`
+- Chat pipeline: classify → normalize → estimate → propose → confirm → execute via scripts
+- Deterministic mutation scripts in `lib/scripts/mutations/`
+- Read-only query scripts in `lib/scripts/queries/`
 
 ## Data Model
 
 ```
 users        { id }
-habits       { id, name, frequency, active, created_at }
-completions  { id, habit_id, date, completed, note? }
-daily_notes  { id, date, reflection }
+categories   { id, user_id, name, type, icon?, color?, active }
+goals        { id, user_id, category_id, metric, target, period, active }
+logs         { id, user_id, category_id, date, data (JSONB) }
+daily_notes  { id, user_id, date, reflection }
 ```
 
-Frequency: "daily" | "weekdays" | custom days array (e.g. ["mon","wed","fri"])
+- All tables have `user_id` for direct ownership
+- RLS enabled on all tables: `user_id = auth.uid()::text`
+- Log data is typed JSON: NutritionLogData, GymLogData, RunLogData, CustomLogData
 
-## Views (v1)
+## Views
 
-1. **Today** — today's habits, toggle completion, daily progress ring
-2. **Monthly Grid** — habits as rows, days as columns, click to toggle
-3. **Progress Dashboard** — streaks, weekly/monthly completion %, trend charts
-4. **Settings** — habit CRUD, archive, frequency rules
+1. **Auth** (`app/auth.tsx`) — Login / signup (email + password)
+2. **Home** (`app/index.tsx`) — DailyCard (tiles + doughnut) + WeeklyCard (tiles) + ChatSurface + Create form
+3. **Dashboard** (`app/dashboard.tsx`) — Summary cards with live progress data
+4. **Settings** — planned, not implemented
+5. **Monthly Grid** — planned, not implemented
+
+## Home Screen Layout (locked)
+
+- Nav → Header/Date → ChatSurface → DailyCard → WeeklyCard → Add Routine button
+- DailyCard: explicit tile grid (left) + nutrition doughnut (right), no flexWrap
+- WeeklyCard: always rendered (stable layout), shows empty state if no weekly goals
+- Tap tile → persist to DB via `/api/quick-log` → refresh from DB
+- Long-press tile → delete goal (with confirmation)
+- Chat → propose → confirm → execute → refresh
+
+## Chat System
+
+- Classifier: intent + entities only (no macro estimation) — OpenRouter Haiku
+- Estimator: separate LLM call for nutrition macros
+- Normalizer: canonical category lookup, period defaulting
+- Executor: thin router → dispatches to deterministic scripts
+- Scripts: pure, own their DB writes, return ScriptResult
+- Propose → confirm → execute flow (no silent mutations)
 
 ## UX Rules
 
-- 2-click max for any daily action
-- Desktop-first, mobile-usable
-- Dark theme, strong typography, progress rings/bars
-- Motivating but minimal — not a spreadsheet
+- Tap = primary action (persists immediately)
+- Chat = secondary / assistive
+- No mock data anywhere
+- No local-only state — DB is source of truth
+- Failed refresh preserves last good UI state
+- Only executed mutations trigger refresh
 
 ## Non-Goals
 
-No: social, collaborative, multi-user, AI-first, sharing, notifications,
-integrations, marketplace, complex gamification.
+No: social, collaborative, AI-first, sharing, notifications,
+integrations, marketplace, complex gamification, voice mode.
+
+## v1 Feature Status
+
+| Feature | Status |
+|---------|--------|
+| Auth (email/password) | Working |
+| View routines (home) | Working |
+| Tap → persist to DB | Working |
+| Create routine (form) | Working |
+| Delete routine (long-press) | Working |
+| Chat logging (food, gym, run) | Working |
+| Chat mark habit | Working |
+| Chat create goal | Working |
+| Nutrition doughnut (live) | Working |
+| Dashboard (summary) | Working |
+| Light/dark mode | Working |
+| Supabase RLS | Enabled |
+| Deploy (Vercel) | Ready, not deployed |
+| Settings page | Not implemented |
+| Monthly grid | Not implemented |
+| Onboarding | Not implemented |
 
 ## Agent System
 
 This repo uses Claude Code multiagent orchestration. Agents live in `.claude/agents/`.
 
-| Agent     | Role                                                              | When                        |
-| --------- | ----------------------------------------------------------------- | --------------------------- |
-| robo      | Orchestrator — plans sprints, dispatches agents, collects reports | Sprint planning + execution |
-| architect | Schema design, API contracts, component structure                 | Before implementation       |
-| backend   | Server actions, Prisma queries, data logic                        | Implementation              |
-| frontend  | React components, pages, dashboard UI                             | Implementation              |
-| qa        | Testing, review, quality gates                                    | After implementation        |
-
-### Dispatch
-
-```bash
-# Interactive orchestrator
-claude --agent robo
-
-# Headless single-task dispatch
-claude -p "Implement habit CRUD server actions" --agent backend
-
-# Parallel dispatch
-./scripts/dispatch.sh sprint-1
-
-# Isolated worktree
-claude --worktree feat/monthly-grid --agent frontend
-```
+| Agent     | Role                                                              |
+| --------- | ----------------------------------------------------------------- |
+| robo      | Orchestrator — plans sprints, dispatches agents, collects reports |
+| architect | Schema design, API contracts, component structure                 |
+| backend   | Server actions, Supabase queries, data logic                      |
+| frontend  | React components, pages, dashboard UI                             |
+| qa        | Testing, review, quality gates                                    |
 
 ## Conventions
 
 - **Commits**: `type(scope): description` — scopes: app, db, ui, infra
 - **Branches**: `feat/`, `fix/`, `chore/`
 - **Sprint tracking**: `.gorp/plans/current-sprint.md`
-- **Roadmap**: `.gorp/plans/roadmap.md` (CTO-maintained, agents never modify)
-- **Journal**: `.gorp/journal/<agent>-<date>.md`
 
 ## Quality Gates
 
-| Gate             | How                                              |
-| ---------------- | ------------------------------------------------ |
-| Type check       | `tsc --noEmit`                                   |
-| Lint             | `eslint . --max-warnings 0`                      |
-| Format           | `prettier --check .`                             |
-| Build            | `next build`                                     |
-| Tests            | `vitest run`                                     |
-| Expo Type check  | `cd expo-app && npx tsc --noEmit`                |
-| Expo Web build   | `cd expo-app && npx expo export --platform web`  |
-| Expo Dev         | `cd expo-app && npx expo start --web`            |
+| Gate             | How                                             |
+| ---------------- | ----------------------------------------------- |
+| Type check       | `npx tsc --noEmit`                              |
+| Tests            | `npx vitest run`                                |
+| Build            | `npx expo export --platform web`                |
+| Dev              | `npx expo start --web`                          |
 
-## Approval Matrix
+## Launch Checklist (pre-deploy)
 
-| Action                                            | Who             |
-| ------------------------------------------------- | --------------- |
-| Write code, run tests, create branches            | Auto (agents)   |
-| Task re-prioritization within sprint              | Robo            |
-| Roadmap changes, new deps, schema changes, deploy | CTO (Sebastian) |
+- [x] Auth works (login/signup)
+- [x] No route without auth
+- [x] No table without RLS
+- [x] No write without user_id
+- [x] Tap persists + reflects
+- [x] No mock data
+- [x] No local-only state
+- [x] Tests pass (12/12)
+- [x] Build compiles
+- [ ] Deploy to Vercel (env vars needed)
+- [ ] Multi-user smoke test
+- [ ] Enable email confirmation (before real users)

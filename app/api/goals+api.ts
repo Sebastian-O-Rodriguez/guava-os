@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
-import { getOrCreateUser } from "../../lib/user-sb";
+import { requireAuth } from "../../lib/auth-server";
 import { generateId } from "../../lib/id";
 import type { GoalPeriod } from "../../lib/types";
 
@@ -40,9 +40,12 @@ type GoalData = {
 
 export async function GET(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const url = new URL(request.url);
     const categoryId = url.searchParams.get("categoryId");
-    const userId = await getOrCreateUser();
 
     let goals: GoalData[];
 
@@ -109,6 +112,10 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const body = await request.json();
     const parsed = UpsertGoalSchema.safeParse(body);
     if (!parsed.success) {
@@ -117,8 +124,6 @@ export async function POST(request: Request): Promise<Response> {
         { status: 400 },
       );
     }
-
-    const userId = await getOrCreateUser();
 
     // Verify the category belongs to this user
     const { data: category } = await supabaseAdmin
@@ -163,6 +168,7 @@ export async function POST(request: Request): Promise<Response> {
         .from("goals")
         .insert({
           id: generateId(),
+          user_id: userId,
           category_id: parsed.data.categoryId,
           metric: parsed.data.metric,
           target: parsed.data.target,
@@ -189,6 +195,10 @@ export async function POST(request: Request): Promise<Response> {
 
 export async function DELETE(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const url = new URL(request.url);
     let id = url.searchParams.get("id");
 
@@ -200,8 +210,6 @@ export async function DELETE(request: Request): Promise<Response> {
     if (!id) {
       return Response.json({ success: false, error: "Missing goal id" }, { status: 400 });
     }
-
-    const userId = await getOrCreateUser();
 
     // Verify ownership via category join
     const { data: goal } = await supabaseAdmin

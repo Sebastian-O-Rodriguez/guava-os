@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
-import { getOrCreateUser } from "../../lib/user-sb";
+import { requireAuth } from "../../lib/auth-server";
 import { generateId } from "../../lib/id";
 import { normalizeDate, getWeekStart, getWeekEnd } from "../../lib/dates";
 import type {
@@ -89,21 +89,25 @@ function toISODate(date: Date): string {
 
 export async function GET(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const url = new URL(request.url);
     const type = url.searchParams.get("type");
 
     // Special aggregate endpoints
     if (type === "nutrition_summary") {
-      return getNutritionSummary(url);
+      return getNutritionSummary(url, userId);
     }
     if (type === "gym_summary") {
-      return getGymSummary(url);
+      return getGymSummary(url, userId);
     }
     if (type === "run_summary") {
-      return getRunSummary(url);
+      return getRunSummary(url, userId);
     }
     if (type === "progress") {
-      return getCategoryProgressAll(url);
+      return getCategoryProgressAll(url, userId);
     }
 
     // Standard log queries
@@ -114,8 +118,6 @@ export async function GET(request: Request): Promise<Response> {
         { status: 400 },
       );
     }
-
-    const userId = await getOrCreateUser();
 
     const { data: category } = await supabaseAdmin
       .from("categories")
@@ -180,8 +182,11 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof Response) return authResult;
+    const userId = authResult;
+
     const body = await request.json();
-    const userId = await getOrCreateUser();
 
     // Batch nutrition logs path
     if (Array.isArray(body.entries)) {
@@ -206,6 +211,7 @@ export async function POST(request: Request): Promise<Response> {
 
       const isoDate = toISODate(normalizeDate(new Date(parsed.data.date)));
       const rows = parsed.data.entries.map((entry) => ({
+        user_id: userId,
         category_id: parsed.data.categoryId,
         date: isoDate,
         data: entry,
@@ -245,6 +251,7 @@ export async function POST(request: Request): Promise<Response> {
       .from("logs")
       .insert({
         id: generateId(),
+        user_id: userId,
         category_id: parsed.data.categoryId,
         date: isoDate,
         data: parsed.data.data,
@@ -268,9 +275,8 @@ export async function POST(request: Request): Promise<Response> {
 // Aggregate helpers (called from GET based on ?type=)
 // ---------------------------------------------------------------------------
 
-async function getNutritionSummary(url: URL): Promise<Response> {
+async function getNutritionSummary(url: URL, userId: string): Promise<Response> {
   try {
-    const userId = await getOrCreateUser();
     const dateParam = url.searchParams.get("date");
     const date = dateParam ? new Date(dateParam) : new Date();
 
@@ -321,9 +327,8 @@ async function getNutritionSummary(url: URL): Promise<Response> {
   }
 }
 
-async function getGymSummary(url: URL): Promise<Response> {
+async function getGymSummary(url: URL, userId: string): Promise<Response> {
   try {
-    const userId = await getOrCreateUser();
     const dateParam = url.searchParams.get("date");
     const now = dateParam ? new Date(dateParam) : new Date();
 
@@ -373,9 +378,8 @@ async function getGymSummary(url: URL): Promise<Response> {
   }
 }
 
-async function getRunSummary(url: URL): Promise<Response> {
+async function getRunSummary(url: URL, userId: string): Promise<Response> {
   try {
-    const userId = await getOrCreateUser();
     const dateParam = url.searchParams.get("date");
     const now = dateParam ? new Date(dateParam) : new Date();
 
@@ -427,9 +431,8 @@ async function getRunSummary(url: URL): Promise<Response> {
   }
 }
 
-async function getCategoryProgressAll(url: URL): Promise<Response> {
+async function getCategoryProgressAll(url: URL, userId: string): Promise<Response> {
   try {
-    const userId = await getOrCreateUser();
     const dateParam = url.searchParams.get("date");
     const now = dateParam ? new Date(dateParam) : new Date();
 
@@ -581,14 +584,14 @@ function computeActualForMetric(
     }
 
     case "gym": {
-      const targetBodyPart = metric.replace("_sessions", "").replace("_", " ");
+      // "sessions" without body part = count all gym sessions
+      if (metric === "sessions") return logDataArray.length;
+      const targetBodyPart = metric.replace("_sessions", "").replace(/s$/, "").replace("_", " ");
       return logDataArray.reduce<number>((sum, raw) => {
         const entry = raw as Partial<GymLogData>;
-        if (!entry.bodyPart) return sum;
-        const normalizedBodyPart = entry.bodyPart.toLowerCase().replace(/\s+/g, "_");
-        const normalizedMetric = metric.replace("_sessions", "");
-        return normalizedBodyPart === normalizedMetric ||
-          entry.bodyPart.toLowerCase() === targetBodyPart
+        if (!entry.bodyPart) return sum; // generic sessions don't count toward specific body-part goals
+        const bp = entry.bodyPart.toLowerCase().replace(/s$/, "");
+        return bp === targetBodyPart || bp.includes(targetBodyPart) || targetBodyPart.includes(bp)
           ? sum + 1
           : sum;
       }, 0);

@@ -1,48 +1,57 @@
 # RoutineMe Launch Roadmap
 
-> CTO-maintained. Agents never modify this file.
+> CTO-maintained. Updated 2026-04-20.
 
-## Phase 1 — Foundation (Sprint 1) ✓
+## Phase 1 — Foundation ✓
 
-- [x] Repo structure + agent system
-- [x] Next.js app scaffold (App Router, Tailwind, shadcn/ui)
-- [x] Prisma schema + PostgreSQL setup
-- [x] Habit CRUD server actions
-- [x] Today view — toggle habits, progress ring
+- [x] Expo + Expo Router app working
+- [x] Supabase DB (users, goals, logs, categories)
+- [x] Auth system (email/password)
+- [x] RLS on all tables
+- [x] Core APIs (/api/logs, /api/goals, /api/chat, /api/quick-log)
+- [x] Home view (live data)
+- [x] Chat logging pipeline
 
-## Phase 2 — Core Views (Sprint 2)
+## Phase 2 — Core Product ✓
 
-- [ ] Monthly grid view — habit rows × day columns
-- [ ] Click-to-toggle in grid
-- [ ] Progress dashboard — streaks, completion rates
-- [ ] Tremor metric cards
-- [ ] Observable Plot trend charts
+- [x] View routines (home, live data)
+- [x] Tap → persist to DB
+- [x] UI sync from DB (no local state)
+- [x] Create routine (form UI)
+- [x] Delete routine (UI action)
+- [x] Multi-user isolation (auth + RLS)
 
-## Phase 3 — Polish + Deploy (Sprint 3)
+## Phase 3 — Launch (CURRENT)
 
-- [ ] Settings view — habit management UI
-- [ ] Dark theme refinement
-- [ ] Responsive layout (mobile-usable)
-- [ ] Vercel deployment
-- [ ] Production PostgreSQL
-- [ ] Quality gates passing
+- [ ] Deploy to Vercel
+- [ ] Fix production issues
+- [ ] Multi-user test (2 accounts, isolation verified)
+- [ ] UI clarity pass (remove friction, no redesign)
+- [ ] Validate daily usability (<60 sec flow)
 
-## Phase 4 — Post-Launch
+## Phase 4 — Portfolio + Usage
 
-- [ ] Daily notes / reflections
-- [ ] assistant-ui integration (deferred)
-- [ ] Data export
-- [ ] Habit categories/tags
-- [ ] Custom date ranges in progress view
+- [ ] Use app daily (real usage)
+- [ ] Fix friction from real usage
+- [ ] Record 2-min demo
+- [ ] Capture screenshots
+- [ ] Add to Upwork portfolio
+
+## Phase 5 — Expansion (AFTER LAUNCH ONLY)
+
+- [ ] Monthly grid
+- [ ] Advanced dashboard (charts, trends)
+- [ ] Settings expansion
+- [ ] Notes / reflections
+- [ ] Categories/tags improvements
+- [ ] Mobile (EAS / App Store)
 
 ## Launch Definition
 
-RoutineMe is launched when:
-
-- Deployed on Vercel
-- Habits can be created
-- Daily tracking works
-- Monthly grid works
-- Progress dashboard works
-- Charts render correctly
-- Usable daily in <60 seconds
+App is live (URL works)
+User can sign up / log in
+User can create a routine
+User can tap to log completion
+Data persists and reloads correctly
+Each user sees only their data
+App usable daily in <60 seconds

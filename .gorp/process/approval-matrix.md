@@ -19,7 +19,8 @@
 
 - Roadmap modifications
 - New dependencies
-- Prisma schema changes
+- DB schema changes (migrations)
+- Supabase dashboard changes (RLS, auth settings)
 - Scope changes (adding/removing v1 features)
 - Deploy to production
 - Environment variable changes

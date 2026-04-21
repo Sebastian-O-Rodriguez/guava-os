@@ -1,44 +1,43 @@
-# Sprint 8 — UI Polish + Features
+# Sprint 10 — Multi-User Launch
 
-**Goal**: Fix critical UI bugs, add light/dark mode, improve interactions, and apply Tamagui best practices.
-
-**Started**: 2026-04-01
+**Goal**: Auth + data isolation + tap persistence + create/delete UI + deploy.
+**Started**: 2026-04-20
 
 ---
 
-## Wave 1: Critical Bug Fixes (Parallel)
+## Steps (locked order)
 
-- [ ] **1.1** [frontend] Fix white background on chatbar Input and arrow Buttons — unstyled Tamagui Input/Button have default white bg. Need `backgroundColor="transparent"` or proper glass tokens.
-- [ ] **1.2** [frontend] Fix increment not persisting — gauges show optimistic value then revert. The `onMutate` callback triggers refetch but the refetched data may arrive before the DB write completes. Add a small delay before refetch, or update local state optimistically without refetching.
-- [ ] **1.3** [frontend] Show chatbar on ALL dates (remove `isToday` guard on InlineChat)
-- [ ] **1.4** [frontend] Allow future date navigation (remove the clamp in `handleDateNavigate`)
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Supabase Auth (email/password) | done | `app/auth.tsx`, `lib/auth-context.tsx`, `lib/auth-server.ts` |
+| 2 | Replace getOrCreateUser → auth session | done | All API routes + scripts use authenticated userId |
+| 3 | Add user_id to goals + logs (migration) | done | Columns added, backfilled, NOT NULL |
+| 4 | Enable RLS on all tables | done | 5 tables, 23 policies |
+| 5 | Update all writes to include user_id | done | All INSERTs verified |
+| 6 | Scope all queries by user_id | done | All SELECTs filter by userId |
+| 7 | Wire tap → POST /api/quick-log + refetch | done | onIncrement → quick-log → refresh, rollback on failure |
+| 8 | Build minimal create routine form | done | `components/now/create-goal-form.tsx` |
+| 9 | Add delete routine action | done | Long-press → confirm → DELETE |
+| 10 | Lightweight dashboard | done | Summary cards with live data, no charts |
+| 11 | Strip dead code | done | 11 files deleted |
+| 12 | Deploy to Vercel | pending | Env vars needed in Vercel dashboard |
+| 13 | Multi-user smoke test | pending | 2 accounts, data isolation test |
 
-## Wave 2: Light/Dark Mode (Sequential)
+## Pre-Deploy Checklist
 
-- [ ] **2.1** [architect] Add light theme to `tamagui.config.ts` — full light palette with glass tokens, fill colors, text variants
-- [ ] **2.2** [frontend] Add theme toggle button in nav (sun/moon icon)
-- [ ] **2.3** [frontend] Wire theme state — persist in AsyncStorage, wrap app in `Theme` provider with dynamic name
+- [x] Auth works (login/signup)
+- [x] No route without auth
+- [x] No table without RLS
+- [x] No write without user_id
+- [x] Tap persists + reflects
+- [x] No mock data
+- [x] No local-only state
+- [x] Tests pass (12/12)
+- [x] Build compiles
+- [ ] Deploy to Vercel
+- [ ] Multi-user smoke test
+- [ ] Enable email confirmation (before real users)
 
-## Wave 3: Tamagui Best Practices (Parallel)
+## Previous Sprint
 
-- [ ] **3.1** [frontend] Replace Motion stagger with Tamagui `enterStyle` + `animation` where possible
-- [ ] **3.2** [frontend] Add Zod validation to chat input and any client-side forms
-- [ ] **3.3** [frontend] Create dark_Card / dark_Button sub-themes
-- [ ] **3.4** [frontend] Load Geist font via expo-font
-- [ ] **3.5** [frontend] Use Tamagui `Adapt` for responsive dialog/sheet patterns
-
-## Wave 4: QA Gate (Sequential, blocks deploy)
-
-- [ ] **4.1** [qa] `npx tsc --noEmit` — zero errors
-- [ ] **4.2** [qa] `npx expo export --platform web` — clean build
-- [ ] **4.3** [qa] API smoke tests: curl all 5 endpoints, verify responses
-- [ ] **4.4** [qa] Tap increment: verify value persists after tap (not reverts)
-- [ ] **4.5** [qa] Chat: send a message on a past date, verify response
-- [ ] **4.6** [qa] Theme toggle: verify light/dark switch works
-- [ ] **4.7** [qa] Date navigation: verify future dates work
-- [ ] **4.8** [qa] Responsive: verify no overflow on 375px viewport
-- [ ] **4.9** [qa] Deploy only after all above pass
-
-## Execution Order
-
-Wave 1 (parallel fixes) → Wave 2 (light/dark) → Wave 3 (polish) → Wave 4 (QA gate) → Deploy
+Sprint 9 (Home Screen Layout Lock) completed: DailyCard/WeeklyCard templates, layout system, responsive breakpoints, canvas viz, chat system, mutation scripts, live data wiring.

@@ -4,17 +4,37 @@ import { CLASSIFIER_PROMPT } from "./chat-prompt";
 
 /**
  * Send the user message to the LLM for intent classification.
- * Returns a validated { scenario, params } object.
+ * Returns a validated { scenario, params, confidence } object.
+ *
+ * The classifier extracts intent + entities ONLY — no macro estimation.
  * On any failure (network, parse, validation) returns scenario "unknown".
  */
-export async function classifyMessage(userMessage: string): Promise<ClassifierOutput> {
+export async function classifyMessage(
+  userMessage: string,
+  conversationContext?: Array<{ role: string; content: string }>,
+): Promise<ClassifierOutput> {
   try {
-    const response = await openrouter.chat.completions.create({
+    // Build messages: system prompt + optional conversation context + current message
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: CLASSIFIER_PROMPT },
+    ];
+
+    // Include last few messages for clarification context (max 4)
+    if (conversationContext && conversationContext.length > 0) {
+      const recent = conversationContext.slice(-4);
+      for (const msg of recent) {
+        messages.push({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        });
+      }
+    }
+
+    messages.push({ role: "user", content: userMessage });
+
+    const response = await openrouter().chat.completions.create({
       model: CHAT_MODEL,
-      messages: [
-        { role: "system", content: CLASSIFIER_PROMPT },
-        { role: "user", content: userMessage },
-      ],
+      messages,
       max_tokens: 512,
       temperature: 0,
     });
@@ -33,18 +53,18 @@ export async function classifyMessage(userMessage: string): Promise<ClassifierOu
       parsed = JSON.parse(cleaned);
     } catch {
       console.error("[classifyMessage] JSON parse failed:", cleaned);
-      return { scenario: "unknown", params: {} };
+      return { scenario: "unknown", params: {}, confidence: 0 };
     }
 
     const result = classifierOutputSchema.safeParse(parsed);
     if (!result.success) {
       console.error("[classifyMessage] Schema validation failed:", result.error.issues);
-      return { scenario: "unknown", params: {} };
+      return { scenario: "unknown", params: {}, confidence: 0 };
     }
 
     return result.data;
   } catch (err) {
     console.error("[classifyMessage] LLM call failed:", err);
-    return { scenario: "unknown", params: {} };
+    return { scenario: "unknown", params: {}, confidence: 0 };
   }
 }

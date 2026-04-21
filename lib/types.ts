@@ -21,6 +21,7 @@ export type NutritionLogData = {
   protein: number;
   fat: number;
   carbs?: number;
+  source?: "user" | "estimated" | "confirmed";
 };
 
 export type GymLogData = {

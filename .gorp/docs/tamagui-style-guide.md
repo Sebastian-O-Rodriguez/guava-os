@@ -422,44 +422,69 @@ function handleNutritionIncrement(macro: MacroKey) {
 ## 10. File Structure
 
 ```
-tamagui.config.ts          — All tokens and theme values. No other file.
-components/ui/             — Shared styled components (GlassCard, etc.)
-components/dashboard/      — Feature components (MetricsCard, DayHeader, etc.)
-components/*.tsx           — App-level components (AppNav, Chat)
+tamagui.config.ts          — Tamagui v5 config (fonts, tokens, animations)
+themes.ts                  — Dark/light palettes + purple accent + child themes
+lib/layout.ts              — Layout constants + computeLayout() + DailyCard constants
+lib/palette.ts             — SECTION_THEMES, ACCENT hex palette
+components/ui/             — Card templates, tile primitives, shell, doughnut
+components/nav/            — Hamburger menu + theme toggle
+components/now/            — GoalTile, chat-surface, reply-bubble, suggestion-row, create-goal-form
+hooks/                     — use-card-layout (layout), use-tile-data (data fetching)
 ```
 
 Rules:
 
 - No `.css` files anywhere. Tamagui replaces all CSS.
 - No `StyleSheet.create({})`. Use `styled()` or inline Tamagui props.
-- No Tailwind utility classes on Tamagui components. Tailwind is not installed
-  in the Expo/RN side of this project. The only place Tailwind classes are
-  acceptable is on non-Tamagui web-only elements that have no Tamagui
-  equivalent (e.g., SVG wrappers, `focus-visible` ring utilities) — and even
-  then, the preference is to eliminate that element entirely.
+- No Tailwind utility classes on Tamagui components.
+
+## 10.1 Card Template Rules
+
+Four card templates in `components/ui/card-templates.tsx`:
+
+| Template | Purpose | flexWrap | Children |
+|---|---|---|---|
+| `DailyCard` | Mixed: tile grid + doughnut | **NO** | GoalTiles (children) + doughnut (prop) |
+| `CollectionCard` | Homogeneous tile grid | Yes | GoalTiles only |
+| `SummaryBreakdownCard` | Summary viz + breakdown | N/A (slot-based) | summary + breakdown props |
+| `SingleFocusCard` | One visualization | N/A | Exactly 1 child |
+
+**DailyCard constraints:**
+- Tiles in explicit XStack rows (max `DAILY_TILE_COLUMNS=3` per row)
+- Doughnut in right column (visual anchor)
+- Breakpoint at `DAILY_TWO_COL_MIN=406px` inner width → stacks vertically
+- Tiles grow by adding rows, NEVER by resizing
+- No mixed weekly + daily in same card
+
+**CollectionCard constraints:**
+- flexWrap allowed (homogeneous content)
+- Only GoalTile children
+
+**Spacing:**
+- All spacing from `lib/layout.ts` constants only
+- No manual margins, spacer elements, or one-off padding tweaks
 
 ---
 
 ## 11. Anti-Patterns Reference
 
-A consolidated list of patterns that appear in the current codebase and must
-not be repeated in new code.
+Patterns that must not be repeated in new code.
 
-| Anti-pattern | Location | Correct approach |
-|---|---|---|
-| `Platform.OS === "web"` full render branch | `day-header.tsx:41`, `liquid-gauge.tsx:472`, `metrics-card.tsx:310` | Single Tamagui render tree |
-| `<div style={{...}}>` | `day-header.tsx:43`, `metrics-card.tsx:367` | `<Stack>` / `<XStack>` / `<YStack>` |
-| `<button onClick={...} style={{...}}>` | `day-header.tsx:44`, `liquid-gauge.tsx:261` | `<Button unstyled onPress={...}>` |
-| `<span style={{...}}>` | `liquid-gauge.tsx:109` | `<Text>` |
-| Raw rgba in `style={{}}` | `liquid-gauge.tsx:63,69,148` | `$`-token from `tamagui.config.ts` |
-| Raw hex in `style={{}}` | `liquid-gauge.tsx:235` | `$zinc400` etc. |
-| `rgb(...)` string as fill color variable | `liquid-gauge.tsx:64–67` | Theme token or mapped token |
-| `<motion.div style={{...}}>` | `metrics-card.tsx:367` | `motion(Stack)` with token props |
-| `View` from `react-native` for layout | `metrics-card.tsx:410` | `<Stack>` |
-| `import { View } from "react-native"` | `metrics-card.tsx:2` | Remove; use Tamagui `Stack` |
-| `import { Platform } from "react-native"` for styling | `day-header.tsx:1` | Remove; use single tree |
-| Duplicate gauge list construction for web vs native | `metrics-card.tsx:313–365` | Build list once, render once |
-| `backgroundColor: "rgba(255,255,255,0.03)"` in `style={{}}` | `metrics-card.tsx:375,411` | `backgroundColor="$glassBackground"` (after adding token) |
+| Anti-pattern | Correct approach |
+|---|---|
+| `Platform.OS === "web"` full render branch | Single Tamagui render tree |
+| `<div style={{...}}>` | `<Stack>` / `<XStack>` / `<YStack>` |
+| `<button onClick={...}>` | `<Button unstyled onPress={...}>` |
+| `<span>` | `<Text>` |
+| Raw rgba/hex in `style={{}}` | `$`-token from `tamagui.config.ts` |
+| `<motion.div>` wrapping raw HTML | `motion.div` wrapping Tamagui components only |
+| `View` from `react-native` for layout | `<Stack>` from Tamagui |
+| Local-only tile state | Tap → API → refresh from DB |
+| `getOrCreateUser()` | `requireAuth(request)` from `lib/auth-server.ts` |
+| Prisma client calls | Supabase JS client (`supabaseAdmin`) |
+| Mock/hardcoded data in pages | Live data via `useTileData()` hook |
+
+**Purple theme gotcha**: `<Theme name="purple">` remaps ALL `$color1-12` tokens to purple shades. Components needing neutral colors (white, slate) must use hardcoded hex from `lib/palette.ts` ACCENT object.
 
 ---
 
