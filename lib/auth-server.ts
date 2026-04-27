@@ -42,9 +42,13 @@ export async function getAuthUser(request: Request): Promise<string | null> {
 async function ensureUserRow(userId: string): Promise<void> {
   if (provisionedUsers.has(userId)) return;
 
+  const now = new Date().toISOString();
   await supabaseAdmin
     .from("users")
-    .upsert({ id: userId }, { onConflict: "id" });
+    .upsert(
+      { id: userId, created_at: now, updated_at: now },
+      { onConflict: "id", ignoreDuplicates: true },
+    );
 
   provisionedUsers.add(userId);
 }
