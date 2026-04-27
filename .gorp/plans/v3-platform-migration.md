@@ -16,7 +16,7 @@ Take RoutineMe from a Next.js web app to a cross-platform Expo app with multi-us
 | Auth | Supabase Auth (email/password) |
 | Database | Supabase PostgreSQL (direct JS client, not Prisma) |
 | Chat AI | OpenRouter (Claude Haiku 4.5) |
-| Deploy (web) | Vercel |
+| Deploy (web) | EAS Hosting |
 | Deploy (native) | EAS Build (deferred) |
 
 ---
@@ -57,11 +57,11 @@ Take RoutineMe from a Next.js web app to a cross-platform Expo app with multi-us
 - [x] Post-mutation refresh
 - [x] Suggestion chips (time-of-day + reactive)
 
-### Phase 4: Deploy — IN PROGRESS
-- [x] Vercel config (vercel.json)
+### Phase 4: Deploy — COMPLETE
 - [x] Build passes (npx expo export --platform web)
-- [ ] Set env vars in Vercel dashboard
-- [ ] Deploy to Vercel
+- [x] EAS Hosting deployed (https://routineme.expo.app)
+- [x] Env vars set in EAS dashboard
+- [ ] Verify OpenRouter API key (V2) in production
 - [ ] Multi-user smoke test
 
 ### Phase 5: Native (DEFERRED)

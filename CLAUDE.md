@@ -17,7 +17,7 @@ Create routines, tap to log, track streaks, view progress, log nutrition via cha
 | Auth       | Supabase Auth (email/password)             |
 | DB         | PostgreSQL via Supabase                    |
 | Chat AI    | OpenRouter (Claude Haiku 4.5)              |
-| Deploy     | Vercel (web) — EAS (native, deferred)      |
+| Deploy     | EAS Hosting (web) — EAS Build (native, deferred) |
 
 **No** microservices, separate backends, queues, event pipelines, or scale infra.
 
@@ -103,7 +103,7 @@ integrations, marketplace, complex gamification, voice mode.
 | Dashboard (summary) | Working |
 | Light/dark mode | Working |
 | Supabase RLS | Enabled |
-| Deploy (Vercel) | Ready, not deployed |
+| Deploy (EAS Hosting) | **Live** — https://routineme.expo.app |
 | Settings page | Not implemented |
 | Monthly grid | Not implemented |
 | Onboarding | Not implemented |
@@ -146,6 +146,7 @@ This repo uses Claude Code multiagent orchestration. Agents live in `.claude/age
 - [x] No local-only state
 - [x] Tests pass (12/12)
 - [x] Build compiles
-- [ ] Deploy to Vercel (env vars needed)
+- [x] Deploy to EAS Hosting (https://routineme.expo.app)
+- [ ] Verify OpenRouter API key (V2) works in production
 - [ ] Multi-user smoke test
 - [ ] Enable email confirmation (before real users)

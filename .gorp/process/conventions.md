@@ -66,4 +66,5 @@ Run before every PR:
 npx tsc --noEmit
 npx vitest run
 npx expo export --platform web
+npx eas deploy --prod  # deploy to EAS Hosting
 ```

@@ -23,7 +23,8 @@
 
 ## Phase 3 — Launch (CURRENT)
 
-- [ ] Deploy to Vercel
+- [x] Deploy to EAS Hosting (https://routineme.expo.app)
+- [ ] Verify OpenRouter API key (V2) in production
 - [ ] Fix production issues
 - [ ] Multi-user test (2 accounts, isolation verified)
 - [ ] UI clarity pass (remove friction, no redesign)

@@ -20,7 +20,7 @@
 | 9 | Add delete routine action | done | Long-press → confirm → DELETE |
 | 10 | Lightweight dashboard | done | Summary cards with live data, no charts |
 | 11 | Strip dead code | done | 11 files deleted |
-| 12 | Deploy to Vercel | pending | Env vars needed in Vercel dashboard |
+| 12 | Deploy to EAS Hosting | done | Live at https://routineme.expo.app |
 | 13 | Multi-user smoke test | pending | 2 accounts, data isolation test |
 
 ## Pre-Deploy Checklist
@@ -34,7 +34,8 @@
 - [x] No local-only state
 - [x] Tests pass (12/12)
 - [x] Build compiles
-- [ ] Deploy to Vercel
+- [x] Deploy to EAS Hosting (https://routineme.expo.app)
+- [ ] Verify OpenRouter API key (V2) in production
 - [ ] Multi-user smoke test
 - [ ] Enable email confirmation (before real users)
 
