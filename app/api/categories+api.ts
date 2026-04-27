@@ -110,8 +110,9 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json({ success: true, data: category as CategoryData }, { status: 201 });
   } catch (err) {
-    console.error("[POST /api/categories]", err);
-    return Response.json({ success: false, error: "Failed to create category" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : JSON.stringify(err);
+    console.error("[POST /api/categories]", msg);
+    return Response.json({ success: false, error: `Failed to create category: ${msg}` }, { status: 500 });
   }
 }
 
