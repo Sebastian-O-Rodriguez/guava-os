@@ -2,12 +2,17 @@
  * Server-side auth helper for API routes.
  *
  * Extracts user_id from the Supabase auth token in the request.
- * Every API route MUST call getAuthUser() and reject if null.
+ * Auto-provisions a row in the `users` table on first authenticated request
+ * (required because categories/goals/logs have FK to users.id).
  */
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "./supabase";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+// Track which user IDs have been provisioned this process lifetime
+const provisionedUsers = new Set<string>();
 
 /**
  * Extract authenticated user from request Authorization header.
@@ -20,7 +25,6 @@ export async function getAuthUser(request: Request): Promise<string | null> {
   const token = authHeader.slice(7);
   if (!token) return null;
 
-  // Create a per-request client with the user's JWT
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
@@ -32,7 +36,22 @@ export async function getAuthUser(request: Request): Promise<string | null> {
 }
 
 /**
+ * Ensure a row exists in the `users` table for this auth user.
+ * Uses upsert to avoid race conditions on first request.
+ */
+async function ensureUserRow(userId: string): Promise<void> {
+  if (provisionedUsers.has(userId)) return;
+
+  await supabaseAdmin
+    .from("users")
+    .upsert({ id: userId }, { onConflict: "id" });
+
+  provisionedUsers.add(userId);
+}
+
+/**
  * Require authentication — returns user_id or a 401 Response.
+ * Auto-provisions user row in DB on first request.
  */
 export async function requireAuth(
   request: Request,
@@ -44,5 +63,7 @@ export async function requireAuth(
       { status: 401 },
     );
   }
+
+  await ensureUserRow(userId);
   return userId;
 }
