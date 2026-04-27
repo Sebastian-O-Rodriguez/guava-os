@@ -147,6 +147,6 @@ This repo uses Claude Code multiagent orchestration. Agents live in `.claude/age
 - [x] Tests pass (12/12)
 - [x] Build compiles
 - [x] Deploy to EAS Hosting (https://routineme.expo.app)
-- [ ] Verify OpenRouter API key (V2) works in production
+- [x] Verify OpenRouter API key (V2) works in production
 - [ ] Multi-user smoke test
 - [ ] Enable email confirmation (before real users)

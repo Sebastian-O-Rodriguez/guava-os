@@ -35,7 +35,7 @@
 - [x] Tests pass (12/12)
 - [x] Build compiles
 - [x] Deploy to EAS Hosting (https://routineme.expo.app)
-- [ ] Verify OpenRouter API key (V2) in production
+- [x] Verify OpenRouter API key (V2) in production
 - [ ] Multi-user smoke test
 - [ ] Enable email confirmation (before real users)
 
