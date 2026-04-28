@@ -4,7 +4,7 @@ import { estimateNutrition } from "../../lib/chat-estimator";
 import { normalize, type NormalizedInput } from "../../lib/chat-normalizer";
 import { proposeAction, executeAction } from "../../lib/chat-executor";
 import { logNutritionParamsSchema } from "../../lib/chat-scenarios";
-import type { EstimatedNutritionEntry } from "../../lib/chat-scenarios";
+import type { EstimatedNutritionEntry, ClassifierOutput } from "../../lib/chat-scenarios";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -45,6 +45,15 @@ export async function POST(request: Request): Promise<Response> {
     // ----- Confirmation flow -----
     if (body.pendingAction) {
       const pending = body.pendingAction as PendingAction;
+      // SECURITY: override userId AND re-resolve categoryId for authenticated user.
+      // Never trust client-sent userId or categoryId — they could be replayed from another user.
+      pending.input.userId = userId;
+      if (pending.input.intent !== "unknown" && pending.input.intent !== "query_progress") {
+        const reclassified = { scenario: pending.input.intent, params: pending.input.params, confidence: pending.input.confidence } as ClassifierOutput;
+        const reNormalized = await normalize(reclassified, userId);
+        pending.input.categoryId = reNormalized.categoryId;
+        pending.input.categoryName = reNormalized.categoryName;
+      }
 
       if (isConfirm(userContent)) {
         const result = await executeAction(pending.input, pending.estimates);
