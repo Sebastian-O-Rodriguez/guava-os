@@ -21,14 +21,20 @@
 - [x] Delete routine (UI action)
 - [x] Multi-user isolation (auth + RLS)
 
-## Phase 3 — Launch (CURRENT)
+## Phase 3 — Launch ✓
 
 - [x] Deploy to EAS Hosting (https://routineme.expo.app)
 - [x] Verify OpenRouter API key (V2) in production
-- [ ] Fix production issues
-- [ ] Multi-user test (2 accounts, isolation verified)
+- [x] Fix production issues (user provisioning, DB defaults, replay attack)
+- [x] Multi-user test (18 tests, 2 accounts, isolation verified)
 - [ ] UI clarity pass (remove friction, no redesign)
 - [ ] Validate daily usability (<60 sec flow)
+
+**Status: LIVE — launch-ready for small cohort.**
+
+### Pre-Public Launch TODO
+1. Remove or auth-gate `/api/health`
+2. Enable Supabase email confirmation
 
 ## Phase 4 — Portfolio + Usage
 

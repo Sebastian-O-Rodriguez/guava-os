@@ -21,7 +21,7 @@
 | 10 | Lightweight dashboard | done | Summary cards with live data, no charts |
 | 11 | Strip dead code | done | 11 files deleted |
 | 12 | Deploy to EAS Hosting | done | Live at https://routineme.expo.app |
-| 13 | Multi-user smoke test | pending | 2 accounts, data isolation test |
+| 13 | Multi-user smoke test | done | 18 tests, isolation verified, replay attack found + fixed |
 
 ## Pre-Deploy Checklist
 
@@ -36,8 +36,9 @@
 - [x] Build compiles
 - [x] Deploy to EAS Hosting (https://routineme.expo.app)
 - [x] Verify OpenRouter API key (V2) in production
-- [ ] Multi-user smoke test
+- [x] Multi-user smoke test (18 tests passed)
 - [ ] Enable email confirmation (before real users)
+- [ ] Remove or auth-gate /api/health
 
 ## Previous Sprint
 

@@ -62,7 +62,7 @@ Take RoutineMe from a Next.js web app to a cross-platform Expo app with multi-us
 - [x] EAS Hosting deployed (https://routineme.expo.app)
 - [x] Env vars set in EAS dashboard
 - [x] Verify OpenRouter API key (V2) in production
-- [ ] Multi-user smoke test
+- [x] Multi-user smoke test (18 tests, isolation verified)
 
 ### Phase 5: Native (DEFERRED)
 - [ ] EAS Build for iOS simulator

@@ -148,5 +148,10 @@ This repo uses Claude Code multiagent orchestration. Agents live in `.claude/age
 - [x] Build compiles
 - [x] Deploy to EAS Hosting (https://routineme.expo.app)
 - [x] Verify OpenRouter API key (V2) works in production
-- [ ] Multi-user smoke test
+- [x] Multi-user smoke test (18 tests, isolation verified, replay attack found + fixed)
 - [ ] Enable email confirmation (before real users)
+
+## Pre-Public Launch TODO
+
+1. Remove or auth-gate `/api/health` (exposes env var names)
+2. Enable Supabase email confirmation (Settings → Auth → toggle "Confirm email" ON)
