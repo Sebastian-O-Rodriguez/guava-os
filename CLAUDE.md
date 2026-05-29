@@ -1,20 +1,6 @@
-# RoutineMe
+# Agent-OS
 
-Multi-user habit + nutrition tracker. Daily usable, portfolio-ready.
-
-## Stack
-
-| Layer      | Tech                                       |
-| ---------- | ------------------------------------------ |
-| App        | Expo SDK 54 + Expo Router + TypeScript     |
-| UI         | Tamagui v5 (cross-platform)                |
-| Animations | Motion (web) + canvas requestAnimationFrame |
-| Auth       | Supabase Auth (email/password)             |
-| DB         | PostgreSQL via Supabase                    |
-| Chat AI    | OpenRouter (Claude Haiku 4.5)              |
-| Deploy     | EAS Hosting (web) — EAS Build (native, deferred) |
-
-No microservices, separate backends, queues, event pipelines, or scale infra.
+Linear-driven multi-agent execution CLI for Claude Code. Developer infrastructure — never runs in production.
 
 ## Startup Invariant (MANDATORY)
 
@@ -93,8 +79,7 @@ Never reinterpret Linear priority labels. Use the mapping above verbatim.
 | 2 | **CLAUDE.md** | Repo identity, stack, startup invariant |
 | 3 | **AGENT.md** | Persona constraints, boundaries, patterns |
 | 4 | **`.gorp/process/*`** | Execution protocol, conventions, approvals |
-| 5 | **`.gorp/context/*`** | Architecture, product spec, style guides (lazy-loaded) |
-| 6 | **`.gorp/archive/*`** | Dead/historical — never execution truth |
+| 5 | **`.gorp/archive/*`** | Dead/historical — never execution truth |
 
 ## Tracking
 
@@ -120,38 +105,10 @@ Never reinterpret Linear priority labels. Use the mapping above verbatim.
 | Execution protocol | `.gorp/process/agent-protocol.md` |
 | Conventions (git, code) | `.gorp/process/conventions.md` |
 | Approval matrix | `.gorp/process/approval-matrix.md` |
-| Architecture | `.gorp/context/architecture.md` |
-| Product spec | `.gorp/context/product-spec.md` |
-| Tamagui patterns | `.gorp/context/tamagui-style-guide.md` |
-
-## Critical Constraints
-
-- Expo Router file-based routing (root `app/` directory)
-- API routes (`app/api/*+api.ts`) — server-side, require auth
-- Supabase JS client (not Prisma) for all DB operations
-- `supabaseAdmin` (service role) in API routes — fails closed if key missing
-- Client-side `authFetch()` attaches JWT to all API calls
-- RLS enabled on ALL tables — `user_id = auth.uid()::text`
-- All mutations scoped by `id + user_id`
-- Rate limiting: `/api/chat` (20/min), `/api/quick-log` (60/min)
-- No mock data — DB is source of truth
-- Tap = primary action, chat = secondary
 
 ## Quality Gates
 
 ```bash
-npx tsc --noEmit              # Type check
-npx vitest run                # Tests
-npx expo export --platform web # Build
-npx eas deploy --prod         # Deploy (QA only)
+npx vitest run    # Tests
+npx tsc --noEmit  # Type check (agent-os tsconfig)
 ```
-
-## Non-Goals
-
-No: social, collaborative, AI-first, sharing, notifications, integrations, marketplace, complex gamification, voice mode.
-
-## Deploy
-
-- **Production**: https://routineme.expo.app (EAS Hosting)
-- **Deploy command**: `npx eas deploy --prod` (QA agent only)
-- **Pre-public blocker**: Enable Supabase email confirmation
