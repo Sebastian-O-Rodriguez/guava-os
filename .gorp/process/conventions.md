@@ -31,25 +31,12 @@
 ## Code
 
 - TypeScript strict mode
-- No `any` types (except Tamagui ref workarounds)
-- Expo Router file-based routing (root `app/` directory)
-- API routes in `app/api/*+api.ts`
-- Supabase JS client for all DB operations (NOT Prisma)
-- `supabaseAdmin` (service role key) in API routes
-- `authFetch()` from `lib/auth-context.tsx` for client-side API calls
-- Every API route requires auth via `requireAuth(request)`
-- Every DB write includes `user_id`
-- Light/dark theme via `lib/theme-context.tsx`
-- Layout constants in `lib/layout.ts`
-- Card templates in `components/ui/card-templates.tsx`
-- Color palette in `lib/palette.ts` — use ACCENT hex for components inside purple Theme
+- No `any` types
 
 ## Quality
 
 Run before every PR:
 
 ```bash
-npx tsc --noEmit
 npx vitest run
-npx expo export --platform web
 ```
