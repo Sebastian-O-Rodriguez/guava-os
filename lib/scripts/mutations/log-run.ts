@@ -12,10 +12,7 @@ type RunResult = { miles: number; weekTotal: number; weekGoal?: number };
 export async function logRun(
   input: NormalizedInput,
 ): Promise<ScriptResult<RunResult>> {
-  const categoryId = input.categoryId;
-  if (!categoryId) {
-    return { success: false, error: "No Running category found." };
-  }
+  const categoryId = input.categoryId!;
 
   const miles = typeof input.params.miles === "number"
     ? Math.min(Math.max(input.params.miles, 0), 1000)

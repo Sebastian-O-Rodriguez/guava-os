@@ -1,23 +1,20 @@
 import { useRef, useState, useTransition } from "react";
 import { styled, XStack, YStack, Input, Button, Text } from "tamagui";
 import { ReplyBubble } from "./reply-bubble";
-import { SuggestionRow } from "./suggestion-row";
-import { getDefaultSuggestions, getPostActionSuggestions } from "../../lib/suggestions";
-import type { Suggestion } from "../../lib/suggestions";
 import type { EstimatedNutritionEntry } from "../../lib/chat-scenarios";
+import type { Action } from "../../lib/actions/types";
 import { API_BASE, authFetch } from "../../lib/api";
 import { useThemeMode } from "../../lib/theme-context";
+import { useActionModal, type ActionType } from "../../lib/action-modal-context";
 
 type Props = {
   onSuccess?: () => void;
+  onAdd?: () => void;
   compact?: boolean;
 };
 
-type PendingAction = {
-  scenario: string;
-  params: Record<string, unknown>;
-  estimates?: EstimatedNutritionEntry[];
-};
+/** pendingAction is now a full Action object from lib/actions/types.ts */
+type PendingAction = Action;
 
 type ChatResponse = {
   message: string;
@@ -38,7 +35,7 @@ const ChatBar = styled(XStack, {
   bg: "$color2",
   borderWidth: 1,
   borderColor: "$color3",
-  rounded: "$4",
+  rounded: "$3",
   items: "center",
   px: "$3",
   py: "$1",
@@ -81,18 +78,7 @@ const SendButton = styled(Button, {
 // Placeholder cycling
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDERS = [
-  "Log food, habits, progress...",
-  "How's today going?",
-  "What did you eat?",
-  "I just finished...",
-];
-
-function getPlaceholder(): string {
-  // Cycle based on time — changes roughly every 15 minutes
-  const index = Math.floor(Date.now() / 900_000) % PLACEHOLDERS.length;
-  return PLACEHOLDERS[index];
-}
+const PLACEHOLDER = "Log food or activity\u2026";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -108,16 +94,16 @@ function getPlaceholder(): string {
  * - Pending action state (for propose → confirm flow)
  * - Suggestion refresh (reactive post-action)
  */
-export function ChatSurface({ onSuccess, compact }: Props) {
+export function ChatSurface({ onSuccess, onAdd, compact }: Props) {
   const [input, setInput] = useState("");
   const [isPending, startTransition] = useTransition();
   const [reply, setReply] = useState<{ message: string; status: ChatResponse["status"] } | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>(getDefaultSuggestions());
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const inputRef = useRef<any>(null);
   const { mode } = useThemeMode();
+  const actionModal = useActionModal();
 
   // Dark mode: light glow outward. Light mode: dark shadow downward.
   const shadowStyle =
@@ -135,17 +121,8 @@ export function ChatSurface({ onSuccess, compact }: Props) {
           shadowOpacity: 1,
         };
 
-  // Whether suggestions should be visible (hidden while typing)
-  const suggestionsVisible = input.trim().length === 0 && !isPending;
-
   function handleInputChange(text: string) {
     setInput(text);
-  }
-
-  function handleSuggestionSelect(suggestion: Suggestion) {
-    setInput(suggestion.seedMessage);
-    // Focus the input field
-    inputRef.current?.focus?.();
   }
 
   function dismissReply() {
@@ -187,13 +164,15 @@ export function ChatSurface({ onSuccess, compact }: Props) {
         if (!res.ok) throw new Error(`${res.status}`);
         const data: ChatResponse = await res.json();
 
-        // Update reply
-        setReply({ message: data.message, status: data.status });
-
-        // Update pending action
-        if (data.pendingAction) {
-          setPendingAction(data.pendingAction);
+        // If proposed → open action modal instead of inline confirm
+        if (data.status === "proposed" && data.pendingAction) {
+          const modalPayload = chatResponseToModalPayload(data);
+          actionModal.open(modalPayload);
+          setReply(null);
+          setPendingAction(null);
         } else {
+          // Non-proposal responses: show inline reply
+          setReply({ message: data.message, status: data.status });
           setPendingAction(null);
         }
 
@@ -203,18 +182,6 @@ export function ChatSurface({ onSuccess, compact }: Props) {
           { role: "assistant" as const, content: data.message },
         ].slice(-4) as ChatMessage[];
         setConversationHistory(withAssistant);
-
-        // Refresh suggestions reactively
-        if (data.scenario && data.status) {
-          setSuggestions(
-            getPostActionSuggestions({
-              scenario: data.scenario,
-              status: data.status,
-            }),
-          );
-        } else {
-          setSuggestions(getDefaultSuggestions());
-        }
 
         // Notify parent of successful mutation
         if (data.status === "executed") {
@@ -248,7 +215,7 @@ export function ChatSurface({ onSuccess, compact }: Props) {
           ref={inputRef}
           value={input}
           onChangeText={handleInputChange}
-          placeholder={getPlaceholder()}
+          placeholder={PLACEHOLDER}
           placeholderTextColor="$color6"
           disabled={isPending}
           maxLength={500}
@@ -256,25 +223,82 @@ export function ChatSurface({ onSuccess, compact }: Props) {
           onSubmitEditing={submit}
           color={isPending ? "$color7" : "$color"}
         />
+        {onAdd && (
+          <SendButton
+            onPress={onAdd}
+            disabled={isPending}
+            accessibilityLabel="Add entry"
+            opacity={isPending ? 0.3 : 1}
+          >
+            <Text fontSize={16} fontWeight="600" color="$accent9">+</Text>
+          </SendButton>
+        )}
         <SendButton
           onPress={submit}
           disabled={!input.trim() || isPending}
           accessibilityLabel="Send"
           opacity={!input.trim() || isPending ? 0.3 : 1}
         >
-          <Text fontSize={15} color="$color7">
+          <Text fontSize={16} color="$color7">
             {isPending ? "\u2026" : "\u2192"}
           </Text>
         </SendButton>
       </ChatBar>
-
-      {/* Suggestion chips — collapse on typing, reappear on clear */}
-      <SuggestionRow
-        suggestions={suggestions}
-        visible={suggestionsVisible}
-        compact={compact}
-        onSelect={handleSuggestionSelect}
-      />
     </YStack>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Map chat API response to modal payload
+// ---------------------------------------------------------------------------
+
+const SCENARIO_TO_TYPE: Record<string, ActionType> = {
+  log_nutrition: "nutrition",
+  log_gym: "gym",
+  log_run: "running",
+  mark_habit: "custom",
+  increment_goal: "custom",
+  set_goal: "custom",
+};
+
+function chatResponseToModalPayload(data: ChatResponse & { pendingAction?: PendingAction }) {
+  // pendingAction is now a full Action object — round-tripped back on confirm.
+  const action = data.pendingAction;
+  const scenario = data.scenario ?? action?.intent ?? "";
+  const type: ActionType = SCENARIO_TO_TYPE[scenario] ?? "custom";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload: Record<string, any> = (action?.payload as Record<string, any>) ?? {};
+
+  const fields: Record<string, string | number> = {};
+
+  if (type === "nutrition" && payload.entries && payload.entries.length > 0) {
+    const entries = payload.entries as EstimatedNutritionEntry[];
+    if (entries.length === 1) {
+      fields.item = entries[0].item ?? "";
+      fields.calories = entries[0].calories ?? 0;
+      fields.protein = entries[0].protein ?? 0;
+      fields.fat = entries[0].fat ?? 0;
+      fields.carbs = entries[0].carbs ?? 0;
+    } else {
+      fields.item = entries.map((e) => e.item).join(", ");
+      fields.calories = entries.reduce((s, e) => s + (e.calories ?? 0), 0);
+      fields.protein = entries.reduce((s, e) => s + (e.protein ?? 0), 0);
+      fields.fat = entries.reduce((s, e) => s + (e.fat ?? 0), 0);
+      fields.carbs = entries.reduce((s, e) => s + (e.carbs ?? 0), 0);
+    }
+  } else if (type === "running") {
+    fields.miles = (payload.miles as number) ?? 0;
+    fields.duration = (payload.duration as string) ?? "";
+  } else if (type === "gym") {
+    fields.bodyPart = (payload.bodyPart as string) ?? "";
+  } else {
+    fields.value = (payload.value as number) ?? 1;
+  }
+
+  return {
+    type,
+    fields,
+    pendingAction: action,
+    source: "chat" as const,
+  };
 }

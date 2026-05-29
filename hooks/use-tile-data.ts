@@ -31,7 +31,8 @@ export type TileData = {
   label: string;     // category name or metric display
   value: number;     // actual progress
   max: number;       // target
-  unit?: string;     // metric unit
+  unit?: string;     // display unit
+  goalUnit: string;  // DB unit for structured log writes
   tapAmount?: number; // increment amount for tap
   categoryId: string;
 };
@@ -43,12 +44,23 @@ export type DoughnutSegment = {
   unit: string;
 };
 
+export type FeedEntry = {
+  id: string;
+  categoryName: string;
+  categoryType: string;
+  label: string;
+  detail: string;
+  createdAt: string;
+};
+
 export type TileDataState = {
   dailyTiles: TileData[];
   weeklyTiles: TileData[];
   doughnutSegments: DoughnutSegment[];
   calorieTotal: number;
   calorieTarget: number;
+  nutritionSummary: NutritionDailySummary;
+  feedEntries: FeedEntry[];
   categories: Array<{ id: string; name: string; type: string }>;
   loading: boolean;
   error: string | null;
@@ -107,6 +119,7 @@ function assembleTiles(categories: CategoryProgress[]) {
         value: goal.actual,
         max: goal.target,
         unit: metricUnit(goal.metric),
+        goalUnit: goal.unit ?? "count",
         tapAmount: tapAmountForMetric(goal.metric),
         categoryId: cat.categoryId,
       };
@@ -141,8 +154,8 @@ function assembleSegments(
     }
   }
 
-  // Fallback: no nutrition goals, but logs exist
-  if (segments.length === 0 && (nutrition.protein > 0 || nutrition.fat > 0 || nutrition.carbs > 0)) {
+  // Fallback: always show macro segments (defaults if no goals)
+  if (segments.length === 0) {
     segments.push(
       { label: "Protein", value: nutrition.protein, max: 180, unit: "g" },
       { label: "Fat", value: nutrition.fat, max: 80, unit: "g" },
@@ -163,6 +176,10 @@ export function useTileData(): TileDataState {
   const [doughnutSegments, setDoughnutSegments] = useState<DoughnutSegment[]>([]);
   const [calorieTotal, setCalorieTotal] = useState(0);
   const [calorieTarget, setCalorieTarget] = useState(0);
+  const [nutritionSummary, setNutritionSummary] = useState<NutritionDailySummary>({
+    calories: 0, protein: 0, fat: 0, carbs: 0,
+  });
+  const [feedEntries, setFeedEntries] = useState<FeedEntry[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; type: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,20 +203,22 @@ export function useTileData(): TileDataState {
 
       // TODO: when scope !== "all", fetch only the needed endpoint.
       // For now, always fetch both (correct, slightly over-fetches).
-      const [progressRes, nutritionRes] = await Promise.all([
+      const [progressRes, nutritionRes, feedRes] = await Promise.all([
         authFetch(`${API_BASE}/api/logs?type=progress&date=${today}`),
         authFetch(`${API_BASE}/api/logs?type=nutrition_summary&date=${today}`),
+        authFetch(`${API_BASE}/api/logs?type=today_feed&date=${today}`),
       ]);
 
       // Stale response guard
       if (!mountedRef.current || thisRequestId !== requestIdRef.current) return;
 
-      if (!progressRes.ok || !nutritionRes.ok) {
+      if (!progressRes.ok || !nutritionRes.ok || !feedRes.ok) {
         throw new Error("Failed to fetch data");
       }
 
       const progressData = await progressRes.json();
       const nutritionData = await nutritionRes.json();
+      const feedData = await feedRes.json();
 
       // Stale response guard (after async JSON parse)
       if (!mountedRef.current || thisRequestId !== requestIdRef.current) return;
@@ -217,6 +236,8 @@ export function useTileData(): TileDataState {
       setDoughnutSegments(segments);
       setCalorieTotal(nutrition.calories);
       setCalorieTarget(calTarget || 2500);
+      setNutritionSummary(nutrition);
+      setFeedEntries((feedData.data ?? []) as FeedEntry[]);
       setCategories(
         categories.map((c) => ({
           id: c.categoryId,
@@ -260,6 +281,8 @@ export function useTileData(): TileDataState {
     doughnutSegments,
     calorieTotal,
     calorieTarget,
+    nutritionSummary,
+    feedEntries,
     categories,
     loading,
     error,

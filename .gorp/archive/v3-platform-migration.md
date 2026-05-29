@@ -1,3 +1,8 @@
+# DEPRECATED
+
+> This file is archival only.
+> The v3 migration is complete. This document is kept for historical reference.
+
 # RoutineMe v3: Cross-Platform Migration Plan
 
 ## Vision

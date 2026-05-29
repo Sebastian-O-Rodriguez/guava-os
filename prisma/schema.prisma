@@ -57,7 +57,8 @@ model Category {
 // ---------------------------------------------------------------------------
 // Goal — a quantitative target attached to a category.
 //
-// metric: e.g. "calories", "protein", "miles", "leg_sessions"
+// metric: display name (e.g. "calories", "running", "chest")
+// unit: measurement type ("count" | "minutes" | "hours" | "miles" | "km" | "grams" | "calories")
 // target: numeric goal value
 // period: "daily" | "weekly"
 // ---------------------------------------------------------------------------
@@ -66,6 +67,7 @@ model Goal {
   userId     String   @map("user_id")
   categoryId String   @map("category_id")
   metric     String
+  unit       String   @default("count")
   target     Float
   period     String   @default("weekly")
   active     Boolean  @default(true)

@@ -17,10 +17,7 @@ export async function logNutrition(
   input: NormalizedInput,
   estimates: EstimatedNutritionEntry[],
 ): Promise<ScriptResult<NutritionResult>> {
-  const categoryId = input.categoryId;
-  if (!categoryId) {
-    return { success: false, error: "No Nutrition category found." };
-  }
+  const categoryId = input.categoryId!;
 
   const known = estimates.filter((e) => !e.unknown);
   if (known.length === 0) {

@@ -156,6 +156,7 @@ export async function PATCH(request: Request): Promise<Response> {
       .from("categories")
       .update(parsed.data)
       .eq("id", id)
+      .eq("user_id", userId)
       .select()
       .single();
 
@@ -201,7 +202,7 @@ export async function DELETE(request: Request): Promise<Response> {
       return Response.json({ success: false, error: "Category not found" }, { status: 404 });
     }
 
-    const { error } = await supabaseAdmin.from("categories").delete().eq("id", id);
+    const { error } = await supabaseAdmin.from("categories").delete().eq("id", id).eq("user_id", userId);
 
     if (error) throw error;
 

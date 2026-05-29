@@ -1,3 +1,8 @@
+# DEPRECATED
+
+> This file is archival only.
+> react-liquid-gauge was replaced by canvas-based fluid fill (`components/ui/tile-fluid-fill.tsx`).
+
 # react-liquid-gauge — RoutineMe Usage Guide
 
 ## What It Is

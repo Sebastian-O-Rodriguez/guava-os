@@ -2,12 +2,7 @@
 
 Multi-user habit + nutrition tracker. Daily usable, portfolio-ready.
 
-## Product
-
-Daily habit tracking with <60 second sessions.
-Create routines, tap to log, track streaks, view progress, log nutrition via chat.
-
-## Stack (v3 — Expo App, ACTIVE)
+## Stack
 
 | Layer      | Tech                                       |
 | ---------- | ------------------------------------------ |
@@ -19,139 +14,144 @@ Create routines, tap to log, track streaks, view progress, log nutrition via cha
 | Chat AI    | OpenRouter (Claude Haiku 4.5)              |
 | Deploy     | EAS Hosting (web) — EAS Build (native, deferred) |
 
-**No** microservices, separate backends, queues, event pipelines, or scale infra.
+No microservices, separate backends, queues, event pipelines, or scale infra.
 
-## Architecture
+## Startup Invariant (MANDATORY)
+
+Before proposing or executing work:
+
+1. Query Linear (Guava AI team, RoutineMe project)
+2. Derive execution state ONLY from Linear
+3. Validate dependency chain
+4. Validate persona eligibility
+5. Validate issue is unclaimed or stale
+6. Validate branch naming convention (`feat/GUA-{id}-{slug}`)
+7. THEN begin execution
+
+Local markdown plans are ARCHIVAL ONLY. Never derive task assignments, status, or priorities from `.gorp/archive/*`.
+
+## Issue Hierarchy (MANDATORY)
+
+- **Parent issues are containers** — they define scope, not executable work.
+- **Builders (architect, backend, frontend) execute SUBTASKS ONLY.** Never claim a parent issue.
+
+## Subtask Eligibility (MANDATORY)
+
+A subtask is executable ONLY when ALL conditions are true:
+
+1. Status is **`Todo`** (not Backlog, not any other status)
+2. Has a persona label matching the agent (`architect`, `backend`, `frontend`)
+3. Parent issue status is `Todo` or `In Progress`
+4. All blocking issues are resolved (status = `Done`)
+
+**`Backlog` is NOT executable.** If the highest-priority subtask is in Backlog, do not claim it. Report: `BLOCKED — subtask [GUA-XX] not promoted to Todo`.
+
+**Auto-select rule**: If valid executable subtasks exist, the agent MUST pick the highest-priority one and begin immediately. Do NOT ask the human what to work on. Tie-breaking order: (1) highest priority, (2) oldest `updatedAt`, (3) lowest issue number.
+
+### Validation Examples
+
+| Scenario | Result |
+|----------|--------|
+| Agent finds parent issue GUA-5 in Todo | **SKIP** — parent issues are containers, not executable |
+| Agent finds subtask GUA-25 in Backlog, priority P0 | **SKIP** — `BLOCKED — subtask GUA-25 not promoted to Todo` |
+| Agent finds subtask GUA-30 in Todo, label matches, parent in Todo, no blockers | **CLAIM** — all eligibility conditions met |
+| Valid executable subtask exists for agent's persona | **CLAIM immediately** — no permission question to human |
+| No eligible Todo subtasks exist for agent's persona | **STOP** — report "No executable work available" with reason |
+| Matching subtask exists but blocked by dependency | **STOP** — report blocker only, do not propose alternative work |
+
+### No Executable Work (MANDATORY)
+
+If no eligible Todo subtasks exist for the agent's persona:
+
+1. **DO NOT** recommend, suggest, or claim Backlog work
+2. **DO NOT** propose future work, advisory analysis, or scope expansion
+3. **Report exactly**: `No executable work available for [persona].`
+4. **Include blocking reason** (one of):
+   - `Waiting for promotion to Todo`
+   - `Dependency unresolved: [GUA-XX]`
+   - `No matching persona subtasks in project`
+5. **Stop.** Wait for robo/human orchestration.
+
+## Priority Mapping (LOCKED)
+
+| Linear Priority | Label   | Meaning              |
+|-----------------|---------|----------------------|
+| 0               | None    | Unset                |
+| 1               | Urgent  | P0 — drop everything |
+| 2               | High    | P1 — current sprint  |
+| 3               | Medium  | P2 — next sprint     |
+| 4               | Low     | P3 — later           |
+
+Never reinterpret Linear priority labels. Use the mapping above verbatim.
+
+## Authority Hierarchy
+
+| Priority | Source | Owns |
+|----------|--------|------|
+| 0 | **Human** | Priorities, constraints, scope, escalation resolution |
+| 1 | **Linear** | Execution state, priorities, claims, blockers, dependencies |
+| 2 | **CLAUDE.md** | Repo identity, stack, startup invariant |
+| 3 | **AGENT.md** | Persona constraints, boundaries, patterns |
+| 4 | **`.gorp/process/*`** | Execution protocol, conventions, approvals |
+| 5 | **`.gorp/context/*`** | Architecture, product spec, style guides (lazy-loaded) |
+| 6 | **`.gorp/archive/*`** | Dead/historical — never execution truth |
+
+## Tracking
+
+- **Linear** — sole execution source of truth
+- **Team**: Guava AI
+- **Project**: RoutineMe
+- **Issue prefix**: `GUA-`
+
+## Agent System
+
+| Agent     | Role                                              |
+| --------- | ------------------------------------------------- |
+| robo      | Scope gatekeeper, fallback orchestrator           |
+| architect | Schema design, API contracts, component structure |
+| backend   | API routes, Supabase queries, mutation scripts    |
+| frontend  | React components, pages, dashboard UI             |
+| qa        | Quality gates, code review, deploy                |
+
+## Routing Table
+
+| Topic | Canonical Source |
+|-------|-----------------|
+| Execution protocol | `.gorp/process/agent-protocol.md` |
+| Conventions (git, code) | `.gorp/process/conventions.md` |
+| Approval matrix | `.gorp/process/approval-matrix.md` |
+| Architecture | `.gorp/context/architecture.md` |
+| Product spec | `.gorp/context/product-spec.md` |
+| Tamagui patterns | `.gorp/context/tamagui-style-guide.md` |
+
+## Critical Constraints
 
 - Expo Router file-based routing (root `app/` directory)
 - API routes (`app/api/*+api.ts`) — server-side, require auth
 - Supabase JS client (not Prisma) for all DB operations
-- `supabaseAdmin` (service role key) in API routes — bypasses RLS
+- `supabaseAdmin` (service role) in API routes — fails closed if key missing
 - Client-side `authFetch()` attaches JWT to all API calls
-- Auth guard in `_layout.tsx` — unauthenticated users → `/auth`
-- Chat pipeline: classify → normalize → estimate → propose → confirm → execute via scripts
-- Deterministic mutation scripts in `lib/scripts/mutations/`
-- Read-only query scripts in `lib/scripts/queries/`
-
-## Data Model
-
-```
-users        { id }
-categories   { id, user_id, name, type, icon?, color?, active }
-goals        { id, user_id, category_id, metric, target, period, active }
-logs         { id, user_id, category_id, date, data (JSONB) }
-daily_notes  { id, user_id, date, reflection }
-```
-
-- All tables have `user_id` for direct ownership
-- RLS enabled on all tables: `user_id = auth.uid()::text`
-- Log data is typed JSON: NutritionLogData, GymLogData, RunLogData, CustomLogData
-
-## Views
-
-1. **Auth** (`app/auth.tsx`) — Login / signup (email + password)
-2. **Home** (`app/index.tsx`) — DailyCard (tiles + doughnut) + WeeklyCard (tiles) + ChatSurface + Create form
-3. **Dashboard** (`app/dashboard.tsx`) — Summary cards with live progress data
-4. **Settings** — planned, not implemented
-5. **Monthly Grid** — planned, not implemented
-
-## Home Screen Layout (locked)
-
-- Nav → Header/Date → ChatSurface → DailyCard → WeeklyCard → Add Routine button
-- DailyCard: explicit tile grid (left) + nutrition doughnut (right), no flexWrap
-- WeeklyCard: always rendered (stable layout), shows empty state if no weekly goals
-- Tap tile → persist to DB via `/api/quick-log` → refresh from DB
-- Long-press tile → delete goal (with confirmation)
-- Chat → propose → confirm → execute → refresh
-
-## Chat System
-
-- Classifier: intent + entities only (no macro estimation) — OpenRouter Haiku
-- Estimator: separate LLM call for nutrition macros
-- Normalizer: canonical category lookup, period defaulting
-- Executor: thin router → dispatches to deterministic scripts
-- Scripts: pure, own their DB writes, return ScriptResult
-- Propose → confirm → execute flow (no silent mutations)
-
-## UX Rules
-
-- Tap = primary action (persists immediately)
-- Chat = secondary / assistive
-- No mock data anywhere
-- No local-only state — DB is source of truth
-- Failed refresh preserves last good UI state
-- Only executed mutations trigger refresh
-
-## Non-Goals
-
-No: social, collaborative, AI-first, sharing, notifications,
-integrations, marketplace, complex gamification, voice mode.
-
-## v1 Feature Status
-
-| Feature | Status |
-|---------|--------|
-| Auth (email/password) | Working |
-| View routines (home) | Working |
-| Tap → persist to DB | Working |
-| Create routine (form) | Working |
-| Delete routine (long-press) | Working |
-| Chat logging (food, gym, run) | Working |
-| Chat mark habit | Working |
-| Chat create goal | Working |
-| Nutrition doughnut (live) | Working |
-| Dashboard (summary) | Working |
-| Light/dark mode | Working |
-| Supabase RLS | Enabled |
-| Deploy (EAS Hosting) | **Live** — https://routineme.expo.app |
-| Settings page | Not implemented |
-| Monthly grid | Not implemented |
-| Onboarding | Not implemented |
-
-## Agent System
-
-This repo uses Claude Code multiagent orchestration. Agents live in `.claude/agents/`.
-
-| Agent     | Role                                                              |
-| --------- | ----------------------------------------------------------------- |
-| robo      | Orchestrator — plans sprints, dispatches agents, collects reports |
-| architect | Schema design, API contracts, component structure                 |
-| backend   | Server actions, Supabase queries, data logic                      |
-| frontend  | React components, pages, dashboard UI                             |
-| qa        | Testing, review, quality gates                                    |
-
-## Conventions
-
-- **Commits**: `type(scope): description` — scopes: app, db, ui, infra
-- **Branches**: `feat/`, `fix/`, `chore/`
-- **Sprint tracking**: `.gorp/plans/current-sprint.md`
+- RLS enabled on ALL tables — `user_id = auth.uid()::text`
+- All mutations scoped by `id + user_id`
+- Rate limiting: `/api/chat` (20/min), `/api/quick-log` (60/min)
+- No mock data — DB is source of truth
+- Tap = primary action, chat = secondary
 
 ## Quality Gates
 
-| Gate             | How                                             |
-| ---------------- | ----------------------------------------------- |
-| Type check       | `npx tsc --noEmit`                              |
-| Tests            | `npx vitest run`                                |
-| Build            | `npx expo export --platform web`                |
-| Dev              | `npx expo start --web`                          |
+```bash
+npx tsc --noEmit              # Type check
+npx vitest run                # Tests
+npx expo export --platform web # Build
+npx eas deploy --prod         # Deploy (QA only)
+```
 
-## Launch Checklist (pre-deploy)
+## Non-Goals
 
-- [x] Auth works (login/signup)
-- [x] No route without auth
-- [x] No table without RLS
-- [x] No write without user_id
-- [x] Tap persists + reflects
-- [x] No mock data
-- [x] No local-only state
-- [x] Tests pass (12/12)
-- [x] Build compiles
-- [x] Deploy to EAS Hosting (https://routineme.expo.app)
-- [x] Verify OpenRouter API key (V2) works in production
-- [x] Multi-user smoke test (18 tests, isolation verified, replay attack found + fixed)
-- [ ] Enable email confirmation (before real users)
+No: social, collaborative, AI-first, sharing, notifications, integrations, marketplace, complex gamification, voice mode.
 
-## Pre-Public Launch TODO
+## Deploy
 
-1. Remove or auth-gate `/api/health` (exposes env var names)
-2. Enable Supabase email confirmation (Settings → Auth → toggle "Confirm email" ON)
+- **Production**: https://routineme.expo.app (EAS Hosting)
+- **Deploy command**: `npx eas deploy --prod` (QA agent only)
+- **Pre-public blocker**: Enable Supabase email confirmation

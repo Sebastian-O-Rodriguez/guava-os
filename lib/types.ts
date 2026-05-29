@@ -11,6 +11,10 @@ export type CategoryType = "gym" | "nutrition" | "running" | "custom";
 
 export type GoalPeriod = "daily" | "weekly";
 
+export type GoalUnit = "count" | "minutes" | "hours" | "miles" | "km" | "grams" | "calories";
+
+export const GOAL_UNITS: GoalUnit[] = ["count", "minutes", "hours", "miles", "km", "grams", "calories"];
+
 // ---------------------------------------------------------------------------
 // Log data payload types (stored as JSON in the logs table)
 // ---------------------------------------------------------------------------
@@ -66,6 +70,7 @@ export type RunningSummary = {
 export type GoalProgress = {
   goalId: string;
   metric: string;
+  unit: string;
   target: number;
   period: GoalPeriod;
   actual: number;

@@ -2,7 +2,8 @@ import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabase";
 import { requireAuth } from "../../lib/auth-server";
 import { generateId } from "../../lib/id";
-import type { GoalPeriod } from "../../lib/types";
+import type { GoalPeriod, GoalUnit } from "../../lib/types";
+import { GOAL_UNITS } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
 // Validation schemas
@@ -10,9 +11,12 @@ import type { GoalPeriod } from "../../lib/types";
 
 const GoalPeriodSchema = z.enum(["daily", "weekly"]);
 
+const GoalUnitSchema = z.enum(GOAL_UNITS as [string, ...string[]]);
+
 const UpsertGoalSchema = z.object({
   categoryId: z.string().min(1),
   metric: z.string().min(1).max(100),
+  unit: GoalUnitSchema.optional().default("count"),
   target: z.number().positive(),
   period: GoalPeriodSchema.optional().default("weekly"),
 });
@@ -25,6 +29,7 @@ type GoalData = {
   id: string;
   categoryId: string;
   metric: string;
+  unit: string;
   target: number;
   period: GoalPeriod;
   active: boolean;
@@ -154,9 +159,11 @@ export async function POST(request: Request): Promise<Response> {
         .from("goals")
         .update({
           target: parsed.data.target,
+          unit: parsed.data.unit,
           period: parsed.data.period,
         })
         .eq("id", existing.id)
+        .eq("user_id", userId)
         .select()
         .single();
 
@@ -171,6 +178,7 @@ export async function POST(request: Request): Promise<Response> {
           user_id: userId,
           category_id: parsed.data.categoryId,
           metric: parsed.data.metric,
+          unit: parsed.data.unit,
           target: parsed.data.target,
           period: parsed.data.period,
         })
@@ -224,7 +232,7 @@ export async function DELETE(request: Request): Promise<Response> {
       return Response.json({ success: false, error: "Goal not found" }, { status: 404 });
     }
 
-    const { error } = await supabaseAdmin.from("goals").delete().eq("id", id);
+    const { error } = await supabaseAdmin.from("goals").delete().eq("id", id).eq("user_id", userId);
 
     if (error) throw error;
 

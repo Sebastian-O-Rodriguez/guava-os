@@ -16,15 +16,8 @@ type IncrementResult = {
 export async function incrementGoal(
   input: NormalizedInput,
 ): Promise<ScriptResult<IncrementResult>> {
-  const categoryId = input.categoryId;
+  const categoryId = input.categoryId!;
   const categoryName = input.categoryName;
-
-  if (!categoryId) {
-    return {
-      success: false,
-      error: `No "${input.title}" goal found. Want to create one?`,
-    };
-  }
 
   const value = input.count;
   const unit = input.unit ?? "";

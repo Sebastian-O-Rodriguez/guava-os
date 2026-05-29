@@ -10,10 +10,7 @@ type GymResult = { weekCount: number; bodyPart?: string };
 export async function logGym(
   input: NormalizedInput,
 ): Promise<ScriptResult<GymResult>> {
-  const categoryId = input.categoryId;
-  if (!categoryId) {
-    return { success: false, error: "No Gym category found." };
-  }
+  const categoryId = input.categoryId!;
 
   const bodyPart = typeof input.params.bodyPart === "string"
     ? input.params.bodyPart

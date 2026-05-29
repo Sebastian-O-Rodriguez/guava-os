@@ -1,0 +1,43 @@
+[
+  {
+    "id": "TST-1",
+    "title": "Parent: Auth System",
+    "status": "In Progress",
+    "statusType": "started",
+    "priority": { "value": 2, "name": "High" },
+    "labels": [],
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-01",
+    "completedAt": null,
+    "canceledAt": null
+  },
+  {
+    "id": "TST-10",
+    "title": "Design auth schema",
+    "status": "Todo",
+    "statusType": "unstarted",
+    "priority": { "value": 2, "name": "High" },
+    "labels": ["architect"],
+    "parentId": "TST-1",
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-01",
+    "completedAt": null,
+    "canceledAt": null
+  },
+  {
+    "id": "TST-11",
+    "title": "Implement auth routes",
+    "status": "Todo",
+    "statusType": "unstarted",
+    "priority": { "value": 2, "name": "High" },
+    "labels": ["backend"],
+    "parentId": "TST-1",
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-02",
+    "completedAt": null,
+    "canceledAt": null
+  }
+]

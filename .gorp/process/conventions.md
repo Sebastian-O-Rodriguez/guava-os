@@ -2,61 +2,47 @@
 
 ## Git
 
-- **Branches**: `feat/`, `fix/`, `chore/`, `docs/`
-- **Commits**: Conventional format — `type(scope): description`
+- **Branches**: `feat/GUA-{id}-{slug}`, `fix/GUA-{id}-{slug}`, `chore/GUA-{id}-{slug}`
+- **Commits**: `type(scope): description [GUA-{id}]`
 - **Scopes**: `app`, `db`, `ui`, `infra`, `docs`
+- **One branch per parent issue** — all subtasks commit to same branch
 - **Never push directly to main** — feature branches + PRs
 
-## Sprint
+## Labels
 
-- `.gorp/plans/roadmap.md` — CTO-maintained, agents never modify
-- `.gorp/plans/current-sprint.md` — active task breakdown
-- `.gorp/journal/` — one file per agent per day
-- Sprint tasks must have: ID, agent, title, status, acceptance criteria
+- `architect` — schema, contracts, system design
+- `backend` — API routes, queries, mutations, tests
+- `frontend` — components, pages, UI, interactions
 
-## Code (v3 — Expo)
+## Issue Semantics
+
+- **Parent issues** — containers for scope, owned by robo for decomposition. Builders NEVER claim parent issues.
+- **Subtasks** — agent-level executable work, labeled with ONE persona. Builders execute subtasks ONLY.
+- **Subtask eligibility** — executable ONLY when ALL: (1) status is `Todo`, (2) persona label matches agent, (3) parent status is `Todo` or `In Progress`, (4) all blockers resolved. `Backlog` is NOT executable.
+- **Auto-select** — agents MUST claim the highest-priority eligible subtask immediately. No permission questions when valid work exists. Tie-break: priority → oldest updatedAt → lowest issue number.
+- **No executable work** — if no eligible Todo subtasks exist for the persona: report `No executable work available for [persona].` with blocking reason. Do NOT recommend Backlog work, propose future work, or drift into advisory behavior. Stop and wait for robo/human orchestration.
+- **Priority mapping (LOCKED)**:
+  - Linear 1 / Urgent = **P0** — drop everything
+  - Linear 2 / High = **P1** — current sprint
+  - Linear 3 / Medium = **P2** — next sprint
+  - Linear 4 / Low = **P3** — later
+  - Never reinterpret Linear priority labels.
+
+## Code
 
 - TypeScript strict mode
 - No `any` types (except Tamagui ref workarounds)
 - Expo Router file-based routing (root `app/` directory)
 - API routes in `app/api/*+api.ts`
-- **Supabase JS client** for all DB operations (NOT Prisma)
+- Supabase JS client for all DB operations (NOT Prisma)
 - `supabaseAdmin` (service role key) in API routes
-- `authFetch()` from `lib/api.ts` for all client-side API calls
-- **Every API route requires auth** via `requireAuth(request)`
-- **Every DB write includes user_id**
-- Components follow Tamagui patterns (see `.gorp/docs/tamagui-style-guide.md`)
+- `authFetch()` from `lib/auth-context.tsx` for client-side API calls
+- Every API route requires auth via `requireAuth(request)`
+- Every DB write includes `user_id`
 - Light/dark theme via `lib/theme-context.tsx`
-- UI tokens in `tamagui.config.ts` + `themes.ts`
-- Layout constants in `lib/layout.ts` (single source of truth)
+- Layout constants in `lib/layout.ts`
 - Card templates in `components/ui/card-templates.tsx`
-
-## Auth
-
-- Supabase Auth with email/password
-- `lib/auth-context.tsx` — client-side session provider
-- `lib/auth-server.ts` — server-side JWT validation
-- AuthGate in `_layout.tsx` — redirects unauthenticated users to `/auth`
-- RLS enabled on all tables: `user_id = auth.uid()::text`
-
-## Home Screen Layout (LOCKED)
-
-- Order: Nav → Header/Date → ChatSurface → DailyCard → WeeklyCard → Add Routine
-- DailyCard: explicit tile grid (left, max 3 cols) + doughnut (right), NO flexWrap
-- WeeklyCard: always rendered (stable layout), CollectionCard with flexWrap
-- Tap tile → persist to DB → refresh from DB (no local-only state)
-- Long-press tile → delete with confirmation
-- No duplicated metrics across cards
-- Tiles never resize — grid grows by adding rows
-- Spacing from layout system only (CARD_GAP, SECTION_GAP, CONTENT_GAP)
-
-## Chat System
-
-- Classifier → Normalizer → Estimator (if nutrition) → Propose → Confirm → Execute
-- Scripts in `lib/scripts/mutations/` (deterministic, own DB writes)
-- Queries in `lib/scripts/queries/` (read-only)
-- Internal helpers in `lib/scripts/helpers.ts` (not public scripts)
-- Standard return: `ScriptResult<T>` with mutation, summary, data, timestamp
+- Color palette in `lib/palette.ts` — use ACCENT hex for components inside purple Theme
 
 ## Quality
 
@@ -66,5 +52,4 @@ Run before every PR:
 npx tsc --noEmit
 npx vitest run
 npx expo export --platform web
-npx eas deploy --prod  # deploy to EAS Hosting
 ```

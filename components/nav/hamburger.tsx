@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { styled, XStack, YStack, View, Text, Button } from "tamagui";
 import { useThemeMode } from "../../lib/theme-context";
+import { useAuth } from "../../lib/auth-context";
 
 const LINKS = [
   { label: "Now", href: "/" },
@@ -70,6 +71,7 @@ export function Hamburger({ currentPath }: { currentPath?: string }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { mode, toggle } = useThemeMode();
+  const { signOut } = useAuth();
 
   function nav(href: string) {
     setOpen(false);
@@ -124,10 +126,17 @@ export function Hamburger({ currentPath }: { currentPath?: string }) {
                 );
               })}
             </YStack>
-            <View px="$4" py="$2.5" borderTopWidth={1} borderTopColor="$color3">
-              <Text fontSize={8} fontWeight="700" letterSpacing={2.5} color="$color5" textTransform="uppercase">
-                routineme
-              </Text>
+            <View borderTopWidth={1} borderTopColor="$color3" py="$1.5">
+              <MenuLink
+                onPress={() => {
+                  setOpen(false);
+                  signOut();
+                }}
+              >
+                <Text fontSize={14} fontWeight="500" color="$red9">
+                  Log out
+                </Text>
+              </MenuLink>
             </View>
           </Dropdown>
         </>

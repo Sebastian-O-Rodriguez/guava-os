@@ -10,8 +10,49 @@
  * Does NOT do: synonym mapping, NLP, language processing (classifier handles that).
  * Requires userId — all DB lookups are scoped to the authenticated user.
  */
-import { findCategoryByName, findCategoryByType } from "./scripts/helpers";
+import { findCategoryByName, findCategoryByType, resolveCategory } from "./scripts/helpers";
 import type { ClassifierOutput } from "./chat-scenarios";
+import type { GoalUnit } from "./types";
+
+// ---------------------------------------------------------------------------
+// Unit inference — maps raw strings to valid GoalUnit values
+// ---------------------------------------------------------------------------
+
+const UNIT_ALIASES: Record<string, GoalUnit> = {
+  // count
+  count: "count", times: "count", sessions: "count", reps: "count", sets: "count",
+  workouts: "count", workout: "count", session: "count", time: "count", x: "count",
+  // minutes
+  minutes: "minutes", min: "minutes", mins: "minutes", minute: "minutes",
+  // hours
+  hours: "hours", hr: "hours", hrs: "hours", hour: "hours",
+  // miles
+  miles: "miles", mile: "miles", mi: "miles",
+  // km
+  km: "km", kilometers: "km", kilometre: "km", kilometres: "km",
+  // grams
+  grams: "grams", gram: "grams", g: "grams",
+  // calories
+  calories: "calories", cal: "calories", cals: "calories", kcal: "calories",
+};
+
+function inferUnit(raw: unknown): GoalUnit {
+  if (typeof raw !== "string" || !raw) return "count";
+  const key = raw.toLowerCase().trim();
+  return UNIT_ALIASES[key] ?? "count";
+}
+
+/** Infer unit from metric name when no explicit unit is provided */
+function inferUnitFromMetric(metric: string): GoalUnit {
+  const m = metric.toLowerCase();
+  if (m === "miles" || m.includes("mile")) return "miles";
+  if (m === "km" || m.includes("kilometer") || m.includes("kilometre")) return "km";
+  if (m === "calories" || m === "cal") return "calories";
+  if (m === "protein" || m === "fat" || m === "carbs") return "grams";
+  if (m.includes("min")) return "minutes";
+  if (m.includes("hour") || m.includes("hr")) return "hours";
+  return "count";
+}
 
 // ---------------------------------------------------------------------------
 // Output type
@@ -73,13 +114,13 @@ async function normalizeNutrition(
   p: Record<string, unknown>,
   confidence: number,
 ): Promise<NormalizedInput> {
-  const cat = await findCategoryByType(userId, "nutrition");
+  const cat = await resolveCategory(userId, "nutrition");
   return {
     intent: "log_nutrition",
     userId,
     category: "nutrition",
-    categoryId: cat?.id ?? null,
-    categoryName: cat?.name ?? null,
+    categoryId: cat.id,
+    categoryName: cat.name,
     params: p,
     confidence,
   };
@@ -90,15 +131,15 @@ async function normalizeGym(
   p: Record<string, unknown>,
   confidence: number,
 ): Promise<NormalizedInput> {
-  const cat = await findCategoryByType(userId, "gym");
+  const cat = await resolveCategory(userId, "gym");
   const bodyPart = typeof p.bodyPart === "string" ? p.bodyPart.toLowerCase() : undefined;
   return {
     intent: "log_gym",
     userId,
     title: bodyPart,
     category: "habit",
-    categoryId: cat?.id ?? null,
-    categoryName: cat?.name ?? null,
+    categoryId: cat.id,
+    categoryName: cat.name,
     params: { ...p, bodyPart },
     confidence,
   };
@@ -109,15 +150,15 @@ async function normalizeRun(
   p: Record<string, unknown>,
   confidence: number,
 ): Promise<NormalizedInput> {
-  const cat = await findCategoryByType(userId, "running");
+  const cat = await resolveCategory(userId, "running");
   return {
     intent: "log_run",
     userId,
     count: typeof p.miles === "number" ? p.miles : undefined,
     unit: "miles",
     category: "habit",
-    categoryId: cat?.id ?? null,
-    categoryName: cat?.name ?? null,
+    categoryId: cat.id,
+    categoryName: cat.name,
     params: p,
     confidence,
   };
@@ -129,14 +170,16 @@ async function normalizeMarkHabit(
   confidence: number,
 ): Promise<NormalizedInput> {
   const habitName = typeof p.habit === "string" ? p.habit.toLowerCase() : "";
-  const cat = await findCategoryByName(userId, habitName);
+  const cat = await findCategoryByName(userId, habitName) ??
+    await resolveCategory(userId, "custom");
   return {
     intent: "mark_habit",
     userId,
     title: habitName,
+    unit: "count",
     category: "habit",
-    categoryId: cat?.id ?? null,
-    categoryName: cat?.name ?? null,
+    categoryId: cat.id,
+    categoryName: cat.name,
     period: "daily",
     params: p,
     confidence,
@@ -149,16 +192,17 @@ async function normalizeIncrementGoal(
   confidence: number,
 ): Promise<NormalizedInput> {
   const habitName = typeof p.habit === "string" ? p.habit.toLowerCase() : "";
-  const cat = await findCategoryByName(userId, habitName);
+  const cat = await findCategoryByName(userId, habitName) ??
+    await resolveCategory(userId, "custom");
   return {
     intent: "increment_goal",
     userId,
     title: habitName,
     count: typeof p.value === "number" ? p.value : undefined,
-    unit: typeof p.unit === "string" ? p.unit : undefined,
+    unit: inferUnit(p.unit),
     category: "goal",
-    categoryId: cat?.id ?? null,
-    categoryName: cat?.name ?? null,
+    categoryId: cat.id,
+    categoryName: cat.name,
     period: "daily",
     params: p,
     confidence,
@@ -171,17 +215,25 @@ async function normalizeSetGoal(
   confidence: number,
 ): Promise<NormalizedInput> {
   const categoryName = typeof p.categoryName === "string" ? p.categoryName.toLowerCase() : "";
-  const cat = await findCategoryByName(userId, categoryName) ?? await findCategoryByType(userId, categoryName);
+  // Try name match first, then type match, then auto-create via resolveCategory
+  const cat =
+    await findCategoryByName(userId, categoryName) ??
+    await findCategoryByType(userId, categoryName) ??
+    await resolveCategory(userId, categoryName || "custom");
   const period = p.period === "weekly" ? "weekly" : "daily";
+  const metric = typeof p.metric === "string" ? p.metric : "sessions";
+  // Unit: prefer explicit from classifier, else infer from metric name
+  const unit = p.unit ? inferUnit(p.unit) : inferUnitFromMetric(metric);
   return {
     intent: "set_goal",
     userId,
-    title: typeof p.metric === "string" ? p.metric : undefined,
+    title: metric,
     count: typeof p.target === "number" ? p.target : undefined,
+    unit,
     period,
     category: "goal",
-    categoryId: cat?.id ?? null,
-    categoryName: cat?.name ?? categoryName,
+    categoryId: cat.id,
+    categoryName: cat.name,
     params: p,
     confidence,
   };

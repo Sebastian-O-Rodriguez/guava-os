@@ -74,6 +74,56 @@ export async function findCategoryByName(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Generic category names per type (used for auto-creation fallback)
+// ---------------------------------------------------------------------------
+
+const GENERIC_CATEGORY_NAMES: Record<string, string> = {
+  nutrition: "Nutrition",
+  gym: "Gym",
+  running: "Running",
+  custom: "Custom",
+};
+
+/**
+ * Resolve a category by type for a user. Never returns null.
+ *
+ * Fallback hierarchy (deterministic):
+ * 1. Find existing category matching the type
+ * 2. Auto-create a generic category for the type
+ *
+ * Categories are organization, not permission to log.
+ */
+export async function resolveCategory(
+  userId: string,
+  type: string,
+): Promise<{ id: string; name: string; type: string }> {
+  // 1. Try existing category
+  const existing = await findCategoryByType(userId, type);
+  if (existing) return existing;
+
+  // 2. Auto-create generic category
+  const name = GENERIC_CATEGORY_NAMES[type] ?? "Custom";
+  const resolvedType = type in GENERIC_CATEGORY_NAMES ? type : "custom";
+  const categoryId = generateId();
+
+  const { error } = await supabaseAdmin.from("categories").insert({
+    id: categoryId,
+    user_id: userId,
+    name,
+    type: resolvedType,
+  });
+
+  if (error) {
+    // Race condition: another request may have created it — try lookup again
+    const retry = await findCategoryByType(userId, resolvedType);
+    if (retry) return retry;
+    throw error;
+  }
+
+  return { id: categoryId, name, type: resolvedType };
+}
+
 /**
  * Insert a log row with user_id.
  */

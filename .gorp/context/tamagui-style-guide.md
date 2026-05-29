@@ -181,58 +181,13 @@ Platform branching is **never** permitted for:
 - Hover / press / focus states
 - Animation
 
-### The DayHeader anti-pattern (do not repeat)
+### Anti-pattern: duplicated platform render trees
 
-`/Users/sebastianrodriguez/Projects/ROUTINEME/components/dashboard/day-header.tsx`
-currently duplicates the entire render tree into a `Platform.OS === "web"`
-branch that uses raw `<div>` and `<button>` elements. This is the canonical
-bad pattern. The correct implementation is a single render tree:
-
-```tsx
-// CORRECT — single tree, no platform branch
-export function DayHeader({ dateString, isoDate, isToday, onNavigate }: DayHeaderProps) {
-  function goBack() { onNavigate?.(offsetDate(isoDate, -1)); }
-  function goForward() {
-    if (isToday) return;
-    onNavigate?.(offsetDate(isoDate, 1));
-  }
-
-  return (
-    <XStack alignItems="center" justifyContent="space-between" gap="$3">
-      <Button unstyled onPress={goBack} accessibilityLabel="Previous day"
-        width={32} height={32} alignItems="center" justifyContent="center"
-        pressStyle={{ opacity: 0.6 }}>
-        <Text fontSize={20} color="$zinc400">{"‹"}</Text>
-      </Button>
-
-      <YStack alignItems="center" gap="$1" flex={1}>
-        <Text fontSize={18} fontWeight="600" color="$color" letterSpacing={-0.3} textAlign="center">
-          The Stub is the Way
-        </Text>
-        <Text fontSize={13} color="$placeholderColor" textAlign="center">
-          {dateString}
-        </Text>
-      </YStack>
-
-      <Button unstyled onPress={goForward} disabled={isToday}
-        accessibilityLabel="Next day" width={32} height={32}
-        alignItems="center" justifyContent="center"
-        pressStyle={{ opacity: 0.6 }} opacity={isToday ? 0.3 : 1}>
-        <Text fontSize={20} color={isToday ? "$zinc700" : "$zinc400"}>{"›"}</Text>
-      </Button>
-    </XStack>
-  );
-}
-```
-
-### The LiquidGauge anti-pattern (do not repeat)
-
-`liquid-gauge.tsx` defines `LiquidGaugeWeb` and `LiquidGaugeNative` as
-entirely separate components that are platform-switched at the bottom. This is
-the second canonical bad pattern. All logic and markup belong in one component.
-Web-only visual effects (CSS `backdrop-filter`, `box-shadow`, Tailwind class
-strings) should be isolated to a single `Platform.OS === "web"` prop injection
-point — not duplicated across two full component trees.
+Do not create separate `ComponentWeb` and `ComponentNative` variants that
+duplicate the full render tree with platform switching. All logic and markup
+belong in one component. Web-only visual effects (CSS `backdrop-filter`,
+`box-shadow`) should be isolated to a single `Platform.OS === "web"` prop
+injection point — not duplicated across two full component trees.
 
 ---
 
@@ -307,9 +262,7 @@ Use Tamagui's built-in animation props. Do not use CSS `transition` strings or
 
 `motion/react` (`framer-motion`) is permitted only for complex, web-exclusive
 sequenced animations where Tamagui's animation system cannot express the
-behavior — for example, the staggered gauge entrance currently in
-`metrics-card.tsx`. Even then, `motion` must wrap a Tamagui component, not
-raw HTML:
+behavior. Even then, `motion` must wrap a Tamagui component, not raw HTML:
 
 ```tsx
 // Acceptable — motion wraps a Tamagui Stack, not a raw div

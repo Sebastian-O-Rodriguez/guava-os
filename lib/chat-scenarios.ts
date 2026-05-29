@@ -75,6 +75,7 @@ export const setGoalParamsSchema = z.object({
   categoryName: z.string(),
   metric: z.string(),
   target: z.number(),
+  unit: z.string().optional(),
   period: z.enum(["daily", "weekly"]),
 });
 

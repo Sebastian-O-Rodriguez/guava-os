@@ -42,6 +42,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Agent OS
+.agent-os/manifest.json
+.agent-os/pilot/*.json
+
 # legacy
 /.next/
 expo-app/

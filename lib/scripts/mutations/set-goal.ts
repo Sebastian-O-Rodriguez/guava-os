@@ -17,16 +17,10 @@ type GoalResult = {
 export async function setGoal(
   input: NormalizedInput,
 ): Promise<ScriptResult<GoalResult>> {
-  const categoryId = input.categoryId;
-
-  if (!categoryId) {
-    return {
-      success: false,
-      error: `No category "${input.categoryName}" found. Want to create it first?`,
-    };
-  }
+  const categoryId = input.categoryId!;
 
   const metric = typeof input.params.metric === "string" ? input.params.metric : "sessions";
+  const unit = typeof input.unit === "string" ? input.unit : "count";
   const target = typeof input.count === "number" ? Math.min(Math.max(input.count, 0), 100_000) : 1;
   const period = input.period ?? "daily";
 
@@ -43,7 +37,7 @@ export async function setGoal(
     if (existing) {
       const { error } = await supabaseAdmin
         .from("goals")
-        .update({ target, period })
+        .update({ target, unit, period })
         .eq("id", existing.id);
       if (error) throw error;
 
@@ -61,6 +55,7 @@ export async function setGoal(
       user_id: input.userId,
       category_id: categoryId,
       metric,
+      unit,
       target,
       period,
     });

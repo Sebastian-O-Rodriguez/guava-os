@@ -1,0 +1,71 @@
+[
+  {
+    "id": "TST-1",
+    "title": "Parent: Backlog (not active)",
+    "status": "Backlog",
+    "statusType": "backlog",
+    "priority": { "value": 3, "name": "Medium" },
+    "labels": [],
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-01",
+    "completedAt": null,
+    "canceledAt": null
+  },
+  {
+    "id": "TST-10",
+    "title": "Sub: Todo under Backlog parent",
+    "status": "Todo",
+    "statusType": "unstarted",
+    "priority": { "value": 2, "name": "High" },
+    "labels": ["backend"],
+    "parentId": "TST-1",
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-01",
+    "completedAt": null,
+    "canceledAt": null
+  },
+  {
+    "id": "TST-11",
+    "title": "Sub: No persona label",
+    "status": "Backlog",
+    "statusType": "backlog",
+    "priority": { "value": 3, "name": "Medium" },
+    "labels": [],
+    "parentId": "TST-1",
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-01",
+    "completedAt": null,
+    "canceledAt": null
+  },
+  {
+    "id": "TST-12",
+    "title": "Sub: Multi persona labels",
+    "status": "Backlog",
+    "statusType": "backlog",
+    "priority": { "value": 3, "name": "Medium" },
+    "labels": ["backend", "frontend"],
+    "parentId": "TST-1",
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-01",
+    "completedAt": null,
+    "canceledAt": null
+  },
+  {
+    "id": "TST-50",
+    "title": "Orphan sub-issue",
+    "status": "Todo",
+    "statusType": "unstarted",
+    "priority": { "value": 3, "name": "Medium" },
+    "labels": ["backend"],
+    "parentId": "TST-GONE",
+    "project": "TestProject",
+    "createdAt": "2026-01-01",
+    "updatedAt": "2026-01-01",
+    "completedAt": null,
+    "canceledAt": null
+  }
+]

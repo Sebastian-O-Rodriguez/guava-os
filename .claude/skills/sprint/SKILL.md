@@ -3,24 +3,45 @@ name: sprint
 description: Plan or review the current sprint. Creates task breakdown with agent assignments.
 ---
 
-## Sprint Planning
+## Sprint Planning (Linear-First)
 
-Read the following files:
+Usage: `/sprint [plan|review|status]`
 
-- `CLAUDE.md` — Product spec
-- `.gorp/plans/roadmap.md` — Current roadmap
-- `.gorp/plans/current-sprint.md` — Active sprint (if exists)
+### All modes — start by querying Linear:
 
-Then either:
+1. List all issues in RoutineMe project (Guava AI team)
+2. Group by status: Backlog, Todo, In Progress, In Review, Done
+3. Identify parent issues and their subtasks
+4. Check for blockers, stale claims, missing coverage
 
-**If starting a new sprint**: Propose a task breakdown following this format:
+### `/sprint plan`
 
-- Tasks grouped by wave (parallel where possible)
-- Each task has: ID, agent, title, acceptance criteria
-- Dependencies clearly stated
-- Write result to `.gorp/plans/current-sprint.md`
+1. Query Linear for current state
+2. Read `.gorp/context/architecture.md` and `.gorp/context/product-spec.md` for domain context
+3. Propose parent issues and subtask breakdown
+4. Each subtask: labeled with ONE persona, concrete acceptance criteria
+5. Parent issues are containers — builders execute subtasks only
+6. Priority mapping (LOCKED): Linear 1/Urgent=P0, 2/High=P1, 3/Medium=P2, 4/Low=P3
+7. Create issues in Linear (do NOT write to local markdown files)
+8. Set subtask status to **`Todo`** when ready for agent pickup. Use `Backlog` for subtasks not yet promotable. Agents cannot execute Backlog items.
 
-**If reviewing**: Read `.gorp/journal/` for agent reports, summarize progress,
-identify blockers, and update task statuses in `current-sprint.md`.
+### `/sprint review`
 
-Arguments: `$ARGUMENTS` (e.g., "plan phase-1", "review", "status")
+1. Query Linear for all In Progress and In Review issues
+2. Check for stale claims (>2h no activity)
+3. Check for blocked issues
+4. Report status summary
+
+### `/sprint status`
+
+1. Query Linear issues grouped by status
+2. Show completion percentage
+3. List blockers and next actions
+4. For each agent persona, report executable work availability:
+   - If eligible Todo subtasks exist → list them
+   - If none → report `No executable work available for [persona]` with blocking reason
+
+**Do NOT read `.gorp/archive/*` for sprint state.**
+Execution state comes from Linear only.
+
+Arguments: `$ARGUMENTS`

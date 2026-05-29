@@ -10,15 +10,8 @@ type HabitResult = { name: string; streak: number };
 export async function markHabit(
   input: NormalizedInput,
 ): Promise<ScriptResult<HabitResult>> {
-  const categoryId = input.categoryId;
+  const categoryId = input.categoryId!;
   const categoryName = input.categoryName;
-
-  if (!categoryId) {
-    return {
-      success: false,
-      error: `No "${input.title}" goal found. Want to create one?`,
-    };
-  }
 
   const today = todayISO();
 

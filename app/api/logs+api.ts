@@ -14,6 +14,7 @@ import type {
   CategoryProgress,
   GoalPeriod,
 } from "../../lib/types";
+import { computeActualForMetric } from "../../lib/progress";
 
 // ---------------------------------------------------------------------------
 // Validation schemas
@@ -108,6 +109,9 @@ export async function GET(request: Request): Promise<Response> {
     }
     if (type === "progress") {
       return getCategoryProgressAll(url, userId);
+    }
+    if (type === "today_feed") {
+      return getTodayFeed(url, userId);
     }
 
     // Standard log queries
@@ -455,7 +459,7 @@ async function getCategoryProgressAll(url: URL, userId: string): Promise<Respons
     // Fetch all active goals for these categories in one query
     const { data: allGoals, error: goalsError } = await supabaseAdmin
       .from("goals")
-      .select("id, category_id, metric, target, period")
+      .select("id, category_id, metric, unit, target, period")
       .in("category_id", categoryIds)
       .eq("active", true);
 
@@ -493,6 +497,7 @@ type GoalRow = {
   id: string;
   category_id: string;
   metric: string;
+  unit: string;
   target: number;
   period: string;
 };
@@ -546,6 +551,7 @@ async function computeCategoryProgress(
     const logs = goal.period === "daily" ? todayLogs : weekLogs;
     const actual = computeActualForMetric(
       goal.metric,
+      goal.unit,
       category.type,
       logs.map((l) => l.data),
     );
@@ -554,6 +560,7 @@ async function computeCategoryProgress(
     return {
       goalId: goal.id,
       metric: goal.metric,
+      unit: goal.unit,
       target: goal.target,
       period: goal.period as GoalPeriod,
       actual,
@@ -569,54 +576,89 @@ async function computeCategoryProgress(
   };
 }
 
-function computeActualForMetric(
-  metric: string,
-  categoryType: string,
-  logDataArray: unknown[],
-): number {
-  switch (categoryType) {
-    case "nutrition": {
-      return logDataArray.reduce<number>((sum, raw) => {
-        const entry = raw as Partial<NutritionLogData>;
-        const value = (entry as Record<string, unknown>)[metric];
-        return sum + (typeof value === "number" ? value : 0);
-      }, 0);
-    }
+// computeActualForMetric + computeLegacyMetric imported from lib/progress.ts
 
-    case "gym": {
-      // "sessions" without body part = count all gym sessions
-      if (metric === "sessions") return logDataArray.length;
-      const targetBodyPart = metric.replace("_sessions", "").replace(/s$/, "").replace("_", " ");
-      return logDataArray.reduce<number>((sum, raw) => {
-        const entry = raw as Partial<GymLogData>;
-        if (!entry.bodyPart) return sum; // generic sessions don't count toward specific body-part goals
-        const bp = entry.bodyPart.toLowerCase().replace(/s$/, "");
-        return bp === targetBodyPart || bp.includes(targetBodyPart) || targetBodyPart.includes(bp)
-          ? sum + 1
-          : sum;
-      }, 0);
-    }
+// ---------------------------------------------------------------------------
+// Today's log feed — all logs for a user on a given date, with category info
+// GET /api/logs?type=today_feed&date=YYYY-MM-DD
+// ---------------------------------------------------------------------------
 
-    case "running": {
-      if (metric === "sessions") {
-        return logDataArray.length;
-      }
-      return logDataArray.reduce<number>((sum, raw) => {
-        const entry = raw as Partial<RunLogData>;
-        const value = (entry as Record<string, unknown>)[metric];
-        return sum + (typeof value === "number" ? value : 0);
-      }, 0);
-    }
+async function getTodayFeed(url: URL, userId: string): Promise<Response> {
+  try {
+    const dateParam = url.searchParams.get("date");
+    const date = dateParam ? new Date(dateParam) : new Date();
+    const isoDate = toISODate(normalizeDate(date));
 
-    case "custom": {
-      return logDataArray.reduce<number>((sum, raw) => {
-        const entry = raw as Record<string, unknown>;
-        const v = entry["value"];
-        return sum + (typeof v === "number" ? v : 0);
-      }, 0);
-    }
+    // Fetch all logs for this user on this date
+    const { data: logs, error } = await supabaseAdmin
+      .from("logs")
+      .select("id, category_id, data, created_at")
+      .eq("user_id", userId)
+      .eq("date", isoDate)
+      .order("created_at", { ascending: false });
 
+    if (error) throw error;
+
+    // Fetch user's categories for labeling
+    const { data: categories } = await supabaseAdmin
+      .from("categories")
+      .select("id, name, type")
+      .eq("user_id", userId)
+      .eq("active", true);
+
+    const catMap = new Map(
+      (categories ?? []).map((c) => [c.id, { name: c.name as string, type: c.type as string }]),
+    );
+
+    // Build feed entries
+    const feed = (logs ?? []).map((log) => {
+      const cat = catMap.get(log.category_id as string);
+      const d = log.data as Record<string, unknown>;
+      return {
+        id: log.id,
+        categoryName: cat?.name ?? "Unknown",
+        categoryType: cat?.type ?? "custom",
+        label: feedLabel(d, cat?.type ?? "custom"),
+        detail: feedDetail(d, cat?.type ?? "custom"),
+        createdAt: log.created_at,
+      };
+    });
+
+    return Response.json({ success: true, data: feed });
+  } catch (err) {
+    console.error("[getTodayFeed]", err);
+    return Response.json({ success: false, error: "Failed to fetch feed" }, { status: 500 });
+  }
+}
+
+function feedLabel(data: Record<string, unknown>, type: string): string {
+  switch (type) {
+    case "nutrition":
+      return typeof data.item === "string" ? data.item : "Food";
+    case "gym":
+      return typeof data.bodyPart === "string" ? data.bodyPart : "Gym";
+    case "running":
+      return "Run";
     default:
-      return 0;
+      return typeof data.notes === "string" ? data.notes : "Activity";
+  }
+}
+
+function feedDetail(data: Record<string, unknown>, type: string): string {
+  switch (type) {
+    case "nutrition": {
+      const cal = typeof data.calories === "number" ? data.calories : 0;
+      return `${cal} cal`;
+    }
+    case "gym":
+      return typeof data.notes === "string" ? data.notes : "session";
+    case "running": {
+      const mi = typeof data.miles === "number" ? data.miles : 0;
+      return `${mi} mi`;
+    }
+    default: {
+      const v = typeof data.value === "number" ? data.value : 0;
+      return `${v}`;
+    }
   }
 }

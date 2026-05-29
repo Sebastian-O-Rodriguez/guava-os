@@ -1,3 +1,9 @@
+# DEPRECATED
+
+> This file is archival only.
+> The orchestration system has been replaced by Linear-driven execution.
+> Do NOT derive process, dispatch flow, or reporting patterns from this file.
+
 # RoutineMe — Project Setup & Orchestration Report
 
 > **Purpose**: This document explains how RoutineMe's Claude Code multiagent system is configured, so the same patterns can be replicated in another repo.

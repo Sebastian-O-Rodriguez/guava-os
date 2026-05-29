@@ -1,25 +1,17 @@
 /**
- * Chat executor — thin router that dispatches to deterministic scripts.
+ * Chat executor — produces Action objects from normalized chat input.
  *
- * No business logic here. The executor:
+ * No longer executes mutations directly. Instead:
  * 1. Receives normalized input
  * 2. Generates a proposal message (propose mode)
- * 3. Dispatches to the correct script (execute mode)
- * 4. Returns the ScriptResult
+ * 3. Builds an Action object for the action executor (build mode)
+ *
+ * Execution is delegated to lib/actions/executor.ts.
  */
 import type { NormalizedInput } from "./chat-normalizer";
-import type { ScriptResult } from "./scripts/types";
 import type { EstimatedNutritionEntry } from "./chat-scenarios";
-
-// Script imports
-import { logNutrition } from "./scripts/mutations/log-nutrition";
-import { logGym } from "./scripts/mutations/log-gym";
-import { logRun } from "./scripts/mutations/log-run";
-import { markHabit } from "./scripts/mutations/mark-habit";
-import { incrementGoal } from "./scripts/mutations/increment-goal";
-import { setGoal } from "./scripts/mutations/set-goal";
-import { addCategory } from "./scripts/mutations/add-category";
-import { queryProgress } from "./scripts/queries/query-progress";
+import type { Action, ActionPayload } from "./actions/types";
+import { createAction } from "./actions/executor";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -70,68 +62,109 @@ export function proposeAction(
 }
 
 // ---------------------------------------------------------------------------
-// Execute — dispatch to script, return result
+// Build — construct an Action from normalized input (no DB writes)
 // ---------------------------------------------------------------------------
 
-export async function executeAction(
+export function buildAction(
   input: NormalizedInput,
   estimates?: EstimatedNutritionEntry[],
-): Promise<ExecutorResult> {
-  // Queries execute directly (no confirmation needed)
-  if (input.intent === "query_progress") {
-    const result = await queryProgress(input);
-    return scriptToExecutorResult(result, "info");
-  }
+): Action | null {
+  const payload = buildPayload(input, estimates);
+  if (!payload) return null;
 
-  // Unknown — no script to call
-  if (input.intent === "unknown") {
-    return {
-      message: "I'm best at tracking habits and food — want to log something or check your progress?",
-      status: "info",
-    };
-  }
+  return createAction({
+    intent: input.intent as Action["intent"],
+    userId: input.userId,
+    categoryId: input.categoryId ?? null,
+    categoryName: input.categoryName ?? null,
+    payload,
+    confidence: input.confidence,
+  });
+}
 
-  // Missing category for intents that need one
-  if (!input.categoryId && needsCategory(input.intent)) {
-    const name = input.title ?? input.categoryName ?? "that";
-    return {
-      message: `No "${name}" category found. Want to create one?`,
-      status: "clarify",
-    };
-  }
+// ---------------------------------------------------------------------------
+// Payload builders — NormalizedInput → ActionPayload
+// ---------------------------------------------------------------------------
 
-  // Dispatch to script
-  let result: ScriptResult;
+function buildPayload(
+  input: NormalizedInput,
+  estimates?: EstimatedNutritionEntry[],
+): ActionPayload | null {
   switch (input.intent) {
-    case "log_nutrition":
-      result = await logNutrition(input, estimates ?? []);
-      break;
-    case "log_gym":
-      result = await logGym(input);
-      break;
-    case "log_run":
-      result = await logRun(input);
-      break;
-    case "mark_habit":
-      result = await markHabit(input);
-      break;
-    case "increment_goal":
-      result = await incrementGoal(input);
-      break;
-    case "set_goal":
-      result = await setGoal(input);
-      break;
-    case "add_category":
-      result = await addCategory(input);
-      break;
-    default:
+    case "log_nutrition": {
+      const entries = (estimates ?? []).map((e) => ({
+        item: e.item,
+        calories: e.calories,
+        protein: e.protein,
+        fat: e.fat,
+        carbs: e.carbs,
+        unknown: e.unknown,
+      }));
+      return { intent: "log_nutrition", entries };
+    }
+    case "log_gym": {
+      const p = input.params as Record<string, unknown>;
       return {
-        message: "I'm best at tracking habits and food — want to log something or check your progress?",
-        status: "info",
+        intent: "log_gym",
+        bodyPart: typeof p.bodyPart === "string" ? p.bodyPart : undefined,
+        notes: typeof p.notes === "string" ? p.notes : undefined,
       };
+    }
+    case "log_run": {
+      const p = input.params as Record<string, unknown>;
+      return {
+        intent: "log_run",
+        miles: typeof p.miles === "number" ? p.miles : input.count ?? 0,
+        duration: typeof p.duration === "string" ? p.duration : undefined,
+        notes: typeof p.notes === "string" ? p.notes : undefined,
+      };
+    }
+    case "mark_habit": {
+      const p = input.params as Record<string, unknown>;
+      return {
+        intent: "mark_habit",
+        habit: typeof p.habit === "string" ? p.habit : input.title ?? "",
+      };
+    }
+    case "increment_goal": {
+      const p = input.params as Record<string, unknown>;
+      return {
+        intent: "increment_goal",
+        habit: typeof p.habit === "string" ? p.habit : input.title ?? "",
+        value: typeof p.value === "number" ? p.value : input.count ?? 1,
+        unit: typeof p.unit === "string" ? p.unit : input.unit ?? "count",
+      };
+    }
+    case "set_goal": {
+      const p = input.params as Record<string, unknown>;
+      return {
+        intent: "set_goal",
+        categoryName: typeof p.categoryName === "string" ? p.categoryName : "",
+        metric: typeof p.metric === "string" ? p.metric : input.title ?? "sessions",
+        target: typeof p.target === "number" ? p.target : input.count ?? 1,
+        unit: typeof p.unit === "string" ? p.unit : input.unit,
+        period: input.period === "weekly" ? "weekly" : "daily",
+      };
+    }
+    case "add_category": {
+      const p = input.params as Record<string, unknown>;
+      return {
+        intent: "add_category",
+        name: typeof p.name === "string" ? p.name : input.title ?? "",
+        type: typeof p.type === "string" ? (p.type as "gym" | "nutrition" | "running" | "custom") : undefined,
+      };
+    }
+    case "query_progress": {
+      const p = input.params as Record<string, unknown>;
+      return {
+        intent: "query_progress",
+        timeframe: p.timeframe === "week" || p.timeframe === "month" ? p.timeframe : "today",
+        category: typeof p.category === "string" ? p.category : undefined,
+      };
+    }
+    default:
+      return null;
   }
-
-  return scriptToExecutorResult(result, "executed");
 }
 
 // ---------------------------------------------------------------------------
@@ -199,31 +232,4 @@ function proposeCategory(input: NormalizedInput): ExecutorResult {
     message: `Create "${input.title}" category (${type})? Go ahead?`,
     status: "proposed",
   };
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function scriptToExecutorResult(result: ScriptResult, defaultStatus: ExecutorStatus): ExecutorResult {
-  if (!result.success) {
-    return {
-      message: result.error ?? "Something went wrong — try again?",
-      status: "error",
-    };
-  }
-  return {
-    message: result.summary ?? "Done.",
-    status: defaultStatus,
-    mutation: result.mutation,
-    data: result.data,
-    timestamp: Date.now(),
-  };
-}
-
-function needsCategory(intent: string): boolean {
-  return [
-    "log_nutrition", "log_gym", "log_run",
-    "mark_habit", "increment_goal", "set_goal",
-  ].includes(intent);
 }

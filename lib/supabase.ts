@@ -17,14 +17,18 @@ function getAnonKey(): string {
 }
 
 function getServiceKey(): string {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set — server cannot start without it");
+  }
+  return key;
 }
 
 /** Server-side client with service role key (bypasses RLS, used in API routes) */
 export const supabaseAdmin: SupabaseClient = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
     if (!_admin) {
-      _admin = createClient(getUrl(), getServiceKey() || getAnonKey());
+      _admin = createClient(getUrl(), getServiceKey());
     }
     return (_admin as unknown as Record<string, unknown>)[prop as string];
   },

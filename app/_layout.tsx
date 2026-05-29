@@ -6,6 +6,8 @@ import { Platform } from "react-native";
 import config from "../tamagui.config";
 import { ThemeModeProvider, useThemeMode } from "../lib/theme-context";
 import { AuthProvider, useAuth } from "../lib/auth-context";
+import { ActionModalProvider } from "../lib/action-modal-context";
+import { ActionModal } from "../components/ui/action-modal";
 
 /**
  * Auth guard — redirects to /auth if not logged in.
@@ -47,6 +49,7 @@ function InnerLayout() {
             },
           }}
         />
+        <ActionModal />
       </AuthGate>
     </Theme>
   );
@@ -102,7 +105,9 @@ export default function RootLayout() {
     <TamaguiProvider config={config} defaultTheme="dark">
       <ThemeModeProvider>
         <AuthProvider>
-          <InnerLayout />
+          <ActionModalProvider>
+            <InnerLayout />
+          </ActionModalProvider>
         </AuthProvider>
       </ThemeModeProvider>
     </TamaguiProvider>

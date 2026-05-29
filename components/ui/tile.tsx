@@ -14,8 +14,8 @@ export const TileFrame = styled(View, {
   name: "TileFrame",
   overflow: "hidden",
   borderWidth: 2.5,
-  borderColor: "#2a2a2a",
-  bg: "#ffffff",
+  borderColor: "$color3",
+  bg: "$color1",
   rounded: "$3",
   position: "relative",
 
@@ -96,7 +96,7 @@ export const TileLabel = styled(Text, {
 export const TileValue = styled(Text, {
   name: "TileValue",
   fontWeight: "700",
-  color: "#1c1917",
+  color: "$color12",
   text: "center",
 
   variants: {
@@ -122,7 +122,7 @@ export const TileValue = styled(Text, {
 export const TileDenom = styled(Text, {
   name: "TileDenom",
   fontWeight: "400",
-  color: "#664282",
+  color: ACCENT.dark as never,
   text: "center",
 
   variants: {
@@ -148,7 +148,7 @@ export const TileDenom = styled(Text, {
 export const TileUnit = styled(Text, {
   name: "TileUnit",
   fontWeight: "400",
-  color: "#664282",
+  color: ACCENT.dark as never,
   text: "center",
 
   variants: {

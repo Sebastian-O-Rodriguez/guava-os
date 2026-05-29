@@ -8,18 +8,20 @@ description: Write or read session handoff context for continuity between sessio
 Preserve or restore context between Claude Code sessions.
 
 **Write handoff** (`/handoff write`):
-Summarize current session state:
 
-- What was accomplished
-- What's in progress
-- What's blocked
-- Next steps
-- Key decisions made
-
-Write to `.gorp/journal/handoff-<date>.md`
+1. Query Linear for current In Progress and In Review issues
+2. Summarize:
+   - What was accomplished this session
+   - What's in progress (with Linear issue IDs)
+   - What's blocked (with reasons)
+   - Next steps
+   - Key decisions made
+3. Write to `.gorp/archive/journal/handoff-<date>.md`
 
 **Read handoff** (`/handoff read` or just `/handoff`):
-Read the most recent handoff file from `.gorp/journal/handoff-*.md`
-and summarize it for the current session.
+
+1. Read the most recent handoff file from `.gorp/archive/journal/handoff-*.md`
+2. Cross-reference with current Linear state (handoff may be stale)
+3. Summarize for the current session
 
 Arguments: `$ARGUMENTS`

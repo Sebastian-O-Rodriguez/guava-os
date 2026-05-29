@@ -1,23 +1,29 @@
 import { requireAuth } from "../../lib/auth-server";
+import { rateLimit, getClientIp } from "../../lib/rate-limit";
 import { classifyMessage } from "../../lib/chat-classifier";
 import { estimateNutrition } from "../../lib/chat-estimator";
-import { normalize, type NormalizedInput } from "../../lib/chat-normalizer";
-import { proposeAction, executeAction } from "../../lib/chat-executor";
+import { normalize } from "../../lib/chat-normalizer";
+import { proposeAction, buildAction } from "../../lib/chat-executor";
+import { executeAction } from "../../lib/actions/executor";
+import { ActionSchema } from "../../lib/actions/types";
+import type { Action } from "../../lib/actions/types";
 import { logNutritionParamsSchema } from "../../lib/chat-scenarios";
 import type { EstimatedNutritionEntry, ClassifierOutput } from "../../lib/chat-scenarios";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-type PendingAction = {
-  input: NormalizedInput;
-  estimates?: EstimatedNutritionEntry[];
-};
-
 /**
  * Chat API — requires authentication.
  * Pipeline: classify → normalize → estimate (if nutrition) → propose → confirm → execute
+ *
+ * Proposals return an Action object as pendingAction.
+ * Confirmations execute the Action via lib/actions/executor.
  */
 export async function POST(request: Request): Promise<Response> {
+  // Rate limit — 20 requests per minute per IP (LLM cost protection)
+  const rl = rateLimit(`chat:${getClientIp(request)}`, 20, 60_000);
+  if (rl) return rl;
+
   // Auth gate — every request must be authenticated
   const authResult = await requireAuth(request);
   if (authResult instanceof Response) return authResult;
@@ -44,24 +50,22 @@ export async function POST(request: Request): Promise<Response> {
 
     // ----- Confirmation flow -----
     if (body.pendingAction) {
-      const pending = body.pendingAction as PendingAction;
-      // SECURITY: override userId AND re-resolve categoryId for authenticated user.
-      // Never trust client-sent userId or categoryId — they could be replayed from another user.
-      pending.input.userId = userId;
-      if (pending.input.intent !== "unknown" && pending.input.intent !== "query_progress") {
-        const reclassified = { scenario: pending.input.intent, params: pending.input.params, confidence: pending.input.confidence } as ClassifierOutput;
-        const reNormalized = await normalize(reclassified, userId);
-        pending.input.categoryId = reNormalized.categoryId;
-        pending.input.categoryName = reNormalized.categoryName;
+      // pendingAction is now an Action object (from lib/actions/types.ts)
+      const parsed = ActionSchema.safeParse(body.pendingAction);
+      if (!parsed.success) {
+        return json({ message: "Invalid action data", status: "error" }, 400);
       }
 
+      // SECURITY: override userId — never trust client-sent userId
+      const action: Action = { ...parsed.data, userId };
+
       if (isConfirm(userContent)) {
-        const result = await executeAction(pending.input, pending.estimates);
+        const result = await executeAction(action);
         return json({
           message: result.message,
           status: result.status,
           mutation: result.mutation ?? null,
-          scenario: pending.input.intent,
+          scenario: action.intent,
           data: result.data ?? null,
           timestamp: result.timestamp ?? Date.now(),
         });
@@ -106,15 +110,19 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
+    // Queries execute immediately — no confirmation needed
     if (input.intent === "query_progress") {
-      const result = await executeAction(input);
-      return json({
-        message: result.message,
-        status: result.status,
-        scenario: input.intent,
-        confidence: classified.confidence,
-        data: result.data ?? null,
-      });
+      const action = buildAction(input);
+      if (action) {
+        const result = await executeAction(action);
+        return json({
+          message: result.message,
+          status: result.status,
+          scenario: input.intent,
+          confidence: classified.confidence,
+          data: result.data ?? null,
+        });
+      }
     }
 
     const proposal = proposeAction(input, estimates);
@@ -128,13 +136,16 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
+    // Build Action object to include in response
+    const action = buildAction(input, estimates);
+
     return json({
       message: proposal.message,
       status: proposal.status,
       scenario: input.intent,
       confidence: classified.confidence,
       data: null,
-      pendingAction: { input, estimates },
+      pendingAction: action,
     });
   } catch (err) {
     console.error("Chat API error:", err);

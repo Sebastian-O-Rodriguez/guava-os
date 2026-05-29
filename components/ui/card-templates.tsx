@@ -29,7 +29,7 @@ const CardBase = styled(YStack, {
 
 const CardLabel = styled(Text, {
   name: "CardLabel",
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: "600",
   textTransform: "uppercase",
   letterSpacing: 1.5,
@@ -38,14 +38,14 @@ const CardLabel = styled(Text, {
 
 const CardError = styled(Text, {
   name: "CardError",
-  fontSize: 13,
+  fontSize: 14,
   fontWeight: "500",
   color: "$red9",
 });
 
 const CardEmpty = styled(Text, {
   name: "CardEmpty",
-  fontSize: 13,
+  fontSize: 14,
   fontWeight: "400",
   color: "$color7",
 });
@@ -183,6 +183,8 @@ type DailyCardProps = {
   children: ReactNode;
   /** Doughnut visualization — rendered in right column */
   doughnut: ((size: number) => ReactElement) | ReactElement;
+  /** Optional footer content — rendered below tiles/doughnut row */
+  footer?: ReactNode;
   /** Tile size override */
   tileSize?: TileSize;
 };
@@ -196,7 +198,7 @@ type DailyCardProps = {
  * At compact width, stacks: tiles on top, doughnut below.
  * Tiles grow by adding rows, never by resizing.
  */
-export function DailyCard({ label, children, doughnut, tileSize = "md" }: DailyCardProps) {
+export function DailyCard({ label, children, doughnut, footer, tileSize = "md" }: DailyCardProps) {
   const { layout, onContainerLayout } = useCardLayout();
   const childArray = Children.toArray(children).filter(isValidElement);
 
@@ -244,7 +246,10 @@ export function DailyCard({ label, children, doughnut, tileSize = "md" }: DailyC
         <CardLabel>{label}</CardLabel>
 
         {childArray.length === 0 ? (
-          <CardEmpty>No {label.toLowerCase()} goals yet.</CardEmpty>
+          /* No tiles — show doughnut centered */
+          <YStack gap={CARD_GAP} items="center">
+            {resolvedDoughnut}
+          </YStack>
         ) : isCompact ? (
           /* Compact: stack vertically */
           <YStack gap={CARD_GAP} items="center">
@@ -259,6 +264,12 @@ export function DailyCard({ label, children, doughnut, tileSize = "md" }: DailyC
               {resolvedDoughnut}
             </View>
           </XStack>
+        )}
+
+        {footer && (
+          <YStack gap={CARD_GAP} pt={SECTION_GAP}>
+            {footer}
+          </YStack>
         )}
       </YStack>
     </CardBase>
