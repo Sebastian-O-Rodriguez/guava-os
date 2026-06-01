@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: [".agent-os/tests/**/*.test.ts"],
+    include: [".guava-os/tests/**/*.test.ts"],
     testTimeout: 15000,
   },
 });

@@ -7,7 +7,7 @@ Defines node types, edge types, and structural invariants for the execution grap
 | Type | Identity | Detection | Execution Role |
 |------|----------|-----------|---------------|
 | Parent Issue | Linear issue referenced by ≥1 sub-issue via `parentId` | Check: any issue in dataset has `parentId` pointing to this issue | Container. Never executable. Lifecycle derived from subtask states. |
-| Sub-Issue | Linear issue with `parentId` set | Check: `issue.parentId` is non-null | Executable unit. Classified into Agent OS states. |
+| Sub-Issue | Linear issue with `parentId` set | Check: `issue.parentId` is non-null | Executable unit. Classified into Guava OS states. |
 | Standalone Issue | No `parentId`, not referenced as parent by any other issue | Residual — no sub-issues point to it AND it has no `parentId` | Outside execution graph. Reported but not classified. |
 
 ### Detection Rules
@@ -60,5 +60,5 @@ Parent/sub-issue relationships are derived from Linear's native `parentId` field
 | Question | Decision | Rationale |
 |----------|----------|-----------|
 | Report standalone issues separately? | **Yes, but as informational only.** Not in any execution category. | Standalone issues may be sprint umbrellas or tracking items. Reporting them avoids silent data loss. |
-| Cross-project dependencies? | **Out of scope.** Agent OS operates within a single Linear project. | Multi-project adds complexity with no current need. Config is per-project. |
+| Cross-project dependencies? | **Out of scope.** Guava OS operates within a single Linear project. | Multi-project adds complexity with no current need. Config is per-project. |
 | Distinguish "blocks" vs "relates to"? | **Only `blocks` is semantically meaningful.** "Relates to" is informational, not enforced. | The runtime only cares about execution ordering. |

@@ -1,8 +1,8 @@
 {
-  "name": "agent-os",
+  "name": "guava-os",
   "private": true,
   "scripts": {
-    "agent-os": "tsx .agent-os/src/cli.ts",
+    "guava-os": "tsx .guava-os/src/cli.ts",
     "test": "vitest run"
   },
   "devDependencies": {

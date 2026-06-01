@@ -1,10 +1,10 @@
 # Execution State Machine
 
-Defines canonical execution states for the Agent OS runtime.
+Defines canonical execution states for the Guava OS runtime.
 
 ## Design Principle
 
-Agent OS has its own canonical execution states. These are **derived from multiple inputs**, not a 1:1 mirror of any single system.
+Guava OS has its own canonical execution states. These are **derived from multiple inputs**, not a 1:1 mirror of any single system.
 
 Inputs to state derivation:
 - Linear issue status (primary signal)
@@ -14,7 +14,7 @@ Inputs to state derivation:
 - Claim lease status (when available)
 - Queue capacity
 
-A sub-issue with Linear status "Todo" may not be in the Agent OS `EXECUTABLE` state if its parent is inactive, its persona label is missing, or a blocker is unresolved.
+A sub-issue with Linear status "Todo" may not be in the Guava OS `EXECUTABLE` state if its parent is inactive, its persona label is missing, or a blocker is unresolved.
 
 ## Canonical States
 
@@ -31,7 +31,7 @@ A sub-issue with Linear status "Todo" may not be in the Agent OS `EXECUTABLE` st
 
 ## State Derivation vs Linear Status
 
-| Linear Status | Possible Agent OS States | Deciding Factors |
+| Linear Status | Possible Guava OS States | Deciding Factors |
 |---------------|-------------------------|------------------|
 | Backlog | NOT_PROMOTED | Always — no further evaluation needed |
 | Todo | EXECUTABLE, BLOCKED, INVALID | Parent active? Persona valid? Blockers resolved? |

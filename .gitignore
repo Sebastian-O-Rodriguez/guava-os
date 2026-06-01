@@ -1,9 +1,9 @@
 # dependencies
 node_modules/
 
-# Agent OS
-.agent-os/manifest.json
-.agent-os/pilot/*.json
+# Guava OS
+.guava-os/manifest.json
+.guava-os/pilot/*.json
 
 # macOS
 .DS_Store

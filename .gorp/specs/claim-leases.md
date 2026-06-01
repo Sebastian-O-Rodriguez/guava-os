@@ -19,7 +19,7 @@ EXECUTABLE → CLAIMED → ACTIVE → SUBMITTED → RELEASED
 
 State mapping:
 
-| Claim State | Agent OS State | Linear Status |
+| Claim State | Guava OS State | Linear Status |
 |-------------|---------------|--------------|
 | (no claim) | EXECUTABLE | Todo |
 | CLAIMED | CLAIMED | In Progress (just transitioned) |

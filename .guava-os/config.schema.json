@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Guava OS Configuration",
+  "type": "object",
+  "required": ["linear", "personas", "statuses", "active_parent_statuses", "labels", "invariants", "branch_pattern", "agent_files", "process_files", "manifest_path"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "linear": {
+      "type": "object",
+      "required": ["team", "project", "issue_prefix"],
+      "additionalProperties": false,
+      "properties": {
+        "team": { "type": "string", "description": "Linear team name" },
+        "project": { "type": "string", "description": "Linear project name" },
+        "issue_prefix": { "type": "string", "pattern": "^[A-Z]+$", "description": "Issue ID prefix (e.g. GUA)" }
+      }
+    },
+    "personas": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "All agent personas in this project"
+    },
+    "statuses": {
+      "type": "object",
+      "required": ["backlog", "todo", "in_progress", "in_review", "done"],
+      "additionalProperties": false,
+      "properties": {
+        "backlog": { "type": "string" },
+        "todo": { "type": "string" },
+        "in_progress": { "type": "string" },
+        "in_review": { "type": "string" },
+        "done": { "type": "string" }
+      }
+    },
+    "active_parent_statuses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Parent statuses that allow sub-issue execution (e.g. Todo, In Progress)"
+    },
+    "labels": {
+      "type": "object",
+      "required": ["persona_labels", "qa_label"],
+      "additionalProperties": false,
+      "properties": {
+        "persona_labels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Labels that map to builder personas"
+        },
+        "qa_label": {
+          "type": "string",
+          "description": "Label for QA persona"
+        }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "required": ["max_todo_per_persona", "stale_hours", "reclaim_limit", "bulk_threshold", "max_subtasks_per_parent"],
+      "additionalProperties": false,
+      "properties": {
+        "max_todo_per_persona": { "type": "integer", "minimum": 1 },
+        "stale_hours": { "type": "integer", "minimum": 1 },
+        "reclaim_limit": { "type": "integer", "minimum": 1 },
+        "bulk_threshold": { "type": "integer", "minimum": 1 },
+        "max_subtasks_per_parent": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "branch_pattern": {
+      "type": "string",
+      "description": "Branch naming pattern with {prefix}, {id}, {slug} placeholders"
+    },
+    "agent_files": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Map of persona name to AGENT.md file path"
+    },
+    "process_files": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Map of process doc name to file path"
+    },
+    "manifest_path": {
+      "type": "string",
+      "description": "Path to ephemeral manifest file (must be gitignored)"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# Agent-OS
+# Guava-OS
 
 Linear-driven multi-agent execution CLI for Claude Code. Developer infrastructure — never runs in production.
 
@@ -110,5 +110,5 @@ Never reinterpret Linear priority labels. Use the mapping above verbatim.
 
 ```bash
 npx vitest run    # Tests
-npx tsc --noEmit  # Type check (agent-os tsconfig)
+npx tsc --noEmit  # Type check (guava-os tsconfig)
 ```

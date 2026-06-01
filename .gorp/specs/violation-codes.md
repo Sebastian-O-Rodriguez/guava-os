@@ -1,6 +1,6 @@
 # Violation Codes
 
-Canonical identifiers for protocol violations detected by the Agent OS runtime.
+Canonical identifiers for protocol violations detected by the Guava OS runtime.
 
 ## Code Format
 
@@ -66,7 +66,7 @@ Codes are **stable** — once assigned, a code always means the same thing. Depr
 | Phase | Violations Detectable | Mechanism |
 |-------|----------------------|-----------|
 | Phase 1 (current) | V302, V303, V304, V400, V401 | `buildGraph()` classification — already emitted as INVALID |
-| Phase 1.5 | V402, V500 | `agent-os validate` — graph analysis with config thresholds |
+| Phase 1.5 | V402, V500 | `guava-os validate` — graph analysis with config thresholds |
 | Phase 2 | V100–V102, V200–V203, V300–V301 | Pre-action hooks or post-action control loop scan |
 | Phase 2+ | V501–V503 | Robo control loop with activity/history data |
 
