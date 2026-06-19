@@ -1,0 +1,41 @@
+# Project <-> Gorp binding — guava-os (pilot)
+#
+# Pins guava-os to canonical Gorp and declares its overlays. Doctrine, personas,
+# playbooks, runtime policy, and specs are REFERENCED from `gorp.path` at load
+# time — never copied into this repo. Minimal pilot binding.
+#
+# No secrets, no provider names, no runtime-specific commands.
+
+project:
+  id: guava-os
+  name: Guava OS
+
+gorp:
+  path: ~/dev/gorp
+  doctrine_version: 1.0.0          # MUST match gorp.manifest.yml doctrine_version
+
+anchor:
+  path: CLAUDE.md                  # guava-os project anchor at repo root
+
+# guava-os does not yet maintain Gorp consumer context/plans directories.
+# Declared empty for now; populate if/when this repo adopts sprint-driven
+# Gorp execution. (Existing .gorp/process and .gorp/specs are left untouched.)
+context:
+  paths: []
+
+plans:
+  # none yet for this consumer
+
+journal:
+  path: .gorp/journal/             # may be created at run time
+
+overlays:
+  conventions: .gorp/overlays/conventions.overlay.md
+  scope: .gorp/overlays/scope.overlay.yml
+  personas: .gorp/overlays/personas/
+
+runtime:
+  adapter: unset                   # neutral placeholder; no runtime bound yet
+
+approved_mcp_categories: []        # categories only; never specific providers
+approved_tool_categories: []
