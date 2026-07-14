@@ -1,3 +1,10 @@
+> **`DUPLICATE` / `PROPOSAL` — NOT IMPLEMENTED (labeled at Wave A closeout,
+> 2026-07-14).** Copy of `~/dev/gorp/specs/execution-report-contract.md`
+> (itself `ADAPTER_SPECIFIC`/Linear-oriented and superseded for the first slice
+> by `~/dev/gorp/specs/runtime/worker-result.schema.json`,
+> `gate-record.schema.json`, and `run-record.schema.json`). Not authoritative.
+> See `~/dev/repos/DOCUMENTATION-AUTHORITY-MAP.md`.
+
 # Execution Report Contract
 
 ## Purpose

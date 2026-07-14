@@ -1,3 +1,9 @@
+> **`PROPOSAL` — NOT IMPLEMENTED (labeled at Wave A closeout, 2026-07-14).**
+> Spec only; no runtime implements this. Linear references below are
+> `ADAPTER_SPECIFIC` legacy — Linear is deprecated as execution authority.
+> Authoritative runtime contracts: `~/dev/gorp/specs/runtime/`. See
+> `~/dev/repos/DOCUMENTATION-AUTHORITY-MAP.md`.
+
 # Gorp Launch Contract
 
 ## Purpose

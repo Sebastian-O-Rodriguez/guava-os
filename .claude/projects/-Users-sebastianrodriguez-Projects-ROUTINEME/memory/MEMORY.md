@@ -1,3 +1,12 @@
+<!-- STALE (Wave A closeout, 2026-07-14).
+     Machine- and project-foreign memory file: the enclosing path is hardcoded
+     to another machine/user (-Users-sebastianrodriguez-Projects-ROUTINEME) and
+     the content describes RoutineMe, not guava-os. No live references to this
+     file exist in any of the three repositories. NOT deleted in this closeout:
+     it remains unverified against external local Claude state, so removal is
+     deferred pending operator confirmation (roadmap U5). Do not treat any
+     content below as current. -->
+
 # RoutineMe — Project Memory
 
 ## Identity

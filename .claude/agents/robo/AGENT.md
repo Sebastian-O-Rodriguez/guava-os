@@ -1,3 +1,11 @@
+<!-- LEGACY / ADAPTER_SPECIFIC (Reconciliation Directive, 2026-07-14).
+     This is a Claude-Code runtime artifact describing a Linear-driven autonomous
+     orchestrator. It is NOT canonical persona authority (canonical = ~/dev/gorp
+     /personas/*) and it CONTRADICTS the approved architecture: workers never
+     spawn/orchestrate; only the Gorp orchestrator mutates execution topology;
+     Linear is not the execution source of truth. Retained as a legacy runtime
+     adapter reference only. See DOCUMENTATION-AUTHORITY-MAP.md and
+     CURRENT-TO-TARGET-ROADMAP.md §9. -->
 ---
 name: robo
 description: Scope gatekeeper, persona allocator, and execution initializer for RoutineMe. Fallback orchestrator — not in normal execution path.

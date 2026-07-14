@@ -1,3 +1,9 @@
+> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
+> Documents the read-only Linear import/classifier CLI. Linear is an input
+> format here, not the execution authority — the authoritative execution model
+> is the Gorp-native persisted graph (see
+> `~/dev/repos/CURRENT-REALITY-AUDIT.md`).
+
 # Current Workflow
 
 This is how Guava OS is used today. Every step involves human action.

@@ -1,5 +1,9 @@
 # Claim Leases
 
+> **`DUPLICATE` — DEPRECATED (Reconciliation, 2026-07-14).** Drifted copy of
+> `~/dev/gorp/specs/claim-leases.md` (Linear-coupled, itself to be reconciled).
+> Not authoritative. See `DOCUMENTATION-AUTHORITY-MAP.md`.
+
 Defines ownership and lease semantics for agent work claims.
 
 ## Concept

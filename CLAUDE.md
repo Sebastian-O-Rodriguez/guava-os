@@ -1,5 +1,25 @@
 # Guava-OS
 
+> **PARTIAL DEPRECATION — Reconciliation Directive, 2026-07-14 (read first).**
+> This file mixes still-valid **project identity/stack** (`CANONICAL_PROJECT`)
+> with a **`DEPRECATED` execution-authority model**. The claims that **"Linear
+> is the sole execution source of truth,"** that Linear status/`parentId`/labels
+> define authoritative execution state, and the Linear-driven startup invariant /
+> authority hierarchy / priority mapping below are **SUPERSEDED**.
+>
+> Authoritative execution model: **Gorp-native, source-neutral persisted
+> execution graph** (see `CURRENT-TO-TARGET-ROADMAP.md` §2.2). Linear is a
+> legacy/optional **import/reporting adapter**, not the execution authority.
+> Markdown plans are ingestion/export only. The `.guava-os/` CLI is a **read-only
+> classifier** and a candidate **Linear import adapter** — it does not execute,
+> mutate, or promote work. Persona **authority** is canonical Gorp
+> (`~/dev/gorp/personas/*`), not the `.claude/agents/*` directives here (which
+> are `LEGACY` Claude-Code runtime artifacts). See
+> `DOCUMENTATION-AUTHORITY-MAP.md`.
+>
+> Retain: project name, stack, conventions references. Do **not** derive
+> execution state, orchestration, or authority from the Linear sections below.
+
 Linear-driven multi-agent execution CLI for Claude Code. Developer infrastructure — never runs in production.
 
 ## Startup Invariant (MANDATORY)

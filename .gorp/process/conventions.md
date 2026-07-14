@@ -1,3 +1,8 @@
+> **`DUPLICATE` — DEPRECATED (Wave A closeout, 2026-07-14).** Drifted copy of
+> canonical Gorp doctrine (`~/dev/gorp/doctrine/conventions.md`). Not
+> authoritative. The GUA/Linear issue semantics below are `ADAPTER_SPECIFIC`
+> legacy. See `~/dev/repos/DOCUMENTATION-AUTHORITY-MAP.md`.
+
 # Conventions
 
 ## Git

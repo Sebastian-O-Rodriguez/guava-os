@@ -1,5 +1,13 @@
 # Graph Semantics
 
+> **`DUPLICATE` — DEPRECATED (Reconciliation Directive, 2026-07-14).** This is a
+> drifted **copy** of a canonical Gorp spec. Consumers must **not** treat project
+> copies as authoritative (`~/dev/gorp/runtime/adapters/CONTRACT.md` §4). The
+> canonical (and itself to-be-reconciled, Linear-coupled) source is
+> `~/dev/gorp/specs/graph-semantics.md`. This copy is slated for removal after
+> references are repointed to canonical Gorp (`CURRENT-TO-TARGET-ROADMAP.md` §9).
+> Do not edit this copy to "fix" anything — change canonical Gorp.
+
 Defines node types, edge types, and structural invariants for the execution graph.
 
 ## Node Types
