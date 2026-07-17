@@ -1,12 +1,12 @@
-<!-- LEGACY / ADAPTER_SPECIFIC (Wave A closeout, 2026-07-14).
+<!-- LEGACY - DO NOT USE / ADAPTER_SPECIFIC (Wave A closeout, 2026-07-14).
      Claude-Code runtime artifact encoding the SUPERSEDED Linear-first
      execution model (the "query Linear" startup invariant below). Linear is
      DEPRECATED as execution authority; the authoritative model is the
      Gorp-native persisted execution graph (TypeScript runtime,
      ~/dev/gorp/runtime/control/). Canonical persona authority =
      ~/dev/gorp/personas/*. Retained as a legacy runtime-adapter reference
-     only. See ~/dev/repos/DOCUMENTATION-AUTHORITY-MAP.md and
-     ~/dev/repos/CURRENT-TO-TARGET-ROADMAP.md. -->
+     only. See ~/dev/gorp/reference/history/DOCUMENTATION-AUTHORITY-MAP.md and
+     ~/dev/gorp/ROADMAP.md. -->
 
 ---
 name: frontend

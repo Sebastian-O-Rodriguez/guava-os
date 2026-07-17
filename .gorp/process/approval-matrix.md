@@ -3,7 +3,7 @@
 > authoritative. The autonomous Linear status/comment operations below are
 > `DEPRECATED` — Linear is not the execution authority; authoritative execution
 > state is the Gorp-native persisted graph. See
-> `~/dev/repos/DOCUMENTATION-AUTHORITY-MAP.md`.
+> `~/dev/gorp/reference/history/DOCUMENTATION-AUTHORITY-MAP.md`.
 
 # Approval Matrix
 

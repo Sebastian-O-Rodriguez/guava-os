@@ -2,7 +2,7 @@
 
 > **`DUPLICATE` — DEPRECATED (Reconciliation, 2026-07-14).** Drifted copy of
 > `~/dev/gorp/specs/execution-state-machine.md`; Linear-derived states are
-> legacy. Not authoritative. See `DOCUMENTATION-AUTHORITY-MAP.md`.
+> legacy. Not authoritative. See `~/dev/gorp/reference/history/DOCUMENTATION-AUTHORITY-MAP.md`.
 
 Defines canonical execution states for the Guava OS runtime.
 

@@ -2,7 +2,7 @@
 > Documents the read-only Linear import/classifier CLI. Linear is an input
 > format here, not the execution authority — the authoritative execution model
 > is the Gorp-native persisted graph (see
-> `~/dev/repos/CURRENT-REALITY-AUDIT.md`).
+> `~/dev/gorp/reference/architecture.md`).
 
 # Limitations
 
