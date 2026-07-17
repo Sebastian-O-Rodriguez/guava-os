@@ -4,7 +4,7 @@
 > **copy** of canonical Gorp doctrine (`~/dev/gorp/doctrine/agent-protocol.md`).
 > Not authoritative. Any "Execution Source of Truth" claim tied to Linear below
 > is `DEPRECATED` — the authoritative model is a Gorp-native source-neutral graph
-> (`CURRENT-TO-TARGET-ROADMAP.md`). Slated for removal after references repoint to
+> (`~/dev/gorp/ROADMAP.md`). Slated for removal after references repoint to
 > canonical Gorp.
 
 ## Execution Source of Truth

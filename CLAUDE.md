@@ -8,14 +8,14 @@
 > authority hierarchy / priority mapping below are **SUPERSEDED**.
 >
 > Authoritative execution model: **Gorp-native, source-neutral persisted
-> execution graph** (see `CURRENT-TO-TARGET-ROADMAP.md` §2.2). Linear is a
+> execution graph** (see `~/dev/gorp/ROADMAP.md` §2.2). Linear is a
 > legacy/optional **import/reporting adapter**, not the execution authority.
 > Markdown plans are ingestion/export only. The `.guava-os/` CLI is a **read-only
 > classifier** and a candidate **Linear import adapter** — it does not execute,
 > mutate, or promote work. Persona **authority** is canonical Gorp
 > (`~/dev/gorp/personas/*`), not the `.claude/agents/*` directives here (which
 > are `LEGACY` Claude-Code runtime artifacts). See
-> `DOCUMENTATION-AUTHORITY-MAP.md`.
+> `~/dev/gorp/reference/architecture.md`.
 >
 > Retain: project name, stack, conventions references. Do **not** derive
 > execution state, orchestration, or authority from the Linear sections below.

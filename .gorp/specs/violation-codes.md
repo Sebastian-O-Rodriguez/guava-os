@@ -2,7 +2,7 @@
 
 > **`DUPLICATE` — DEPRECATED (Reconciliation, 2026-07-14).** Drifted copy of
 > `~/dev/gorp/specs/violation-codes.md`. Not authoritative. See
-> `DOCUMENTATION-AUTHORITY-MAP.md`.
+> `~/dev/gorp/reference/history/DOCUMENTATION-AUTHORITY-MAP.md`.
 
 Canonical identifiers for protocol violations detected by the Guava OS runtime.
 

@@ -1,9 +1,9 @@
-<!-- LEGACY / DEPRECATED (Wave A closeout, 2026-07-14).
+<!-- LEGACY - DO NOT USE / DEPRECATED (Wave A closeout, 2026-07-14).
      This skill encodes the SUPERSEDED Linear-first flow. Linear is DEPRECATED
      as execution authority and markdown sprint tables are non-authoritative;
      the authoritative model is the Gorp-native persisted execution graph
      (~/dev/gorp/runtime/control/). Retained as a legacy Claude-Code runtime
-     artifact only. See ~/dev/repos/DOCUMENTATION-AUTHORITY-MAP.md. -->
+     artifact only. See ~/dev/gorp/reference/history/DOCUMENTATION-AUTHORITY-MAP.md. -->
 
 ---
 name: sprint
