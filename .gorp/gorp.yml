@@ -19,7 +19,8 @@ anchor:
 
 # guava-os does not yet maintain Gorp consumer context/plans directories.
 # Declared empty for now; populate if/when this repo adopts sprint-driven
-# Gorp execution. (Existing .gorp/process and .gorp/specs are left untouched.)
+# Gorp execution. (.gorp/process is retained project material; the former
+# .gorp/specs Linear copies were archived to legacy/linear/.)
 context:
   paths: []
 

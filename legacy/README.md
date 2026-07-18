@@ -9,12 +9,17 @@ current doc references this directory.
   (execution-report contract + schema, gorp-launch-contract, mutation-journal,
   unified-check-proposal, doctor-local-only-proposal). Canonical versions live
   in Gorp.
+- `linear/` — the former `.gorp/specs/` Linear-coupled spec copies
+  (graph-semantics, execution-state-machine, claim-leases, violation-codes).
+  Not loaded, not canonical; retained only as source material for a future
+  Linear import adapter. See `linear/README.md`.
 
 This repo consumes Gorp by reference through its binding (`.gorp/gorp.yml`). For
 governance read Gorp directly: `~/dev/gorp/README.md`,
 `~/dev/gorp/reference/architecture.md`, `~/dev/gorp/ROADMAP.md`,
 `~/dev/gorp/runtime/adapters/CONTRACT.md`.
 
-> Note: `.gorp/process/` and `.gorp/specs/` are **retained in place**, not
-> archived — the project's `conventions.overlay.md` declares them protected
-> project material and the `.guava-os` doctor CLI checks their presence.
+> Note: `.gorp/process/` is **retained in place**, not archived — it is
+> project material the `.guava-os` doctor CLI existence-checks. The former
+> `.gorp/specs/` Linear copies were archived to `linear/` above (Linear removed
+> from the canonical path).
