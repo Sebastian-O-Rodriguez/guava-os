@@ -15,7 +15,7 @@ only: this file may add or strengthen rules, never loosen a global guardrail.
 
 ## Boundaries
 
-- Treat `.gorp/process/` and `.gorp/specs/` as existing project material; do not
-  remove or replace them as part of consuming Gorp.
+- Treat `.gorp/process/` as existing project material; do not remove or replace
+  it as part of consuming Gorp.
 
 (All other conventions inherit from global Gorp doctrine.)
