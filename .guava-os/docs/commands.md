@@ -134,6 +134,38 @@ VALIDATE: no violations found
 
 **JSON output** includes `summary` (`errors`, `warnings`, `total`) and `violations` array.
 
+## `next`
+
+Compiles the issue graph into one operator-ready launch directive per persona.
+
+```bash
+guava-os next < issues.json
+guava-os next --persona backend < issues.json
+guava-os next --json < issues.json
+```
+
+**Stdin**: Required. JSON array of Linear issues (same shape as `status` / `validate`).
+
+**Flags**:
+
+| Flag | Effect |
+|------|--------|
+| `--persona <name>` | Filter output to a single persona |
+| `--json` | Output machine-readable JSON instead of human text |
+
+**Exit 0**: Directives produced for at least one persona.
+**Exit 1**: No directives could be produced.
+
+Each directive carries a suggested git branch name and context notes for the
+operator to launch the persona's work. The command is read-only — it mutates
+nothing in Linear, git, or any external state.
+
+**Example:**
+
+```bash
+guava-os next < issues.json
+```
+
 ## Global Flags
 
 | Flag | Commands | Effect |
