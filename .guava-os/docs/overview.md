@@ -19,6 +19,7 @@ It is the checkpoint between "human plans work in Linear" and "agents execute wo
 - **Validates repo setup** (`doctor`) — checks that config, AGENT.md files, process docs, and persona labels are in place
 - **Shows execution queue** (`status`) — groups sub-issues by persona, showing what agents can claim right now
 - **Detects violations** (`validate`) — finds structural problems in the issue graph that would cause agents to fail
+- **Generates launch directives** (`next`) — compiles the graph into one operator-ready launch directive per persona (branch name plus context notes)
 
 ## What It Does NOT Do
 
@@ -52,7 +53,7 @@ The CLI has no network layer. It reads stdin and local config files. It writes t
 
 ## Authority Model
 
-- **Linear** owns execution state (issues, statuses, priorities, assignments)
+- **The Gorp control plane** owns execution state (the persisted execution graph); Linear is an input format only, never the execution authority
 - **Human/CTO** owns strategy, promotion decisions, and escalation resolution
 - **Guava OS CLI** owns validation and reporting — it tells you what the graph looks like, not what to do about it
 - **Agents/builders** own code execution within assigned sub-issues
