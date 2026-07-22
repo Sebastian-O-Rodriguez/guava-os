@@ -1,5 +1,7 @@
 # Guava OS Operator Runbook
 
+> **Authority note (2026-07).** Execution state for governed work is owned by the Gorp control plane; Linear is an input format for this classifier only.
+
 Operational guide for running the Guava OS CLI in the Guava planning/execution loop.
 
 ## Workflow Overview
