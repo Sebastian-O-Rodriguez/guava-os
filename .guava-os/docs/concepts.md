@@ -108,3 +108,11 @@ The queue is computed fresh on every `status` run. It is not stored.
 ## Violation
 
 A structural problem in the issue graph detected by `validate`. Each violation has a code (V302, V400, etc.), a severity (error or warning), and a detail message. See the validate guide for the full list.
+
+## Governed Execution (Gorp)
+
+**`sprint`** — An operator-approved unit of work planned into the execution graph.
+
+**`node`** — One task in that graph, executed by a worker in an isolated sandbox.
+
+**`promotion`** — The governed application of an approved, reviewed change to the target repository after gates pass.
