@@ -1,5 +1,7 @@
 # Guava OS CLI
 
+> **Authority note (2026-07).** Execution state for governed work is owned by the Gorp control plane; Linear is an input format for this classifier only.
+
 Guava internal tooling for validating and inspecting Linear execution graphs.
 
 ## What It Does
