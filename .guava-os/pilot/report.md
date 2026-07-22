@@ -122,6 +122,8 @@ None. The CLI behaved exactly as designed:
 
 ## 12. Phase 3 Readiness Assessment
 
+> **Superseded (2026-07).** The Phase 3 recommendations below are withdrawn: guava-os remains permanently read-only, and no Linear mutation authority will be added. Execution and promotion of governed work are owned by the Gorp control plane.
+
 The CLI is operationally ready. The remaining gap is **Robo's ability to promote sub-issues** — currently this requires manual Linear changes. Phase 3 candidates:
 
 1. **`guava-os robo` dry-run** — show what Robo would promote based on queue capacity and priority
