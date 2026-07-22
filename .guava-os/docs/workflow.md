@@ -23,6 +23,8 @@ This is how Guava OS is used today. Every step involves human action.
 10. Repeat
 ```
 
+> **Authority note (2026-07).** The loop above describes how this classifier is used over Linear input data. Steps 8-9 are superseded for governed work: agents execute through Gorp-governed sprints, and review happens at the Gorp review gate — execution state is owned by the Gorp control plane, never derived from Linear.
+
 ## Step by Step
 
 ### 1. Plan Work
