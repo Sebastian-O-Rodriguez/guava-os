@@ -6,6 +6,10 @@
 
 # FAQ
 
+## Does Linear own execution state?
+
+No. Since 2026-07 the Gorp control plane owns execution state (the persisted execution graph). Linear is an input format for this classifier only — promotion of governed work happens through Gorp review and promotion, not by moving Linear issues.
+
 ## Why is the executable queue empty?
 
 All sub-issues are in Backlog. They need to be promoted to Todo in Linear before agents can claim them. This is the normal state before a sprint starts.
