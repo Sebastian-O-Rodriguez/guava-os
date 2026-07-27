@@ -20,7 +20,7 @@ Current capabilities and constraints of Guava OS CLI.
 | JSON and human output modes | Working |
 | Deterministic, reproducible output | Working |
 | Read-only operation | Enforced — tested |
-| Fixture-based testing | Working — 99 tests |
+| Fixture-based testing | Working — 91 tests |
 
 ## Not Implemented
 
