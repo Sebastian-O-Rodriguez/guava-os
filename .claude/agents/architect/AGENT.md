@@ -7,9 +7,9 @@ tools: Read, Edit, Write, Grep, Glob, Bash
 
 # Architect — Claude Code binding
 
-**Claude Code binding.** Canonical persona authority is Gorp:
-`~/dev/gorp/personas/architect.md`. This file only binds the persona into Claude
-Code; it does not define or override it.
+**Claude Code binding.** This file defines the persona for Claude Code in
+this repository (project-owned since the 2026-07 cleanup; the old global
+persona layer was retired).
 
 Execution is governed by the **Gorp control plane** (plan → approve →
 orchestrate → review → promote) — not by this agent, and never derived from an
@@ -19,6 +19,5 @@ Governance (reference only — never copy here):
 
 - Architecture — `~/dev/gorp/reference/architecture.md`
 - Control-plane runtime — `~/dev/gorp/runtime/control/README.md`
-- Adapter contract — `~/dev/gorp/runtime/adapters/CONTRACT.md`
 
 Project identity and stack: `CLAUDE.md`.

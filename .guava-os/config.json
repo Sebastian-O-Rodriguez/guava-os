@@ -1,14 +1,16 @@
 {
   "$schema": "./config.schema.json",
-
   "linear": {
     "team": "Guava AI",
     "project": "RoutineMe",
     "issue_prefix": "GUA"
   },
-
-  "personas": ["architect", "backend", "frontend", "qa"],
-
+  "personas": [
+    "architect",
+    "backend",
+    "frontend",
+    "qa"
+  ],
   "statuses": {
     "backlog": "Backlog",
     "todo": "Todo",
@@ -16,14 +18,18 @@
     "in_review": "In Review",
     "done": "Done"
   },
-
-  "active_parent_statuses": ["Todo", "In Progress"],
-
+  "active_parent_statuses": [
+    "Todo",
+    "In Progress"
+  ],
   "labels": {
-    "persona_labels": ["architect", "backend", "frontend"],
+    "persona_labels": [
+      "architect",
+      "backend",
+      "frontend"
+    ],
     "qa_label": "qa"
   },
-
   "invariants": {
     "max_todo_per_persona": 3,
     "stale_hours": 48,
@@ -31,9 +37,7 @@
     "bulk_threshold": 5,
     "max_subtasks_per_parent": 3
   },
-
   "branch_pattern": "feat/{prefix}-{id}-{slug}",
-
   "agent_files": {
     "robo": ".claude/agents/robo/AGENT.md",
     "architect": ".claude/agents/architect/AGENT.md",
@@ -41,12 +45,6 @@
     "frontend": ".claude/agents/frontend/AGENT.md",
     "qa": ".claude/agents/qa/AGENT.md"
   },
-
-  "process_files": {
-    "protocol": ".gorp/process/agent-protocol.md",
-    "approvals": ".gorp/process/approval-matrix.md",
-    "conventions": ".gorp/process/conventions.md"
-  },
-
+  "process_files": {},
   "manifest_path": ".guava-os/manifest.json"
 }

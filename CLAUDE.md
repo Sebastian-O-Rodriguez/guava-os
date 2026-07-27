@@ -1,9 +1,9 @@
 # Guava-OS
 
 Read-only classifier CLI for Linear issue graphs — developer infrastructure,
-never runs in production. A **Gorp consumer**, bound to canonical Gorp at
-`~/dev/gorp` via `.gorp/gorp.yml`. The `.guava-os/` CLI reads Linear as an input
-format only; it does not execute, mutate, or promote work.
+never runs in production. A **Gorp consumer**, registered in
+`~/dev/gorp/registry/projects.yml`. The `.guava-os/` CLI reads Linear as an
+input format only; it does not execute, mutate, or promote work.
 
 ## This file is entry only
 
@@ -23,11 +23,9 @@ Authority lives in Gorp; read it there, never copy it here.
 - Architecture — `~/dev/gorp/reference/architecture.md`
 - Roadmap — `~/dev/gorp/ROADMAP.md`
 - Control-plane runtime — `~/dev/gorp/runtime/control/README.md`
-- Runtime adapter contract — `~/dev/gorp/runtime/adapters/CONTRACT.md`
 
-Persona authority is canonical Gorp (`~/dev/gorp/personas/*`). The
-`.claude/agents/*` files are the Claude Code bindings for those personas, not
-their authority.
+The `.claude/agents/*` files are project-owned Claude Code personas (the old
+global persona layer was retired in the 2026-07 cleanup).
 
 ## Authority Hierarchy
 
@@ -36,9 +34,9 @@ Entry-point ordering only — the substance lives in canonical Gorp (above):
 | Priority | Source | Owns |
 |----------|--------|------|
 | 0 | **Human operator** | Priorities, scope, approvals, escalation |
-| 1 | **Canonical Gorp** (`~/dev/gorp`) | Governance, execution model, personas, specs — the source of truth |
+| 1 | **Canonical Gorp** (`~/dev/gorp`) | Governance, execution model, specs — the source of truth |
 | 2 | **This CLAUDE.md** | Project identity and stack (entry only) |
-| 3 | **`.claude/agents/*`** | Claude Code persona bindings (defer to canonical Gorp personas) |
+| 3 | **`.claude/agents/*`** | Project-owned Claude Code personas |
 
 Execution state is owned by the Gorp control plane; it is never derived from an
 issue tracker.
