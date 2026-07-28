@@ -15,31 +15,28 @@ input format only; it does not execute, mutate, or promote work.
 To change how work is governed, planned, or executed, update the **canonical
 Gorp docs** — not this file.
 
-## Canonical governance (Gorp — reference only)
+## Authority — read Gorp first
 
-Authority lives in Gorp; read it there, never copy it here.
+This file is a **tool adapter**, not architecture authority. Read the four
+Gorp source-of-truth docs first:
 
-- Overview — `~/dev/gorp/README.md`
-- Architecture — `~/dev/gorp/reference/architecture.md`
-- Roadmap — `~/dev/gorp/ROADMAP.md`
-- Control-plane runtime — `~/dev/gorp/runtime/control/README.md`
+1. `~/dev/gorp/VISION.md` — product intent
+2. `~/dev/gorp/SYSTEM-MODEL.md` — ownership and flow
+3. `~/dev/gorp/CURRENT-STATE.md` — what exists (canonical status)
+4. `~/dev/gorp/ARCHITECTURAL-INVARIANTS.md` — non-negotiable rules
+
+Then: Gorp runtime contracts and tests (`~/dev/gorp/runtime/control/`,
+`~/dev/gorp/specs/runtime/`) → this project's docs → tool files like this one
+→ historical docs. **When anything conflicts, Gorp wins.**
+
+Rules for this and every Claude file here: do not redefine GOS architecture in
+tool files; do not store project truth only in Claude files — when truth
+changes, update canonical Gorp or project docs; keep Claude files thin and
+tool-specific.
 
 The `.claude/agents/*` files are project-owned Claude Code personas (the old
-global persona layer was retired in the 2026-07 cleanup).
-
-## Authority Hierarchy
-
-Entry-point ordering only — the substance lives in canonical Gorp (above):
-
-| Priority | Source | Owns |
-|----------|--------|------|
-| 0 | **Human operator** | Priorities, scope, approvals, escalation |
-| 1 | **Canonical Gorp** (`~/dev/gorp`) | Governance, execution model, specs — the source of truth |
-| 2 | **This CLAUDE.md** | Project identity and stack (entry only) |
-| 3 | **`.claude/agents/*`** | Project-owned Claude Code personas |
-
-Execution state is owned by the Gorp control plane; it is never derived from an
-issue tracker.
+global persona layer was retired in the 2026-07 cleanup). Execution state is
+owned by the Gorp control plane; it is never derived from an issue tracker.
 
 ## Stack
 
