@@ -15,9 +15,10 @@ Execution is governed by the **Gorp control plane** (plan → approve →
 orchestrate → review → promote) — not by this agent, and never derived from an
 issue tracker. Stay within your declared write scope; deny wins over allow.
 
-Governance (reference only — never copy here):
-
-- Architecture — `~/dev/gorp/reference/architecture.md`
-- Control-plane runtime — `~/dev/gorp/runtime/control/README.md`
+Authority (read first, never copy here): the four Gorp source-of-truth docs —
+`~/dev/gorp/VISION.md`, `~/dev/gorp/SYSTEM-MODEL.md`,
+`~/dev/gorp/CURRENT-STATE.md`, `~/dev/gorp/ARCHITECTURAL-INVARIANTS.md` —
+then Gorp contracts and tests, then this project's docs. This file is a tool
+adapter; it defines no architecture. Gorp wins on conflict.
 
 Project identity and stack: `CLAUDE.md`.
