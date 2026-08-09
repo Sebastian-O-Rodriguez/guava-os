@@ -1,14 +1,8 @@
-> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
-> Documents the read-only Linear import/classifier CLI. Linear is an input
-> format here, not the execution authority — the authoritative execution model
-> is the Gorp-native persisted graph (see
-> `~/dev/gorp/reference/architecture.md`).
-
 # FAQ
 
 ## Does Linear own execution state?
 
-No. Since 2026-07 the Gorp control plane owns execution state (the persisted execution graph). Linear is an input format for this classifier only — promotion of governed work happens through Gorp review and promotion, not by moving Linear issues.
+No. Since 2026-07 guava-os is the control plane and Gorp is the executor. Execution state lives in the Gorp-governed persisted graph. Linear is an input format for this classifier only — promotion of governed work happens through Gorp review and promotion, not by moving Linear issues.
 
 ## Why is the executable queue empty?
 
@@ -36,7 +30,7 @@ Until then, the CLI cannot distinguish between "executable" and "would be execut
 Guava OS is read-only. It cannot change Linear state. Promotion (Backlog → Todo) requires either:
 
 - A human moving the issue in Linear
-- A future Robo implementation with mutation authority (`guava-os robo --apply`, not yet built)
+- Gorp's governed execution pipeline with mutation authority (the deprecated `robo` persona previously covered this domain)
 
 Today, all queue management is manual.
 
@@ -63,11 +57,11 @@ Benefits:
 - Same CLI works regardless of how data is fetched
 - Clear separation: callers own data access, CLI owns validation
 
-The caller (Claude Code agent via MCP tools, or a human via Linear export) is responsible for fetching.
+The caller (guava-os agents via pm tooling, or a human via Linear export) is responsible for fetching.
 
 ## Why is this read-only?
 
-Guava OS in its current phase is an inspector, not a controller. Read-only ensures:
+The guava-os CLI is the control plane's validation surface — inspect-only, no mutation. Read-only ensures:
 
 - No accidental mutations during validation
 - Safe to run repeatedly without side effects

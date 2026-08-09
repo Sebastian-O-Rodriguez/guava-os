@@ -18,7 +18,6 @@ const TEST_CONFIG: Config = {
     bulk_threshold: 5, max_subtasks_per_parent: 3,
   },
   branch_pattern: "feat/{prefix}-{id}-{slug}",
-  agent_files: {},
   process_files: {},
   manifest_path: ".guava-os/manifest.json",
 };
@@ -305,8 +304,8 @@ describe("read-only guarantee", () => {
     // It completes without error on a non-existent path (no writes attempted).
     const results = runDoctor("/nonexistent/path", TEST_CONFIG, false);
     expect(results.length).toBeGreaterThan(0);
-    // Filesystem checks (config, claude-md, agents, gitignore) must fail for nonexistent root
-    const fsChecks = results.filter(r => ["config", "claude-md", "agents", "gitignore"].includes(r.name));
+    // Filesystem checks (config, agents-md, gitignore) must fail for nonexistent root
+    const fsChecks = results.filter(r => ["config", "agents-md", "gitignore"].includes(r.name));
     expect(fsChecks.every(r => !r.passed)).toBe(true);
   });
 });

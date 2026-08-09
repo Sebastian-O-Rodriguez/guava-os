@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "graphId": "g",
+  "nodeId": "n",
+  "validation": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "scope",
+        "status": "passed"
+      }
+    ],
+    "artifactHash": "sha256:abc"
+  },
+  "review": {
+    "status": "pending"
+  }
+}

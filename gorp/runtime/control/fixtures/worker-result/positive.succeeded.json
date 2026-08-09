@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "graphId": "g",
+  "nodeId": "n",
+  "runId": "r",
+  "workerAdapter": "fixture",
+  "outcome": "succeeded",
+  "exitCode": 0,
+  "changedFiles": [
+    ".gorp/fixtures/slice/hello.txt"
+  ],
+  "commandsExecuted": [
+    {
+      "command": "true",
+      "exitCode": 0
+    }
+  ],
+  "artifactRefs": [],
+  "startedAt": "2026-07-14T00:00:00.000Z",
+  "endedAt": "2026-07-14T00:00:01.000Z"
+}

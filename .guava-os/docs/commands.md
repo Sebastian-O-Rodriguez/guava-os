@@ -1,9 +1,3 @@
-> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
-> Documents the read-only Linear import/classifier CLI. Linear is an input
-> format here, not the execution authority — the authoritative execution model
-> is the Gorp-native persisted graph (see
-> `~/dev/gorp/reference/architecture.md`).
-
 # Commands
 
 All available Guava OS commands. There are three: `doctor`, `status`, `validate`.
@@ -49,14 +43,13 @@ echo '{"issues": [], "labels": ["architect", "backend", "frontend", "qa"]}' | .g
 DOCTOR
 
   ✓ config         .guava-os/config.json valid
-  ✓ claude-md      CLAUDE.md present, authority hierarchy found
-  ✓ agents         4/4 persona AGENT.md files found
-  ✓ protocol       3/3 process docs found
-  ✓ linear         Guava AI / RoutineMe — issue graph loaded
+  ✓ agents-md      AGENTS.md present, authority hierarchy found
+  ✓ protocol       0/0 process docs found
+  ✓ linear         Guava AI / guava-os — issue graph loaded
   ✓ labels         4/4 persona labels found in Linear data
   ✓ gitignore      .guava-os/manifest.json is gitignored
 
-RESULT: 7/7 passed
+RESULT: 6/6 passed
 ```
 
 ## `status`

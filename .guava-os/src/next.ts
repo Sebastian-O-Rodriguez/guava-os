@@ -5,11 +5,11 @@
  * One directive per persona: the highest-priority executable subtask.
  *
  * READ-ONLY: No mutation, claiming, assignment, or side effects.
- * Derives entirely from the canonical ExecutionGraph — no independent
+ * Derives entirely from the canonical IssueGraph — no independent
  * classification or recomputation.
  */
 
-import type { ExecutionGraph, ExecutableSubtask } from "./linear.js";
+import type { IssueGraph, ExecutableSubtask, GraphCapabilities } from "./linear.js";
 import { priorityLabel } from "./linear.js";
 import type { Config } from "./config.js";
 
@@ -32,7 +32,7 @@ export interface NextResult {
     personas_without_work: number;
     total_executable: number;
   };
-  capabilities: { dependencyRelationsLoaded: false };
+  capabilities: GraphCapabilities;
 }
 
 function buildBranch(config: Config, persona: string, task: ExecutableSubtask): string {
@@ -59,7 +59,7 @@ function buildBranch(config: Config, persona: string, task: ExecutableSubtask): 
 function buildContext(
   persona: string,
   queue: ExecutableSubtask[],
-  graph: ExecutionGraph,
+  graph: IssueGraph,
 ): string[] {
   const ctx: string[] = [];
 
@@ -75,6 +75,8 @@ function buildContext(
   // Dependency data availability
   if (!graph.capabilities.dependencyRelationsLoaded) {
     ctx.push("dependency detection unavailable");
+  } else if (graph.blocked.length > 0) {
+    ctx.push(`${graph.blocked.length} blocked by unresolved dependencies`);
   }
 
   // Queue depth
@@ -86,7 +88,7 @@ function buildContext(
 }
 
 export function generateNext(
-  graph: ExecutionGraph,
+  graph: IssueGraph,
   config: Config,
   personaFilter?: string,
 ): NextResult {

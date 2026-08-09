@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gorp.dev/specs/runtime/worker-result.schema.json",
+  "title": "Gorp Worker Result",
+  "description": "Source-neutral structured result a worker adapter returns for one node attempt. Implemented since Wave B; enriched in Sprint 5A: a worker now reports its own account of the attempt (summary, expectedFiles, reviewerNotes) instead of the control plane inferring everything from the git diff. summary/expectedFiles/reviewerNotes are optional here so pre-5A records stay valid; the adapter boundary requires a non-empty summary on every NEW result. changedFiles remains computed from git by the adapter, never trusted from the worker process.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "graphId",
+    "nodeId",
+    "runId",
+    "workerAdapter",
+    "outcome",
+    "startedAt",
+    "endedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "graphId": { "$ref": "#/$defs/stableId" },
+    "nodeId": { "$ref": "#/$defs/stableId" },
+    "runId": { "$ref": "#/$defs/stableId" },
+    "workerAdapter": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Abstract adapter name; never a concrete provider/runtime."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["succeeded", "failed", "blocked"]
+    },
+    "exitCode": { "type": "integer" },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The worker's own one-paragraph account of what it did (or why it failed/blocked). Required at the adapter boundary for every new result."
+    },
+    "expectedFiles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Files the worker intended/expected to produce or change. Reviewers compare this claim against the git-computed changedFiles."
+    },
+    "reviewerNotes": {
+      "type": "string",
+      "description": "Free-text notes addressed to the human reviewer (e.g. the worker runtime's own closing output), truncated by the adapter."
+    },
+    "changedFiles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Computed from git by the adapter — never the worker process's claim."
+    },
+    "commandsExecuted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "exitCode"],
+        "properties": {
+          "command": { "type": "string", "minLength": 1 },
+          "exitCode": { "type": "integer" }
+        }
+      }
+    },
+    "artifactRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "detail"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "detail": { "type": "string", "minLength": 1 },
+        "irreducible": { "type": "boolean" }
+      },
+      "description": "Structured blocker detail; kept here to avoid a separate blocker schema in Sprint 1."
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "endedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    }
+  }
+}

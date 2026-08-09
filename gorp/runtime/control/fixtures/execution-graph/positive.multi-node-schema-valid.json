@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "graphId": "graph-fixture-multinode",
+  "project": {
+    "projectId": "fixture-project"
+  },
+  "baseCommit": "0123456abcdef",
+  "approvalStatus": "unapproved",
+  "provenance": {
+    "createdBy": "operator:test",
+    "createdByType": "operator",
+    "createdAt": "2026-07-14T00:00:00.000Z"
+  },
+  "status": "draft",
+  "nodes": [
+    {
+      "nodeId": "node-1",
+      "taskType": "fixture-mutation",
+      "objective": "n1",
+      "acceptanceCriteria": [
+        "a"
+      ],
+      "allowedPaths": [
+        "x/**"
+      ],
+      "forbiddenPaths": [],
+      "requiredCommands": [],
+      "expectedArtifacts": [],
+      "workerAdapter": "fixture",
+      "dependencies": [],
+      "state": "pending",
+      "attempt": 0
+    },
+    {
+      "nodeId": "node-2",
+      "taskType": "fixture-mutation",
+      "objective": "n2",
+      "acceptanceCriteria": [
+        "b"
+      ],
+      "allowedPaths": [
+        "y/**"
+      ],
+      "forbiddenPaths": [],
+      "requiredCommands": [],
+      "expectedArtifacts": [],
+      "workerAdapter": "fixture",
+      "dependencies": [
+        "node-1"
+      ],
+      "state": "pending",
+      "attempt": 0
+    }
+  ],
+  "transitions": []
+}

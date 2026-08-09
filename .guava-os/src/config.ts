@@ -30,7 +30,6 @@ export interface Config {
     max_subtasks_per_parent: number;
   };
   branch_pattern: string;
-  agent_files: Record<string, string>;
   process_files: Record<string, string>;
   manifest_path: string;
 }

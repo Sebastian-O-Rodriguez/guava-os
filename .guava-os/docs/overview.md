@@ -1,12 +1,6 @@
-> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
-> Documents the read-only Linear import/classifier CLI. Linear is an input
-> format here, not the execution authority — the authoritative execution model
-> is the Gorp-native persisted graph (see
-> `~/dev/gorp/reference/architecture.md`).
-
 # Guava OS Overview
 
-Guava OS is a read-only CLI tool that inspects Linear execution graphs and reports queue state, protocol violations, and parent health for Guava's agent-operated projects.
+Guava OS is the read-only control plane for Guava's agent-operated projects. Its CLI inspects Linear execution graphs and reports queue state, protocol violations, and parent health. Operators iterate and create plans here; approved plans are delegated to Gorp (the executor) for governed execution.
 
 ## What It Is
 
@@ -35,6 +29,7 @@ It is the checkpoint between "human plans work in Linear" and "agents execute wo
 
 ## Current Architecture
 
+
 ```
 Linear (source of truth)
     ↓
@@ -50,21 +45,24 @@ Human decides: proceed / fix Linear / pivot
 ```
 
 The CLI has no network layer. It reads stdin and local config files. It writes to stdout only.
+guava-os sits above Gorp as the control plane: operators plan and validate here; approved plans flow down to Gorp for governed execution (plan → orchestrate → gate → review → promote). The CLI itself is a pure data processor — it never drives execution.
+
 
 ## Authority Model
 
-- **The Gorp control plane** owns execution state (the persisted execution graph); Linear is an input format only, never the execution authority
+- **Guava OS** is the control plane — it owns validation, reporting, and the plan/approve gate before any work reaches execution
+- **Gorp** is the executor — it owns the governed execution graph, dispatch, review gates, and promotion of approved work
 - **Human/CTO** owns strategy, promotion decisions, and escalation resolution
-- **Guava OS CLI** owns validation and reporting — it tells you what the graph looks like, not what to do about it
-- **Agents/builders** own code execution within assigned sub-issues
+- **Agents/builders** own code execution within assigned sub-issues, dispatched by Gorp via OMP personas
 
-Guava OS does not have authority to change anything. It is an inspector, not a controller.
+Guava OS does not have authority to change anything. It is an inspector and gate, not a controller of execution state.
 
 ## Config
 
 Project-specific settings live in `.guava-os/config.json`:
 - Linear team/project/prefix
 - Persona list and labels
+- Persona definitions in `.guava-os/personas/<name>/persona.md` (replacing the deprecated `.claude/agents/` layout; maps to OMP roles)
 - Active parent statuses
 - Queue capacity limits
 - File paths for AGENT.md and process docs

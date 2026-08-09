@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gorp.dev/specs/runtime/execution-graph.schema.json",
+  "title": "Gorp Execution Graph",
+  "description": "Source-neutral, runtime-neutral, provider-neutral authoritative execution graph. Multi-node graphs with dependencies are supported; execution state stores PROJECT IDENTITY ONLY — repository paths are resolved from the Gorp project registry at command time and are never persisted. Graph state semantics: every state change is an append-only transition record; 'cancelled' means AN OPERATOR ENDED THE GRAPH (all transitions to 'cancelled' are operator-only) — the transition's reasonCode says why (e.g. REVIEW_REJECTED when a rejection closes the graph); 'failed' is an execution failure recorded by orchestrator/system; 'completed' is reached only after promotion. No planning, scheduling, or decomposition semantics are implied by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "graphId",
+    "project",
+    "baseCommit",
+    "approvalStatus",
+    "provenance",
+    "status",
+    "nodes",
+    "transitions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Contract version. Bumped on any breaking change."
+    },
+    "graphId": {
+      "$ref": "#/$defs/stableId",
+      "description": "Stable explicit graph identity. MUST NOT be derived from a filesystem path."
+    },
+    "project": {
+      "$ref": "#/$defs/project"
+    },
+    "baseCommit": {
+      "type": "string",
+      "minLength": 7,
+      "description": "Execution input: the git commit the graph was created against."
+    },
+    "approvalStatus": {
+      "type": "string",
+      "enum": [
+        "unapproved",
+        "approved"
+      ],
+      "description": "Explicit approval boundary. File existence is NOT approval; only an operator transition sets this to approved."
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "status": {
+      "$ref": "#/$defs/graphState"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "description": "Nodes execute one at a time in dependency order; multi-node graphs with dependencies are supported."
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transition"
+      },
+      "description": "Append-only graph-level transition history (includes graph and node transitions)."
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Stable explicit identifier. No path separators; not derived from mutable filesystem paths."
+    },
+    "isoTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp. Used only in event records, never as identity."
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId"
+      ],
+      "properties": {
+        "projectId": {
+          "$ref": "#/$defs/stableId"
+        }
+      },
+      "description": "Project identity only. The repository path is resolved from the Gorp project registry (registry/projects.yml) at command time, never persisted here."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "createdBy",
+        "createdByType",
+        "createdAt"
+      ],
+      "properties": {
+        "createdBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "createdByType": {
+          "$ref": "#/$defs/actorType"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/isoTimestamp"
+        },
+        "source": {
+          "type": "string",
+          "description": "Optional free-text origin note (e.g. 'operator cli'). Never a provider or external tool authority."
+        }
+      }
+    },
+    "graphState": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "approved",
+        "running",
+        "blocked",
+        "failed",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "nodeState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "ready",
+        "running",
+        "blocked",
+        "failed",
+        "awaiting_review",
+        "approved",
+        "rejected",
+        "promoted",
+        "cancelled"
+      ]
+    },
+    "actorType": {
+      "type": "string",
+      "enum": [
+        "operator",
+        "orchestrator",
+        "system"
+      ],
+      "description": "Authorized transition actors. Workers are intentionally excluded."
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeId",
+        "taskType",
+        "objective",
+        "acceptanceCriteria",
+        "allowedPaths",
+        "forbiddenPaths",
+        "requiredCommands",
+        "expectedArtifacts",
+        "workerAdapter",
+        "dependencies",
+        "state",
+        "attempt"
+      ],
+      "properties": {
+        "nodeId": {
+          "$ref": "#/$defs/stableId"
+        },
+        "taskType": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source-neutral task classifier (e.g. 'fixture-mutation'). Not tied to any runtime or provider."
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "allowedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Write scope allow globs for the eventual worker."
+        },
+        "forbiddenPaths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Deny globs; deny wins over allow (enforced by a later wave)."
+        },
+        "requiredCommands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "executable",
+              "args"
+            ],
+            "properties": {
+              "executable": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Program to spawn (no shell, no whitespace splitting, no interpolation)."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Exact argument vector; arguments may contain any characters including whitespace."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Per-command timeout in milliseconds (default 600000). On expiry the command is killed and the check fails closed with the timeout recorded."
+              }
+            }
+          },
+          "description": "Project check commands the gate runs inside the sandbox after the scope checks pass (Sprint 3C; structured executable/args form since Sprint 3D — no shell, no whitespace splitting). Any non-zero exit or timeout fails the gate; exit code, stdout, stderr, and duration are captured into the gate record. Promotion re-runs ALL of these against the reviewed commit and refuses to cherry-pick unless they pass again."
+        },
+        "expectedArtifacts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "workerAdapter": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Abstract worker adapter name (e.g. 'fixture'). MUST NOT name a concrete provider/runtime."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stableId"
+          },
+          "description": "Node dependency IDs. For a Wave-A executable graph this MUST be empty."
+        },
+        "state": {
+          "$ref": "#/$defs/nodeState"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Execution attempt counter. 0 before any execution."
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transitionId",
+        "entityType",
+        "entityId",
+        "fromState",
+        "toState",
+        "actorType",
+        "actorId",
+        "reasonCode",
+        "reasonText",
+        "timestamp"
+      ],
+      "properties": {
+        "transitionId": {
+          "$ref": "#/$defs/stableId"
+        },
+        "entityType": {
+          "type": "string",
+          "enum": [
+            "graph",
+            "node"
+          ]
+        },
+        "entityId": {
+          "$ref": "#/$defs/stableId"
+        },
+        "fromState": {
+          "type": "string",
+          "minLength": 1
+        },
+        "toState": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actorType": {
+          "$ref": "#/$defs/actorType"
+        },
+        "actorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasonCode": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "description": "Machine-readable reason code."
+        },
+        "reasonText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "$ref": "#/$defs/isoTimestamp"
+        }
+      }
+    }
+  }
+}

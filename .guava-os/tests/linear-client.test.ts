@@ -1,0 +1,209 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import {
+  createIssue,
+  updateIssue,
+  linkDependencies,
+  loadToken,
+} from "../src/linear-client.js";
+import { findRepoRoot } from "../src/config.js";
+
+// loadToken's .env fallback resolves via findRepoRoot; point it at a
+// nonexistent root so the missing-key path is exercised without the real .env.
+vi.mock("../src/config.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/config.js")>();
+  return { ...actual, findRepoRoot: vi.fn(() => "/nonexistent-root") };
+});
+
+/**
+ * Fetch-mocked tests for the Linear write path (GUA-96).
+ * Every test routes fake GraphQL responses; no network is touched.
+ */
+
+type FetchCall = {
+  query: string;
+  variables: Record<string, unknown>;
+};
+
+const calls: FetchCall[] = [];
+let respond: (query: string, variables: Record<string, unknown>) => unknown;
+
+function mockFetch() {
+  return vi.fn(async (_url: string, init: { body?: string }) => {
+    const { query, variables } = JSON.parse(init.body ?? "{}") as {
+      query: string;
+      variables: Record<string, unknown>;
+    };
+    calls.push({ query, variables });
+    const body = respond(query, variables);
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return "";
+      },
+      async json() {
+        return body;
+      },
+    };
+  }) as unknown as typeof fetch;
+}
+
+/** Route by query shape to canned responses for name resolution. */
+function router(query: string, variables: Record<string, unknown>): unknown {
+  if (query.includes("query { teams")) {
+    return { data: { teams: { nodes: [{ id: "team-uuid", name: "Guava AI" }] } } };
+  }
+  if (query.includes("issueLabels")) {
+    return {
+      data: {
+        issueLabels: {
+          nodes: [
+            { id: "label-backend", name: "backend" },
+            { id: "label-architect", name: "architect" },
+          ],
+        },
+      },
+    };
+  }
+  if (query.includes("projects(filter")) {
+    return { data: { projects: { nodes: [{ id: "project-uuid", name: "guava-os", url: "" }] } } };
+  }
+  if (query.includes("team(id")) {
+    return {
+      data: {
+        team: {
+          states: {
+            nodes: [
+              { id: "state-todo", name: "Todo" },
+              { id: "state-done", name: "Done" },
+            ],
+          },
+        },
+      },
+    };
+  }
+  if (query.includes("viewer")) {
+    return { data: { viewer: { id: "viewer-uuid" } } };
+  }
+  if (query.includes("issue(id: $v)")) {
+    // identifier -> uuid (getIssue / parent resolution path), distinct per input
+    return { data: { issue: { id: `uuid-${String(variables.v)}` } } };
+  }
+  if (query.includes("issue(id: $id)")) {
+    // getIssue after create/update
+    return {
+      data: {
+        issue: {
+          id: "issue-uuid",
+          title: "Created",
+          state: { name: "Todo", type: "unstarted" },
+          priority: 2,
+          labels: { nodes: [{ name: "backend" }] },
+          parent: null,
+          project: { name: "guava-os" },
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          completedAt: null,
+          canceledAt: null,
+          assignee: null,
+          description: "",
+          relations: { nodes: [] },
+        },
+      },
+    };
+  }
+  if (query.includes("issueCreate")) {
+    return { data: { issueCreate: { issue: { id: "issue-uuid", title: "Created" } } } };
+  }
+  if (query.includes("issueRelationCreate")) {
+    return { data: { issueRelationCreate: { success: true } } };
+  }
+  if (query.includes("issueUpdate")) {
+    return { data: { issueUpdate: { success: true } } };
+  }
+  return { data: {} };
+}
+
+beforeEach(() => {
+  calls.length = 0;
+  vi.stubGlobal("fetch", mockFetch());
+  vi.stubEnv("LINEAR_API_KEY", "test-key");
+  respond = router;
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe("GUA-96 name/identifier resolution", () => {
+  it("createIssue resolves team/project/label/status names before issueCreate", async () => {
+    await createIssue({
+      title: "T",
+      teamId: "Guava AI",
+      projectId: "guava-os",
+      parentId: "GUA-1",
+      labels: ["backend"],
+      status: "Todo",
+    });
+    const create = calls.find((c) => c.query.includes("issueCreate("))!;
+    const input = create.variables.input as Record<string, unknown>;
+    expect(input.teamId).toBe("team-uuid");
+    expect(input.projectId).toBe("project-uuid");
+    expect(input.parentId).toBe("uuid-GUA-1");
+    expect(input.labelIds).toEqual(["label-backend"]);
+    expect(input.stateId).toBe("state-todo");
+  });
+
+  it("updateIssue omits labelIds when labels not provided (no wipe)", async () => {
+    await updateIssue("issue-uuid", { description: "new body" });
+    const update = calls.find((c) => c.query.includes("issueUpdate("))!;
+    const input = update.variables.input as Record<string, unknown>;
+    expect("labelIds" in input).toBe(false);
+  });
+
+  it("updateIssue resolves label names when provided", async () => {
+    await updateIssue("issue-uuid", { labels: ["architect"] });
+    const update = calls.find((c) => c.query.includes("issueUpdate("))!;
+    expect((update.variables.input as Record<string, unknown>).labelIds).toEqual(["label-architect"]);
+  });
+});
+
+describe("GUA-96 native relation creation", () => {
+  it("--blocks creates issueRelationCreate type=blocks with correct direction", async () => {
+    await linkDependencies("A-id", { blocks: ["B-id"] });
+    const rel = calls.find((c) => c.query.includes("issueRelationCreate("))!;
+    const input = rel.variables.input as Record<string, unknown>;
+    expect(input.type).toBe("blocks");
+    expect(input.issueId).toBe("uuid-A-id");
+    expect(input.relatedIssueId).toBe("uuid-B-id");
+  });
+
+  it("--blocked-by inverts direction (B blocks A)", async () => {
+    await linkDependencies("A-id", { blockedBy: ["B-id"] });
+    const rel = calls.find((c) => c.query.includes("issueRelationCreate("))!;
+    const input = rel.variables.input as Record<string, unknown>;
+    expect(input.type).toBe("blocks");
+    expect(input.issueId).toBe("uuid-B-id");
+    expect(input.relatedIssueId).toBe("uuid-A-id");
+  });
+
+  it("rejects self-links before any call", async () => {
+    await expect(linkDependencies("X", { blocks: ["X"] })).rejects.toThrow(/itself/);
+    expect(calls.filter((c) => c.query.includes("issueRelationCreate("))).toHaveLength(0);
+  });
+});
+
+describe("GOS-25 auth loading", () => {
+  it("loadToken prefers the environment variable", () => {
+    expect(loadToken()).toBe("test-key");
+  });
+
+  it("loadToken fails with a canonical message (no secret) when unset", () => {
+    vi.stubEnv("LINEAR_API_KEY", "");
+    vi.stubEnv("LINEAR_TOKEN", "");
+    expect(findRepoRoot("/any")).toBe("/nonexistent-root"); // mock active
+    expect(() => loadToken()).toThrow(/LINEAR_API_KEY/);
+    expect(() => loadToken()).not.toThrow(/test-key|lin_api/);
+  });
+});

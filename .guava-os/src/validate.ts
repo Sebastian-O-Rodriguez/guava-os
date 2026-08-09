@@ -7,7 +7,7 @@
 
 import type { Config } from "./config.js";
 import { allPersonaLabels } from "./config.js";
-import type { ExecutionGraph, LinearIssue } from "./linear.js";
+import type { IssueGraph, LinearIssue } from "./linear.js";
 
 export type ViolationSeverity = "error" | "warning";
 
@@ -34,7 +34,7 @@ export interface ValidateResult {
  * Run all violation checks against the execution graph.
  * Returns a deterministic, sorted list of violations.
  */
-export function runValidate(graph: ExecutionGraph, issues: LinearIssue[], config: Config): ValidateResult {
+export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Config): ValidateResult {
   const violations: Violation[] = [];
   const personaLabels = allPersonaLabels(config);
   const activeParentStatuses = config.active_parent_statuses;

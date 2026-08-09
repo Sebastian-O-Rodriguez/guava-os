@@ -1,9 +1,3 @@
-> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
-> Documents the read-only Linear import/classifier CLI. Linear is an input
-> format here, not the execution authority — the authoritative execution model
-> is the Gorp-native persisted graph (see
-> `~/dev/gorp/reference/architecture.md`).
-
 # Current Workflow
 
 This is how Guava OS is used today. Every step involves human action.
@@ -23,7 +17,7 @@ This is how Guava OS is used today. Every step involves human action.
 10. Repeat
 ```
 
-> **Authority note (2026-07).** The loop above describes how this classifier is used over Linear input data. Steps 8-9 are superseded for governed work: agents execute through Gorp-governed sprints, and review happens at the Gorp review gate — execution state is owned by the Gorp control plane, never derived from Linear.
+> **Authority note (2026-07).** The loop above describes how this classifier is used over Linear input data. Steps 8-9 are superseded for governed work: agents execute through Gorp-governed sprints, and review happens at the Gorp review gate. guava-os is the control plane; Gorp is the execution engine — execution state is never derived from Linear.
 
 ## Step by Step
 
@@ -43,9 +37,14 @@ Guava OS does not do this. There is no automated promotion today.
 
 The CLI needs issue data piped via stdin. The caller must fetch it.
 
-**If using Claude Code / MCP tools:**
+**Using guava-os tooling:**
 
-The MCP `list_issues` tool fetches project issues. Save or pipe the `issues` array.
+```
+guava-os pm search --project guava-os --json | guava-os validate
+```
+
+Search returns the full issue snapshot (relations included, GOS-28); pipe it
+to status/validate/next.
 
 **If exporting manually:**
 

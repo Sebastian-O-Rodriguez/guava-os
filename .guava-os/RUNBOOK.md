@@ -1,6 +1,6 @@
 # Guava OS Operator Runbook
 
-> **Authority note (2026-07).** Execution state for governed work is owned by the Gorp control plane; Linear is an input format for this classifier only.
+> **Authority note (2026-07).** Execution state for governed work is owned by the gorp execution engine; Linear is an input format for this classifier only.
 
 Operational guide for running the Guava OS CLI in the Guava planning/execution loop.
 
@@ -95,13 +95,14 @@ The CLI does not fetch Linear data. The caller must provide it.
 
 ### How to Get Linear Data
 
-**Option A: MCP tools (agents/Claude Code)**
+**Using guava-os tooling:**
 
 ```
-mcp__linear-server__list_issues with team="Guava AI", project="RoutineMe"
+guava-os pm search --project guava-os --json
 ```
 
-The MCP response contains an `issues` array. Extract it and pipe to the CLI.
+Pipe the resulting JSON array to the CLI. Agents reach Linear only through
+guava-os tooling (GOS-19) — never Claude Code or raw MCP.
 
 **Option B: Manual export**
 
@@ -129,8 +130,10 @@ Each issue in the JSON array must have:
 
 ### Field Mapping from Linear MCP
 
-The `mcp__linear-server__list_issues` response maps directly to the CLI input format. The `issues` array from the MCP response can be piped to the CLI without transformation.
+The `guava-os pm search` response maps directly to the CLI input format. The `issues` array from the MCP response can be piped to the CLI without transformation.
 
+
+> **Note:** Agents use `guava-os pm` commands, not Linear MCP directly (GOS-18).
 ### Common Mistakes
 
 - Piping an object `{"issues": [...]}` instead of a bare array `[...]` to `status`/`validate` — the CLI expects a bare array for these commands

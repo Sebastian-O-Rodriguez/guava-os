@@ -44,40 +44,24 @@ export function runDoctor(
       : ".guava-os/config.json not found",
   });
 
-  // 2. CLAUDE.md exists and has authority hierarchy
-  const claudePath = resolve(repoRoot, "CLAUDE.md");
-  if (existsSync(claudePath)) {
-    const content = readFileSync(claudePath, "utf-8");
-    const hasHierarchy = content.includes("Authority Hierarchy");
+  // 2. AGENTS.md exists and has authority hierarchy
+  const agentsPath = resolve(repoRoot, "AGENTS.md");
+  if (existsSync(agentsPath)) {
+    const content = readFileSync(agentsPath, "utf-8");
+    const hasAuthority = content.includes("ADR_001");
     results.push({
-      name: "claude-md",
-      passed: hasHierarchy,
-      detail: hasHierarchy
-        ? "CLAUDE.md present, authority hierarchy found"
-        : "CLAUDE.md present but missing Authority Hierarchy section",
+      name: "agents-md",
+      passed: hasAuthority,
+      detail: hasAuthority
+        ? "AGENTS.md present, ADR_001 authority reference found"
+        : "AGENTS.md present but missing ADR_001 authority reference",
     });
   } else {
-    results.push({ name: "claude-md", passed: false, detail: "CLAUDE.md not found" });
+    results.push({ name: "agents-md", passed: false, detail: "AGENTS.md not found" });
   }
 
-  // 3. Every configured persona has an AGENT.md
-  const allPersonas = config.personas;
-  const agentMissing: string[] = [];
-  for (const persona of allPersonas) {
-    const agentPath = config.agent_files[persona];
-    if (!agentPath || !existsSync(resolve(repoRoot, agentPath))) {
-      agentMissing.push(persona);
-    }
-  }
-  results.push({
-    name: "agents",
-    passed: agentMissing.length === 0,
-    detail: agentMissing.length === 0
-      ? `${allPersonas.length}/${allPersonas.length} persona AGENT.md files found`
-      : `missing AGENT.md for: ${agentMissing.join(", ")}`,
-  });
 
-  // 4. Process docs exist
+  // 3. Process docs exist
   const processEntries = Object.entries(config.process_files);
   const processFound = processEntries.filter(([, p]) => existsSync(resolve(repoRoot, p))).length;
   results.push({
@@ -86,7 +70,7 @@ export function runDoctor(
     detail: `${processFound}/${processEntries.length} process docs found`,
   });
 
-  // 5. Linear issue graph loaded
+  // 4. Linear issue graph loaded
   // NOTE: This check does NOT query Linear. It checks whether the caller
   // provided data via stdin. Network connectivity is the caller's domain.
   results.push({
@@ -97,7 +81,7 @@ export function runDoctor(
       : "no Linear data provided (caller must pipe issue/label data via stdin)",
   });
 
-  // 6. Every configured persona has a matching Linear label (if data provided)
+  // 5. Every configured persona has a matching Linear label (if data provided)
   if (linearDataProvided && linearLabels) {
     const requiredLabels = allPersonaLabels(config);
     const missingLabels = requiredLabels.filter(l => !linearLabels.labels.includes(l));
@@ -118,7 +102,7 @@ export function runDoctor(
     });
   }
 
-  // 7. Gitignore includes manifest
+  // 6. Gitignore includes manifest
   const gitignorePath = resolve(repoRoot, ".gitignore");
   if (existsSync(gitignorePath)) {
     const gitignore = readFileSync(gitignorePath, "utf-8");

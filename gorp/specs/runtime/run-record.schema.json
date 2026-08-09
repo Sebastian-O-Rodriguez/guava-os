@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gorp.dev/specs/runtime/run-record.schema.json",
+  "title": "Gorp Run Record",
+  "description": "Durable, auditable record of one node run, assembled once by `gorp run` at the end of the run and never edited afterwards (append-only, hashed into the audit chain). finalStatus records the EXECUTION outcome (current runtime produces 'succeeded' or 'failed'); the later review verdict lives only in review-decision.schema.json and the promotion result only in promotion-record.schema.json. controlDecisions EXPLAINS the control steps, not merely the outputs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "graphId",
+    "nodeId",
+    "projectId",
+    "governanceVersion",
+    "baseCommit",
+    "workerAdapter",
+    "finalStatus",
+    "startedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "runId": { "$ref": "#/$defs/stableId" },
+    "graphId": { "$ref": "#/$defs/stableId" },
+    "nodeId": { "$ref": "#/$defs/stableId" },
+    "projectId": { "$ref": "#/$defs/stableId" },
+    "governanceVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Resolved Gorp governance/doctrine version in force for this run."
+    },
+    "baseCommit": { "type": "string", "minLength": 7 },
+    "workerAdapter": { "type": "string", "minLength": 1 },
+    "sandboxIdentity": {
+      "type": "string",
+      "description": "Opaque sandbox identifier (e.g. worktree branch). Not created in Wave A."
+    },
+    "workerResultRef": { "type": "string" },
+    "workerResult": { "type": "object" },
+    "gateRecordRef": { "type": "string" },
+    "gateRecord": { "type": "object" },
+    "promotionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Unused by the current runtime: promotion is recorded in the separate immutable promotion-record.schema.json (the run record is never updated after the run ends). Retained for record-shape compatibility.",
+      "properties": {
+        "status": { "type": "string", "enum": ["promoted", "not_promoted", "conflict"] },
+        "resultCommit": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
+    "controlDecisions": {
+      "type": "array",
+      "description": "Ordered record of WHY the run took each control step (the explanatory audit).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decision", "reasonCode"],
+        "properties": {
+          "decision": { "type": "string", "minLength": 1 },
+          "reasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+          "reasonText": { "type": "string" },
+          "at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "stateTransitions": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "Copies/refs of the transition records relevant to this run."
+    },
+    "finalStatus": {
+      "type": "string",
+      "enum": ["succeeded", "failed", "blocked", "rejected", "cancelled"]
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "endedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    }
+  }
+}

@@ -6,7 +6,7 @@
  * No mutation methods exist anywhere in the CLI.
  *
  * DATA FLOW:
- *   Caller (MCP tools) → JSON stdin → buildGraph() → ExecutionGraph
+ *   Caller (MCP tools) → JSON stdin → buildGraph() → IssueGraph
  *   The CLI has no network layer. Linear reachability is determined
  *   by the caller providing data, not by the CLI querying Linear.
  */
@@ -28,6 +28,10 @@ export interface LinearIssue {
   completedAt: string | null;
   canceledAt: string | null;
   assignee?: string;
+  /** Markdown body (needed for sprint generation). */
+  description?: string;
+  /** Out-edges of native "blocks" relations (this issue blocks these ids). */
+  blocks?: string[];
 }
 
 export interface ParentHealth {
@@ -88,21 +92,16 @@ export interface GraphSummary {
  * Consumers MUST check capabilities before treating a category as authoritative.
  */
 export interface GraphCapabilities {
-  /** True if dependency/blocking relation data was provided in the input. */
-  dependencyRelationsLoaded: false;
+  /**
+   * True when the issue data carried native blocks-relation edges.
+   * Blocked classification is authoritative ONLY for blockers that are
+   * themselves present in the dataset (search cannot enumerate incoming
+   * relations from issues outside the snapshot).
+   */
+  dependencyRelationsLoaded: boolean;
 }
 
-/**
- * The capabilities for the current runtime.
- * dependencyRelationsLoaded is always false — Linear's list_issues endpoint
- * does not return blocking relations. Per-issue get_issue calls would be
- * required to load them. This is deferred to Phase 2.
- */
-const CURRENT_CAPABILITIES: GraphCapabilities = {
-  dependencyRelationsLoaded: false,
-};
-
-export interface ExecutionGraph {
+export interface IssueGraph {
   parents: ParentHealth[];
   executable: Map<string, ExecutableSubtask[]>;
   notPromoted: NotPromotedSubtask[];
@@ -112,9 +111,23 @@ export interface ExecutionGraph {
   capabilities: GraphCapabilities;
 }
 
-export function buildGraph(issues: LinearIssue[], config: Config): ExecutionGraph {
+export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
   const personaLabels = allPersonaLabels(config);
   const activeParentStatuses = config.active_parent_statuses;
+
+  // Blocks edges: out = this issue blocks X; inverse (blockedBy) computed
+  // from the full dataset so either side of a relation can drive the check.
+  const dependencyRelationsLoaded = issues.some((i) => (i.blocks?.length ?? 0) > 0);
+  const blockedBy = new Map<string, Set<string>>();
+  if (dependencyRelationsLoaded) {
+    for (const issue of issues) {
+      for (const target of issue.blocks ?? []) {
+        const set = blockedBy.get(target) ?? new Set<string>();
+        set.add(issue.id);
+        blockedBy.set(target, set);
+      }
+    }
+  }
 
   // Separate parents and sub-issues using Linear's native parentId relationship
   const parentMap = new Map<string, LinearIssue>();
@@ -225,10 +238,26 @@ export function buildGraph(issues: LinearIssue[], config: Config): ExecutionGrap
       continue;
     }
 
-    // NOTE: Dependency/blocker check is NOT performed.
-    // CURRENT_CAPABILITIES.dependencyRelationsLoaded is false.
-    // Sub-issues reaching this point are classified as EXECUTABLE,
-    // but may have unresolved blockers that are invisible to this runtime.
+    // BLOCKED: native relation blocker not yet completed (GOS-28).
+    if (dependencyRelationsLoaded) {
+      const blockers = blockedBy.get(sub.id);
+      if (blockers && blockers.size > 0) {
+        const unresolved: string[] = [];
+        for (const bid of blockers) {
+          const b = parentMap.get(bid) ?? issues.find((i) => i.id === bid);
+          if (b && b.statusType !== "completed" && !b.canceledAt) {
+            unresolved.push(b.title);
+          }
+        }
+        if (unresolved.length > 0) {
+          blocked.push({
+            id: sub.id, title: sub.title, persona,
+            reason: `blocked by: ${unresolved.join(", ")}`,
+          });
+          continue;
+        }
+      }
+    }
 
     // Eligible
     const queue = executable.get(persona)!;
@@ -271,7 +300,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): ExecutionGrap
 
   return {
     parents, executable, notPromoted, blocked, invalid,
-    summary, capabilities: CURRENT_CAPABILITIES,
+    summary, capabilities: { dependencyRelationsLoaded },
   };
 }
 

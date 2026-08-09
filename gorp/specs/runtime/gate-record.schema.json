@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gorp.dev/specs/runtime/gate-record.schema.json",
+  "title": "Gorp Gate Record",
+  "description": "Deterministic validation gate for one run. Implemented since Wave B: `gorp run` writes this record once (scope-gate checks, artifactHash = sandbox HEAD commit, review.status 'pending') and it is never edited afterwards (append-only, hashed into the audit chain). Since Wave D the terminal human review decision is a SEPARATE immutable record (review-decision.schema.json); the embedded `review` object here is written as 'pending' and stays 'pending' in current runtime output — it is retained for record-shape compatibility.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "graphId", "nodeId", "validation", "review"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "graphId": { "$ref": "#/$defs/stableId" },
+    "nodeId": { "$ref": "#/$defs/stableId" },
+    "runId": { "$ref": "#/$defs/stableId" },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checks"],
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed"] },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "status"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "status": { "type": "string", "enum": ["passed", "failed"] },
+              "detail": { "type": "string" }
+            }
+          }
+        },
+        "artifactHash": {
+          "type": "string",
+          "description": "Hash of the validated artifact/patch. Binds validation to an exact artifact."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected", "retry_requested", "escalated"]
+        },
+        "reviewer": { "type": "string" },
+        "reason": { "type": "string" },
+        "reviewedArtifactHash": {
+          "type": "string",
+          "description": "Unused by the current runtime: approvals are recorded in review-decision.schema.json, whose reviewedArtifactHash must (and is enforced to) match validation.artifactHash."
+        },
+        "decidedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    }
+  }
+}

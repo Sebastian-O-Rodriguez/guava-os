@@ -1,9 +1,3 @@
-> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
-> Documents the read-only Linear import/classifier CLI. Linear is an input
-> format here, not the execution authority — the authoritative execution model
-> is the Gorp-native persisted graph (see
-> `~/dev/gorp/reference/architecture.md`).
-
 # Concepts
 
 Key terms used throughout Guava OS documentation and output.
@@ -38,9 +32,8 @@ Executable sub-issues appear in persona queues in `status` output.
 
 ### NOT_PROMOTED
 
-A sub-issue in **Backlog** status. It has not been promoted to Todo. Agents cannot claim Backlog work. Promotion is done manually in Linear (or by Robo when available).
+NOT_PROMOTED is not an error. It means the sub-issue exists but isn't scheduled for execution yet. Promotion is done manually in Linear (or through Gorp's governed execution pipeline; the deprecated `robo` persona previously covered this domain).
 
-NOT_PROMOTED is not an error. It means the sub-issue exists but isn't scheduled for execution yet.
 
 ### BLOCKED
 
@@ -90,7 +83,7 @@ A parent issue whose status is in the `active_parent_statuses` config list (defa
 
 ### Persona
 
-An agent role (architect, backend, frontend, qa). Each persona has an AGENT.md defining its behavior. Sub-issues are routed to personas via Linear labels.
+An agent role (architect, backend, frontend, qa). Personas are defined in `.guava-os/personas/<name>/persona.md` (replacing the deprecated `.claude/agents/` layout) and map to OMP roles (scout, designer, reviewer, librarian, task, sonic, plus model roles like smol). Each persona has a file defining its behavior. Sub-issues are routed to personas via Linear labels.
 
 ### Persona Label
 
@@ -110,6 +103,10 @@ The queue is computed fresh on every `status` run. It is not stored.
 A structural problem in the issue graph detected by `validate`. Each violation has a code (V302, V400, etc.), a severity (error or warning), and a detail message. See the validate guide for the full list.
 
 ## Governed Execution (Gorp)
+
+Gorp is the execution engine — it owns the governed execution pipeline (plan, orchestrate, gate, review, promote). guava-os is the control plane: operators plan and approve work here; approved plans are delegated to Gorp for execution. Workers are OMP agents dispatched by Gorp via personas.
+
+guava-os is also a consumer of Gorp in a compounding loop: Gorp builds and improves guava-os itself.
 
 **`sprint`** — An operator-approved unit of work planned into the execution graph.
 
