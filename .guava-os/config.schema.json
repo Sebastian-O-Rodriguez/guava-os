@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Guava OS Configuration",
   "type": "object",
-  "required": ["linear", "personas", "statuses", "active_parent_statuses", "labels", "invariants", "branch_pattern", "agent_files", "process_files", "manifest_path"],
+  "required": ["linear", "personas", "statuses", "active_parent_statuses", "labels", "invariants", "branch_pattern", "process_files", "manifest_path"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -74,11 +74,6 @@
     "branch_pattern": {
       "type": "string",
       "description": "Branch naming pattern with {prefix}, {id}, {slug} placeholders"
-    },
-    "agent_files": {
-      "type": "object",
-      "additionalProperties": { "type": "string" },
-      "description": "Map of persona name to AGENT.md file path"
     },
     "process_files": {
       "type": "object",

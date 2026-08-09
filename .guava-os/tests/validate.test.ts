@@ -17,7 +17,6 @@ const TEST_CONFIG: Config = {
     bulk_threshold: 5, max_subtasks_per_parent: 3,
   },
   branch_pattern: "feat/{prefix}-{id}-{slug}",
-  agent_files: {},
   process_files: {},
   manifest_path: ".guava-os/manifest.json",
 };

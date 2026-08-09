@@ -1,6 +1,10 @@
 # dependencies
 node_modules/
 
+# build output
+dist/
+*.log
+
 # Guava OS
 .guava-os/manifest.json
 .guava-os/pilot/*.json

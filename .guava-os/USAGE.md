@@ -1,8 +1,6 @@
 # Guava OS CLI
 
-> **Authority note (2026-07).** Execution state for governed work is owned by the Gorp control plane; Linear is an input format for this classifier only.
-
-Guava internal tooling for validating and inspecting Linear execution graphs.
+> **Authority note (2026-07).** guava-os is the control plane; Gorp is the execution engine. Execution state for governed work lives in the Gorp graph. Linear is an input format for this classifier only.
 
 ## What It Does
 
@@ -19,7 +17,7 @@ Guava internal tooling for validating and inspecting Linear execution graphs.
 - Deploy, build, or run product code
 - Make autonomous decisions
 
-The CLI is a **pure data processor**: JSON in via stdin, deterministic output to stdout.
+The CLI is the control plane's validation surface: a **pure data processor** — JSON in via stdin, deterministic output to stdout.
 
 ## How to Run
 
@@ -53,7 +51,7 @@ guava-os doctor
 echo '{"issues": [], "labels": ["architect", "backend", "frontend", "qa"]}' | guava-os doctor
 ```
 
-Checks: config file, CLAUDE.md, AGENT.md files, process docs, Linear data availability, persona labels, gitignore.
+Checks: config file, AGENTS.md, process docs, Linear data availability, persona labels, gitignore.
 
 Exit: `0` if all checks pass, `1` if any fail.
 
@@ -112,7 +110,7 @@ A JSON array of Linear issues:
     "priority": { "value": 2, "name": "High" },
     "labels": ["backend"],
     "parentId": "GUA-5",
-    "project": "RoutineMe",
+    "project": "guava-os",
     "createdAt": "2026-01-01",
     "updatedAt": "2026-01-01",
     "completedAt": null,
@@ -160,4 +158,5 @@ cat .guava-os/fixtures/errors.json | guava-os validate     # exit 1 (errors)
 - **No dependency/blocker detection** — Linear's `list_issues` API does not return blocking relations. BLOCKED category is always empty. `dependencyRelationsLoaded: false` in capabilities.
 - **No stale claim detection** — requires git branch activity data not available to the CLI.
 - **No agent identity context** — the CLI does not know which agent is running. Violations like V100–V102 (claim violations) require caller context.
-- **No mutation authority** — the CLI cannot promote, reclaim, or transition issues. That is Robo's domain.
+
+- **No mutation authority** — the CLI cannot promote, reclaim, or transition issues. Those operations are handled by Gorp's governed execution pipeline (the deprecated `robo` persona previously covered this domain).

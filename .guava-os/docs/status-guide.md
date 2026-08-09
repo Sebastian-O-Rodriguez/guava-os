@@ -1,9 +1,3 @@
-> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
-> Documents the read-only Linear import/classifier CLI. Linear is an input
-> format here, not the execution authority — the authoritative execution model
-> is the Gorp-native persisted graph (see
-> `~/dev/gorp/reference/architecture.md`).
-
 # Status Guide
 
 How to read and interpret `guava-os status` output.
@@ -103,7 +97,7 @@ It means none of the sub-issues pass all eligibility conditions right now. Commo
 
 If `validate` passes with 0 errors and `status` shows 0 executable, the graph is valid — there's just nothing promoted for execution. This is the expected state when all work is in Backlog.
 
-## Real Example: RoutineMe Pilot
+## Real Example: guava-os Sprint
 
 From the pilot run (2026-05-12):
 

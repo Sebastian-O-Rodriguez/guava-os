@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "runId": "run-1",
+  "graphId": "g",
+  "nodeId": "n",
+  "projectId": "p",
+  "baseCommit": "0123456",
+  "workerAdapter": "fixture",
+  "finalStatus": "succeeded",
+  "startedAt": "2026-07-14T00:00:00.000Z"
+}

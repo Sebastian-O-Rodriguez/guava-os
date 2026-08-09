@@ -2,7 +2,7 @@
   "$schema": "./config.schema.json",
   "linear": {
     "team": "Guava AI",
-    "project": "RoutineMe",
+    "project": "guava-os",
     "issue_prefix": "GUA"
   },
   "personas": [
@@ -38,13 +38,6 @@
     "max_subtasks_per_parent": 3
   },
   "branch_pattern": "feat/{prefix}-{id}-{slug}",
-  "agent_files": {
-    "robo": ".claude/agents/robo/AGENT.md",
-    "architect": ".claude/agents/architect/AGENT.md",
-    "backend": ".claude/agents/backend/AGENT.md",
-    "frontend": ".claude/agents/frontend/AGENT.md",
-    "qa": ".claude/agents/qa/AGENT.md"
-  },
   "process_files": {},
   "manifest_path": ".guava-os/manifest.json"
 }

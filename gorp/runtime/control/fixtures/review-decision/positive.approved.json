@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "graphId": "g-example",
+  "nodeId": "node-1",
+  "runId": "g-example-run-1",
+  "decision": "approved",
+  "reviewer": "reviewer:op",
+  "reason": "diff matches objective and scope",
+  "reviewedArtifactHash": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+  "gateRecordSha256": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+  "decidedAt": "2026-07-15T09:00:00.000Z"
+}

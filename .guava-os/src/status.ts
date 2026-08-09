@@ -1,14 +1,14 @@
 /**
  * Status formatters.
  *
- * Both human and JSON formatters read from the same ExecutionGraph
+ * Both human and JSON formatters read from the same IssueGraph
  * and use graph.summary for all counts. No independent recomputation.
  */
 
-import type { ExecutionGraph } from "./linear.js";
+import type { IssueGraph } from "./linear.js";
 import { priorityLabel } from "./linear.js";
 
-export function formatStatus(graph: ExecutionGraph): string {
+export function formatStatus(graph: IssueGraph): string {
   const lines: string[] = [];
   const { summary, capabilities } = graph;
 
@@ -88,7 +88,7 @@ export function formatStatus(graph: ExecutionGraph): string {
   return lines.join("\n");
 }
 
-export function formatStatusJson(graph: ExecutionGraph): object {
+export function formatStatusJson(graph: IssueGraph): object {
   const executable: Record<string, object[]> = {};
   for (const [persona, queue] of graph.executable) {
     executable[persona] = queue.map(s => ({

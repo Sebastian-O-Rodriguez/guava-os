@@ -1,9 +1,3 @@
-> **`CURRENT` / `ADAPTER_SPECIFIC` (labeled at Wave A closeout, 2026-07-14).**
-> Documents the read-only Linear import/classifier CLI. Linear is an input
-> format here, not the execution authority — the authoritative execution model
-> is the Gorp-native persisted graph (see
-> `~/dev/gorp/reference/architecture.md`).
-
 # Limitations
 
 Current capabilities and constraints of Guava OS CLI.
@@ -33,7 +27,7 @@ Current capabilities and constraints of Guava OS CLI.
 | **Agent identity context** | CLI doesn't know which agent is running. | Cannot detect persona mismatch on active claims (V102). |
 | **Status transition history** | CLI sees current state, not history. | Cannot detect illegal transitions (V200), skipped review (V203), or unauthorized Done (V202). |
 | **Git integration** | CLI doesn't read git state. | Cannot validate branch naming, detect commits, or verify branch existence. |
-| **Hooks / pre-action enforcement** | No Claude Code hooks configured. | Protocol violations are detected after the fact, not prevented. |
+| **Hooks / pre-action enforcement** | No OMP runtime hooks configured. | Protocol violations are detected after the fact, not prevented. |
 | **Robo control loop** | Not implemented. | No automated promotion, reclamation, or queue management. |
 | **Dashboard / GUI** | Not implemented. | CLI output only. |
 | **Activity tracking** | No lease or activity monitoring. | Cannot extend claim leases or detect abandoned work. |
@@ -47,7 +41,7 @@ These are planned but deliberately postponed to maintain system stability:
 |-----------|---------------|-----------|
 | `guava-os robo` (dry-run) | Phase 3 | Requires dependency data for safe promotion recommendations |
 | `guava-os robo --apply` | Phase 3+ | Mutation authority requires human opt-in and audit logging |
-| Claude Code hooks | Phase 3+ | Enforcement should be proven via validate before being automated |
+| OMP runtime hooks | Phase 3+ | Enforcement should be proven via validate before being automated |
 | Dependency relation loading | Phase 3 | N+1 API call pattern needs rate-limit design |
 | Manifest generation | Phase 3 | Useful for hooks, not needed for manual workflow |
 

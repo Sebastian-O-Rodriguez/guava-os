@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "sprintId": "sprint-example-1",
+  "project": {
+    "projectId": "p1"
+  },
+  "approvedBy": "operator:example",
+  "approvedAt": "2026-07-17T12:00:00.000Z",
+  "tasks": [
+    {
+      "taskId": "t1",
+      "objective": "write docs/one.md",
+      "acceptanceCriteria": [
+        "artifact exists"
+      ],
+      "dependencies": [],
+      "scope": {
+        "allowedPaths": [
+          "docs/**"
+        ],
+        "forbiddenPaths": [
+          "secrets/**"
+        ]
+      },
+      "gates": [
+        {
+          "executable": "git",
+          "args": [
+            "--version"
+          ]
+        }
+      ],
+      "expectedArtifacts": [
+        "docs/one.md"
+      ],
+      "worker": "fixture",
+      "review": "fixture-auto",
+      "maxAttempts": 3,
+      "escalation": "operator"
+    },
+    {
+      "taskId": "t2",
+      "objective": "produce docs/two.md via omp",
+      "acceptanceCriteria": [
+        "artifact exists"
+      ],
+      "dependencies": [
+        "t1"
+      ],
+      "scope": {
+        "allowedPaths": [
+          "docs/**"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "expectedArtifacts": [
+        "docs/two.md"
+      ],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator"
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gorp.dev/specs/runtime/sprint.schema.json",
+  "title": "Gorp Sprint",
+  "description": "Final-sprint contract. An OPERATOR-APPROVED sprint document: the planner's only input. `gorp plan` deterministically maps it to a draft execution graph (tasks -> nodes, dependencies, scope, gates, worker, review posture). The planner rejects any sprint demanding capabilities the runtime does not enforce: maxAttempts is fixed at 1 (no retries exist), escalation is fixed to 'operator' (no other escalation path exists), and review 'fixture-auto' is only legal for the deterministic fixture worker \u2014 every other worker's output requires human review; worker names are validated by the planner against the runtime's adapter registry. The planner never executes anything; the produced graph still requires an explicit operator approval transition before any node can run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sprintId",
+    "project",
+    "approvedBy",
+    "approvedAt",
+    "tasks"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "sprintId": {
+      "$ref": "#/$defs/stableId"
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId"
+      ],
+      "properties": {
+        "projectId": {
+          "$ref": "#/$defs/stableId"
+        }
+      },
+      "description": "Project identity only. The repository path is resolved from the Gorp project registry at plan/run time, never carried in the sprint document."
+    },
+    "approvedBy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approvedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "taskId",
+          "objective",
+          "acceptanceCriteria",
+          "dependencies",
+          "scope",
+          "gates",
+          "worker",
+          "review",
+          "maxAttempts",
+          "escalation"
+        ],
+        "properties": {
+          "taskId": {
+            "$ref": "#/$defs/stableId"
+          },
+          "taskType": {
+            "type": "string",
+            "minLength": 1,
+            "default": "sprint-task"
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1
+          },
+          "acceptanceCriteria": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/stableId"
+            }
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "allowedPaths",
+              "forbiddenPaths"
+            ],
+            "properties": {
+              "allowedPaths": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "forbiddenPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "executable",
+                "args"
+              ],
+              "properties": {
+                "executable": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "args": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "timeoutMs": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "expectedArtifacts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "worker": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Must name a worker adapter registered in the runtime; the planner validates this against the live registry (the schema stays source-neutral)."
+          },
+          "review": {
+            "type": "string",
+            "enum": [
+              "human",
+              "fixture-auto"
+            ],
+            "description": "'fixture-auto' is legal ONLY when worker is 'fixture' (enforced by the planner)."
+          },
+          "maxAttempts": {
+            "type": "integer",
+            "const": 1,
+            "description": "The runtime has no AUTOMATIC retries; anything else is rejected. (An operator may request another attempt at review via the retry verdict — that is a human decision, not a runtime capability the sprint can demand.)"
+          },
+          "escalation": {
+            "type": "string",
+            "const": "operator",
+            "description": "The only escalation path that exists."
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    }
+  }
+}
