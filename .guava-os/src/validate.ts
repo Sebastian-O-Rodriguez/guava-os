@@ -103,6 +103,24 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     }
   }
 
+  // ── V305: subtask_overflow ──
+  // Enforced invariant (GOS-39): children per parent ≤ max_subtasks_per_parent.
+  // Cap applies per parent; split work across multiple parents to stay within it.
+  const subtaskCap = config.invariants?.max_subtasks_per_parent ?? 3;
+  for (const [id, parent] of parentMap) {
+    if (parent.canceledAt || parent.statusType === "completed") continue;
+    const subs = (subtasksByParent.get(id) || []).filter((s) => !s.canceledAt);
+    if (subs.length > subtaskCap) {
+      violations.push({
+        code: "V305",
+        name: "subtask_overflow",
+        severity: "error",
+        issue_id: id,
+        detail: `Parent ${parent.id} has ${subs.length} sub-issues, exceeds max_subtasks_per_parent ${subtaskCap} — split across multiple parents`,
+      });
+    }
+  }
+
   // ── V400: missing_persona_label ──
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;

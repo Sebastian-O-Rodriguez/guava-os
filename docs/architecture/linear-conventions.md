@@ -63,6 +63,20 @@ Every issue must have:
 - Branch names: `sebastian/gua-<linear-id>-<slug>` (Linear auto-generates).
 - Sprint container: `ADR_001 Repository Realignment` (parent issue).
 
+## Identity (canonical IDs)
+
+- **Before Linear creation** (planning phase): local shorthand aliases (`S0`,
+  `S1`, `R1`…) are allowed for drafting the plan.
+- **After Linear creation**: the canonical identifier Linear assigns (`GUA-###`)
+  is the **sole identity** of the issue. Every dependency (`blocks`/`blocked-by`),
+  report, sprint document, and graph/gorp handoff MUST refer to issues by
+  `GUA-###` (or the issue UUID) — never by plan aliases or free text.
+- Tooling enforces this on the write path: `pm link` / `pm create --parent`
+  reject non-canonical references (GOS-38).
+- `pm create` / `pm get-issue` / `pm search` surface the canonical `GUA-###`
+  identifier in their output so planning can adopt it immediately (GUA-96).
+
+
 ## Parent/child structure
 
 - One parent issue per sprint (the container).

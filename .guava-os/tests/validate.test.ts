@@ -23,6 +23,8 @@ const TEST_CONFIG: Config = {
 
 function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssue {
   return {
+    id: overrides.id,
+    identifier: overrides.identifier ?? overrides.id,
     title: overrides.id,
     status: "Backlog",
     statusType: "backlog",
@@ -124,6 +126,54 @@ describe("V304 empty_parent", () => {
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations.filter(v => v.code === "V304")).toHaveLength(0);
+  });
+});
+
+describe("V305 subtask_overflow", () => {
+  it("flags active parent exceeding max_subtasks_per_parent", () => {
+    // config has max_subtasks_per_parent = 3
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-13", status: "Todo", statusType: "unstarted", labels: ["frontend"], parentId: "TST-1" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+
+    expect(result.violations).toContainEqual(expect.objectContaining({
+      code: "V305", name: "subtask_overflow", severity: "error", issue_id: "TST-1",
+    }));
+    expect(result.violations.find(v => v.code === "V305")!.detail).toContain("4");
+    expect(result.violations.find(v => v.code === "V305")!.detail).toContain("max_subtasks_per_parent 3");
+  });
+
+  it("does not flag parent at the cap boundary", () => {
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+
+    expect(result.violations.filter(v => v.code === "V305")).toHaveLength(0);
+  });
+
+  it("does not flag completed parent with many sub-issues", () => {
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Done", statusType: "completed", completedAt: "2026-01-02" }),
+      makeIssue({ id: "TST-10", status: "Done", statusType: "completed", parentId: "TST-1", completedAt: "2026-01-02" }),
+      makeIssue({ id: "TST-11", status: "Done", statusType: "completed", parentId: "TST-1", completedAt: "2026-01-02" }),
+      makeIssue({ id: "TST-12", status: "Done", statusType: "completed", parentId: "TST-1", completedAt: "2026-01-02" }),
+      makeIssue({ id: "TST-13", status: "Done", statusType: "completed", parentId: "TST-1", completedAt: "2026-01-02" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+
+    expect(result.violations.filter(v => v.code === "V305")).toHaveLength(0);
   });
 });
 

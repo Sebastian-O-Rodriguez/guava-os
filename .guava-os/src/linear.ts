@@ -16,6 +16,8 @@ import { allPersonaLabels } from "./config.js";
 
 export interface LinearIssue {
   id: string;
+  /** Canonical Linear identifier (e.g. `GUA-113`) — sole identity after creation. */
+  identifier: string;
   title: string;
   status: string;
   statusType: string;

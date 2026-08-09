@@ -209,8 +209,24 @@ async function resolveTeamStateId(teamId: string, statusName: string): Promise<s
   return state.id;
 }
 
+/**
+ * Canonical issue reference: a Linear UUID, or the canonical identifier
+ * (`GUA-113`) that Linear assigns at creation. Temporary plan aliases
+ * (`S0`/`R1`/`S0/S1`) and arbitrary strings are rejected — they cannot
+ * resolve to issues in deps/graph/gorp handoff (GOS-38).
+ */
+const CANONICAL_REF = /^[A-Za-z]{2,}-\d+$/;
+export function assertCanonicalReference(value: string, field = "issue"): void {
+  if (isUuid(value)) return;
+  if (CANONICAL_REF.test(value)) return;
+  throw new Error(
+    `Non-canonical ${field} reference "${value}" — after Linear creation, use the canonical identifier (e.g. GUA-113) or UUID; temporary plan aliases (S0/R1) are not valid issue references`,
+  );
+}
+
 /** Resolve an issue id or identifier (`GUA-113`) to its UUID. */
 async function resolveIssueId(value: string): Promise<string> {
+  assertCanonicalReference(value);
   if (isUuid(value)) return value;
   const data = await gql<{ issue: { id: string } }>(
     `query ($v: String!) { issue(id: $v) { id } }`,
@@ -276,7 +292,7 @@ export async function getSprint(
         id title
         state { name }
         children { nodes {
-          id title
+          id identifier title
           description
           state { name type }
           priority
@@ -304,7 +320,7 @@ export async function getIssue(issueId: string): Promise<LinearIssue> {
   }>(
     `query ($id: String!) {
       issue(id: $id) {
-        id title
+        id identifier title
         description
         state { name type }
         priority
@@ -344,7 +360,7 @@ export async function searchIssues(
       project(id: $id) {
         issues(includeArchived: $archived) {
           nodes {
-            id title
+            id identifier title
             description
             state { name type }
             priority
@@ -552,6 +568,7 @@ export async function linkUrl(
 /** Raw Linear GraphQL issue node shape (Linear-specific; stays in this module). */
 interface RawLinearIssue {
   id: string;
+  identifier: string;
   title: string;
   state: { name: string; type: string };
   priority: number;
@@ -586,6 +603,7 @@ function normalizeIssue(raw: RawLinearIssue): LinearIssue {
   }
   return {
     id: raw.id,
+    identifier: raw.identifier,
     title: raw.title,
     status: raw.state.name,
     statusType: raw.state.type,

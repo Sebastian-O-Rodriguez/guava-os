@@ -24,6 +24,8 @@ const TEST_CONFIG: Config = {
 
 function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssue {
   return {
+    id: overrides.id,
+    identifier: overrides.identifier ?? overrides.id,
     title: overrides.id,
     status: "Backlog",
     statusType: "backlog",

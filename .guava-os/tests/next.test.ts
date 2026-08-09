@@ -10,6 +10,8 @@ const config = loadConfig(findRepoRoot());
 
 function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssue {
   return {
+    id: overrides.id,
+    identifier: overrides.identifier ?? overrides.id,
     title: "Test issue",
     status: "Todo",
     statusType: "unstarted",

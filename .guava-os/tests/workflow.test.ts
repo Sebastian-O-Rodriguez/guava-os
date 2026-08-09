@@ -12,6 +12,8 @@ const repoRoot = findRepoRoot();
 
 function issue(overrides: Partial<LinearIssue> & { id: string }): LinearIssue {
   return {
+    id: overrides.id,
+    identifier: overrides.identifier ?? overrides.id,
     title: "Task",
     status: "Todo",
     statusType: "unstarted",

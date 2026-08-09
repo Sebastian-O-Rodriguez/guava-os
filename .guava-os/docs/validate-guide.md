@@ -9,6 +9,7 @@ How to read and act on `guava-os validate` output.
 | Code | Name | What It Means | How to Fix |
 |------|------|--------------|-----------|
 | V303 | `parent_not_active` | Sub-issue is Todo but its parent is Backlog or Done | Move parent to Todo or In Progress in Linear |
+| V305 | `subtask_overflow` | Active parent has more sub-issues than `max_subtasks_per_parent` | Split the work across multiple parents so each parent stays at or under the cap |
 | V400 | `missing_persona_label` | Sub-issue has no persona label — agents can't claim it | Add exactly one persona label (architect/backend/frontend/qa) in Linear |
 | V401 | `multiple_persona_labels` | Sub-issue has more than one persona label — ambiguous | Remove extra labels, keep exactly one |
 
