@@ -95,6 +95,7 @@ function router(query: string, variables: Record<string, unknown>): unknown {
       data: {
         issue: {
           id: "issue-uuid",
+          identifier: "GUA-1",
           title: "Created",
           state: { name: "Todo", type: "unstarted" },
           priority: 2,
@@ -171,25 +172,31 @@ describe("GUA-96 name/identifier resolution", () => {
 
 describe("GUA-96 native relation creation", () => {
   it("--blocks creates issueRelationCreate type=blocks with correct direction", async () => {
-    await linkDependencies("A-id", { blocks: ["B-id"] });
+    await linkDependencies("GUA-5", { blocks: ["GUA-6"] });
     const rel = calls.find((c) => c.query.includes("issueRelationCreate("))!;
     const input = rel.variables.input as Record<string, unknown>;
     expect(input.type).toBe("blocks");
-    expect(input.issueId).toBe("uuid-A-id");
-    expect(input.relatedIssueId).toBe("uuid-B-id");
+    expect(input.issueId).toBe("uuid-GUA-5");
+    expect(input.relatedIssueId).toBe("uuid-GUA-6");
   });
 
   it("--blocked-by inverts direction (B blocks A)", async () => {
-    await linkDependencies("A-id", { blockedBy: ["B-id"] });
+    await linkDependencies("GUA-5", { blockedBy: ["GUA-6"] });
     const rel = calls.find((c) => c.query.includes("issueRelationCreate("))!;
     const input = rel.variables.input as Record<string, unknown>;
     expect(input.type).toBe("blocks");
-    expect(input.issueId).toBe("uuid-B-id");
-    expect(input.relatedIssueId).toBe("uuid-A-id");
+    expect(input.issueId).toBe("uuid-GUA-6");
+    expect(input.relatedIssueId).toBe("uuid-GUA-5");
   });
 
   it("rejects self-links before any call", async () => {
-    await expect(linkDependencies("X", { blocks: ["X"] })).rejects.toThrow(/itself/);
+    await expect(linkDependencies("GUA-5", { blocks: ["GUA-5"] })).rejects.toThrow(/itself/);
+    expect(calls.filter((c) => c.query.includes("issueRelationCreate("))).toHaveLength(0);
+  });
+
+  it("rejects non-canonical alias references before any network call", async () => {
+    await expect(linkDependencies("S0", { blocks: ["GUA-6"] })).rejects.toThrow(/Non-canonical/);
+    await expect(linkDependencies("GUA-5", { blocks: ["R1"] })).rejects.toThrow(/Non-canonical/);
     expect(calls.filter((c) => c.query.includes("issueRelationCreate("))).toHaveLength(0);
   });
 });

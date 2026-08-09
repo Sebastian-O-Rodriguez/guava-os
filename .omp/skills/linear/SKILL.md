@@ -32,6 +32,15 @@ guava-os pm comment <id> --body "..."
 - **Never labels for workflow state**: no ready/review/blocked/pickup. Workflow = Status.
 - **One persona label per issue.**
 
+### Identity (GOS-38 create)
+
+- After Linear creation the canonical identifier (`GUA-###`) is the issue's
+  **sole identity**. `pm create` / `pm get-issue` / `pm search` print it — use
+  it for dependencies, reports, and handoff.
+- The write path rejects non-canonical refs: `pm link <id> --blocks/--blocked-by`
+  and `pm create --parent` accept only `GUA-###` identifiers or UUIDs. Never pass
+  a plan alias (`S0`/`R1`) into tooling after creation.
+
 ### Standard workflows
 
 #### pick work

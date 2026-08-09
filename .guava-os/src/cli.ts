@@ -258,7 +258,7 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
     }
     case "get-issue": {
       const issue = await pm.getIssue(rest[0]);
-      console.log(jsonMode ? JSON.stringify(issue, null, 2) : `${issue.id} ${issue.title} [${issue.status}]`);
+      console.log(jsonMode ? JSON.stringify(issue, null, 2) : `${issue.identifier ?? issue.id} ${issue.title} [${issue.status}]`);
       return;
     }
     case "search": {
@@ -270,7 +270,7 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
         assignee: flag(rest, "--assignee"),
         includeArchived: rest.includes("--archived"),
       });
-      console.log(jsonMode ? JSON.stringify(result.issues, null, 2) : result.issues.map((i) => `${i.id} ${i.title} [${i.status}]`).join("\n") || "(none)");
+      console.log(jsonMode ? JSON.stringify(result.issues, null, 2) : result.issues.map((i) => `${i.identifier ?? i.id} ${i.title} [${i.status}]`).join("\n") || "(none)");
       return;
     }
     case "create": {
@@ -286,7 +286,7 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
         status: flag(rest, "--status"),
         assigneeId: flag(rest, "--assignee"),
       });
-      console.log(jsonMode ? JSON.stringify(issue, null, 2) : `Created: ${issue.id} ${issue.title}`);
+      console.log(jsonMode ? JSON.stringify(issue, null, 2) : `Created: ${issue.identifier ?? issue.id} ${issue.title}`);
       return;
     }
     case "update": {

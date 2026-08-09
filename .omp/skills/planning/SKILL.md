@@ -33,7 +33,10 @@ operator-approved sprints; gorp never plans.
 ## Sprint model
 
 - A sprint is a Linear parent issue + children (native parent/child).
-- Children per parent ≤ `max_subtasks_per_parent` (config).
+- Children per parent ≤ `max_subtasks_per_parent` (config). **Enforced** —
+  `validate` raises V305 (`subtask_overflow`, error) when an active parent
+  exceeds the cap. The cap is per parent: split work across multiple parents
+  (each ≤ cap) rather than overloading one.
 - Every child: exactly one persona label; description with Why / Scope /
   Acceptance criteria (template: `docs/architecture/linear-conventions.md`).
 - Workflow state = Status; labels carry metadata only (GOS-21).
@@ -41,6 +44,18 @@ operator-approved sprints; gorp never plans.
   sprint document (operator-approved, schema-validated) is the execution
   input. Planning produces the first; operator approval + `wf plan` produces
   the second.
+
+## Identity (canonical IDs)
+
+- Plan aliases (`S0`/`S1`/`R1`) are drafting shorthand only — allowed **before**
+  Linear creation.
+- Immediately on creation, adopt the canonical `GUA-###` identifier (printed by
+  `pm create`) as the issue's sole identity. Use it for all dependencies,
+  reports, the sprint document, and gorp handoff. Plan → create → rewrite
+  aliases to the created `GUA-###` ids before linking dependencies.
+- The write path rejects non-canonical refs (`pm link` / `pm create --parent`),
+  so never pass a raw alias into tooling after creation.
+
 
 ## Uses
 

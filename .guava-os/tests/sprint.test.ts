@@ -17,6 +17,8 @@ const config = loadConfig(findRepoRoot());
 
 function issue(overrides: Partial<GraphIssue> & { id: string }): GraphIssue {
   return {
+    id: overrides.id,
+    identifier: overrides.identifier ?? overrides.id,
     title: "Task",
     status: "Todo",
     statusType: "unstarted",
