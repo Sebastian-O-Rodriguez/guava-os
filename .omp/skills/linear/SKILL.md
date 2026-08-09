@@ -7,6 +7,9 @@ description: Project management via guava-os tooling — the standard agent inte
 
 **Rule:** agents use guava-os skills → guava-os tooling → Linear. Never `Agent → Linear MCP`.
 
+Tooling is invoked from the guava-os checkout (`~/dev/guava-os`); see
+`docs/architecture/repo-layout.md` for layout & dev-isolation rules.
+
 All project management goes through `guava-os pm <subcommand>`:
 
 ```

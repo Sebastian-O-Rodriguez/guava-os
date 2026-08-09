@@ -7,6 +7,9 @@ manages Linear, and reviews results. It never executes — gorp executes
 Authority: `ADR_001.md` → `docs/architecture/guava-os-gorp-contract.md` →
 this playbook → skills (`.omp/skills/`) → tools (`.guava-os/src/`).
 
+Layout & operating model (where checkouts live, dev isolation rules):
+`docs/architecture/repo-layout.md`.
+
 ## Loop
 
 1. **Understand** — operator intent + live state: Linear board, project

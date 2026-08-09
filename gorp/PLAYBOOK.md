@@ -8,6 +8,9 @@ Authority: `ADR_001.md` → `docs/architecture/guava-os-gorp-contract.md` →
 this playbook → skills (`.omp/skills/`) → runtime (`gorp/runtime/control/`) →
 contracts (`gorp/specs/runtime/`).
 
+Gorp operates from inside the guava-os checkout (`~/dev/guava-os`); layout:
+`docs/architecture/repo-layout.md`.
+
 ## Loop
 
 1. **Receive approved request** — an operator-approved sprint document

@@ -6,6 +6,15 @@ guava-os is the control plane over gorp: it plans, manages Linear, and
 orchestrates. gorp (`gorp/`) executes. guava-os is also gorp's first governed
 consumer — gorp builds guava-os, a compounding loop.
 
+## Repository layout (canonical: `docs/architecture/repo-layout.md`)
+
+- `~/dev/guava-os` is the canonical stable runtime (clean `main`) — agents
+  execute from it; **never develop here**.
+- `~/dev/guava-archives/` holds durable history/archive storage (gorp bundle).
+- Project repos are their own working roots; GOS dev changes use temporary
+  isolated clones (create on demand, remove after merge) with session-scoped
+  `GORP_STATE_HOME` isolation.
+
 ## Owners
 
 - **guava-os** (`.guava-os/`) — decisions: planning, Linear integration,

@@ -4,6 +4,10 @@
 
 Operational guide for running the Guava OS CLI in the Guava planning/execution loop.
 
+**Layout & operating model** (checkouts, dev isolation, archives):
+`docs/architecture/repo-layout.md`. Guava OS tooling is invoked from the
+guava-os checkout — the CLI resolves `gorp/` and skills relative to it.
+
 ## Workflow Overview
 
 ```
