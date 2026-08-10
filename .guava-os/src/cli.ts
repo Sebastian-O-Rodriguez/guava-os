@@ -235,7 +235,7 @@ Subcommands:
   get-issue <id>           Fetch a single issue
   search [flags]           Search issues (--project, --status, --label, --assignee, --archived)
   create [flags]           Create an issue (--title, --team, --project, --parent, --label, --priority, --status, --assignee)
-  update <id> [flags]      Update an issue (--title, --description, --priority, --assignee, --status, --label)
+  update <id> [flags]      Update an issue (--title, --description, --priority, --assignee, --status, --label, --parent; --parent none detaches)
   link <id> [flags]        Link dependencies (--blocks, --blocked-by)
   move <id> --status <s>   Move status
   assign <id> --assignee <a>  Assign issue
@@ -291,12 +291,15 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
     }
     case "update": {
       const labels = flagAll(rest, "--label");
+      const parentRaw = flag(rest, "--parent");
       const issue = await pm.updateIssue(rest[0], {
         title: flag(rest, "--title"),
         description: flag(rest, "--description"),
         priority: flag(rest, "--priority") ? Number(flag(rest, "--priority")) : undefined,
         assigneeId: flag(rest, "--assignee"),
         status: flag(rest, "--status"),
+        // --parent <GUA-N> attaches; --parent none detaches (clears parent).
+        parentId: parentRaw === undefined ? undefined : (parentRaw === "none" || parentRaw === "null" ? null : parentRaw),
         // undefined (not []) when --label omitted — never wipe existing labels (GUA-96)
         labels: labels.length > 0 ? labels : undefined,
       });

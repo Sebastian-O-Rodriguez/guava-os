@@ -133,6 +133,7 @@ export interface UpdateIssueInput {
   title?: string;
   description?: string;
   priority?: number;
+  parentId?: string | null;
   assigneeId?: string | null;
   status?: string;
   labels?: string[];
@@ -434,6 +435,14 @@ export async function updateIssue(
   const assigneeId = input.assigneeId !== undefined
     ? (input.assigneeId === null ? null : await resolveAssigneeId(input.assigneeId))
     : undefined;
+  // Reparent: undefined = leave as-is; null = detach from parent; id = set/attach.
+  const parentId = input.parentId !== undefined
+    ? (input.parentId === null ? null : await resolveIssueId(input.parentId))
+    : undefined;
+  if (parentId != null) {
+    const selfId = await resolveIssueId(issueId);
+    if (parentId === selfId) throw new Error(`Cannot set ${issueId}'s parent to itself`);
+  }
   await gql(
     `mutation ($id: String!, $input: IssueUpdateInput!) {
       issueUpdate(id: $id, input: $input) { success }
@@ -446,6 +455,8 @@ export async function updateIssue(
         priority: input.priority,
         assigneeId,
         stateId,
+        // parentId only when explicitly provided — never forced when omitted.
+        ...(parentId !== undefined ? { parentId } : {}),
         // labelIds only when explicitly provided — never `[]` (a bare []
         // would wipe existing labels; GUA-96).
         ...(labelIds !== undefined ? { labelIds } : {}),

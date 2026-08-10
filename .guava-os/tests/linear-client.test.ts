@@ -168,6 +168,34 @@ describe("GUA-96 name/identifier resolution", () => {
     const update = calls.find((c) => c.query.includes("issueUpdate("))!;
     expect((update.variables.input as Record<string, unknown>).labelIds).toEqual(["label-architect"]);
   });
+
+  it("updateIssue sets parentId (resolved) when --parent provided", async () => {
+    await updateIssue("GUA-7", { parentId: "GUA-9" });
+    const update = calls.find((c) => c.query.includes("issueUpdate("))!;
+    expect((update.variables.input as Record<string, unknown>).parentId).toBe("uuid-GUA-9");
+  });
+
+  it("updateIssue omits parentId when not provided (no unintended reparent)", async () => {
+    await updateIssue("GUA-7", { description: "body" });
+    const update = calls.find((c) => c.query.includes("issueUpdate("))!;
+    expect("parentId" in (update.variables.input as Record<string, unknown>)).toBe(false);
+  });
+
+  it("updateIssue passes null parentId to detach (--parent none)", async () => {
+    await updateIssue("GUA-7", { parentId: null });
+    const update = calls.find((c) => c.query.includes("issueUpdate("))!;
+    expect((update.variables.input as Record<string, unknown>).parentId).toBeNull();
+  });
+
+  it("updateIssue rejects self-parent before any mutation", async () => {
+    await expect(updateIssue("GUA-7", { parentId: "GUA-7" })).rejects.toThrow(/itself/);
+    expect(calls.filter((c) => c.query.includes("issueUpdate("))).toHaveLength(0);
+  });
+
+  it("updateIssue rejects non-canonical parent alias before any mutation", async () => {
+    await expect(updateIssue("GUA-7", { parentId: "S0" })).rejects.toThrow(/Non-canonical/);
+    expect(calls.filter((c) => c.query.includes("issueUpdate("))).toHaveLength(0);
+  });
 });
 
 describe("GUA-96 native relation creation", () => {
