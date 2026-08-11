@@ -8,7 +8,6 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
 export interface RegistryProject {
   id: string;
@@ -26,8 +25,7 @@ function resolveRegistryPath(registryPath?: string): string {
   const envPath = process.env["GORP_PROJECT_REGISTRY"];
   if (envPath) return resolve(envPath);
   // Derive from module location: .guava-os/src/registry.ts → .guava-os/registry/projects.yml
-  const modDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(modDir, "..", "registry", "projects.yml");
+  return resolve(dirname(__dirname), "registry", "projects.yml");
 }
 
 /**
