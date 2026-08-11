@@ -35,6 +35,7 @@ import { readFileSync, writeFileSync } from "fs";
 import * as pm from "./linear-client.js";
 import * as wf from "./workflow.js";
 import { generateSprint, approveSprint } from "./sprint.js";
+import { resolveRegistryProjectId, loadRegistry } from "./registry.js";
 
 function usage(): never {
   console.log(`guava-os <command> [flags]
@@ -423,7 +424,7 @@ async function runSprint(
     console.log(`guava-os sprint <subcommand> [flags]
 
 Subcommands:
-  generate --parent <id|GUA-N> [--project <registry-id>] [--out <path>]
+  generate --parent <id|GUA-N> [--project <linear-project-or-registry-id>] [--out <path>]
             Fetch the parent subtree from Linear, generate a schema-valid
             gorp SprintDocument (UNAPPROVED), write to --out (or stdout).
   approve <file> --by <actor>
@@ -437,14 +438,15 @@ it; gorp never reads Linear (ADR_001).`);
   switch (sub) {
     case "generate": {
       const parent = f(rest, "--parent");
-      const projectId = f(rest, "--project") ?? config.linear.project;
+      const linearProject = f(rest, "--project") ?? config.linear.project;
       if (!parent) {
         console.error("sprint generate requires --parent <id|GUA-N>");
         process.exit(1);
       }
       const parentIssue = await pm.getIssue(parent);
-      const { issues } = await pm.searchIssues(config, { projectId });
-      const result = generateSprint(issues, parentIssue.id, projectId, config);
+      const { issues } = await pm.searchIssues(config, { projectId: linearProject });
+      const registryId = resolveRegistryProjectId(linearProject, loadRegistry());
+      const result = generateSprint(issues, parentIssue.id, registryId, config);
       const docJson = JSON.stringify(result.doc, null, 2) + "\n";
       const out = f(rest, "--out");
       if (out) {

@@ -2,30 +2,36 @@ projects:
   - id: guava-os
     name: Guava OS
     repo_path: ~/dev/guava-os
+    linear_project: guava-os
     lifecycle: active
     notes: control plane + first governed consumer; OMP worker adapter
   - id: guava-hermes
     name: Guava Hermes
     repo_path: ~/dev/repos/guava-hermes
+    linear_project: guava-hermes
     lifecycle: retired
     notes: retired — operator surfaces and worker wrapper superseded by guava-os + OMP adapter (2026-07-31)
   - id: bell-diagnostic
     name: Bell Diagnostic
     repo_path: ~/dev/repos/bell-diagnostic
+    linear_project: bell-diagnostic
     lifecycle: active
     notes: AI-driven consulting diagnostic sprint for Shyft — client materials, analysis, and deliverables
   - id: guavabi
     name: Guava BI
     repo_path: ~/dev/repos/guavabi
+    linear_project: guava-bi
     lifecycle: active
     notes: distributor-operations analytics backend + dashboard; Linear project guava-bi
   - id: guava-site
     name: Guava Site
     repo_path: ~/dev/repos/guava-site
+    linear_project: guava-site
     lifecycle: active
     notes: guava.ai company website (Astro/Svelte); Linear project guava-site
   - id: reusable-diagnostic-engine
     name: Reusable Diagnostic Engine v1
     repo_path: ~/dev/repos/reusable-diagnostic-engine
+    linear_project: Reusable Diagnostic Engine v1
     lifecycle: active
     notes: productizes bell-diagnostic (read-only reference); all RDI v1 code + deliverables live here; Linear project Reusable Diagnostic Engine v1
