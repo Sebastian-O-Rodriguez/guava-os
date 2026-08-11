@@ -32,6 +32,38 @@ const WORKER_EMAIL = "omp-worker@gorp.local";
 const DEFAULT_TIMEOUT_MS = 600_000;
 const CAPTURE_LIMIT = 4000;
 
+/**
+ * Extract the OMP worker's final summary from omp JSON-lines (NDJSON) output.
+ * omp emits one typed event per line (session/agent_start/turn_start/…), so a
+ * whole-stream `JSON.parse` cannot work. The final assistant message in the
+ * trailing `agent_end` event carries the worker's own words.
+ */
+export function extractOmpSummary(stdout: string): string {
+  for (const line of stdout.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    try {
+      const ev = JSON.parse(t) as {
+        type?: string;
+        messages?: Array<{ role?: string; content?: Array<{ type?: string; text?: string }> }>;
+      };
+      if (ev?.type !== "agent_end" || !Array.isArray(ev.messages)) continue;
+      for (const m of [...ev.messages].reverse()) {
+        if (m?.role !== "assistant" || !Array.isArray(m.content)) continue;
+        const text = m.content
+          .filter((c) => c?.type === "text")
+          .map((c) => c.text ?? "")
+          .join("\n")
+          .trim();
+        if (text) return truncate(text);
+      }
+    } catch {
+      // line is not JSON — skip
+    }
+  }
+  return "OMP worker completed.";
+}
+
 function fail(message: string, details: Record<string, unknown> = {}): never {
   throw new GorpError("WORKER_FAILED", `omp adapter: ${message}`, { workerAdapter: OMP_ADAPTER, ...details });
 }
@@ -151,24 +183,12 @@ export const ompAdapter: WorkerAdapter = {
       });
     }
 
-    // OMP's JSON mode outputs structured content; extract the summary.
-    // The adapter maps OMP output to the WorkerResult schema — OMP-specific
-    // shapes stay here; gorp never sees them.
-    let summary = "OMP worker completed.";
+    // OMP JSON mode emits structured events (NDJSON); pull the worker's own
+    // summary out of the final assistant message. OMP-specific shapes stay
+    // here; gorp never sees them.
+    const summary = extractOmpSummary(proc.stdout);
     let reviewerNotes: string | undefined;
-    try {
-      const ompOutput = JSON.parse(proc.stdout) as {
-        content?: string;
-        message?: string;
-        text?: string;
-        response?: string;
-      };
-      summary = ompOutput.content ?? ompOutput.message ?? ompOutput.text ?? ompOutput.response ?? summary;
-      if (proc.stderr.length > 0) reviewerNotes = truncate(proc.stderr);
-    } catch {
-      // If JSON parsing fails, use stdout as summary (truncated).
-      if (proc.stdout.trim().length > 0) summary = truncate(proc.stdout.trim());
-    }
+    if (proc.stderr.length > 0) reviewerNotes = truncate(proc.stderr);
 
     // Verify HEAD didn't move (OMP must not touch git).
     const headAfter = sandboxHead(sandbox);
@@ -179,16 +199,24 @@ export const ompAdapter: WorkerAdapter = {
       });
     }
 
-    // Collect changed files from the sandbox.
-    const changedFiles = sandboxChangedFiles(sandbox);
-    if (changedFiles.length === 0) {
+    // Stage the worker's worktree changes FIRST, then check for artifacts:
+    // `diff base..HEAD` (sandboxChangedFiles) is necessarily empty until the
+    // adapter commits — HEAD is pinned above, and worktree edits are not yet
+    // in any commit. Detect the staged index instead.
+    git(["add", "--all"], sandbox.dir);
+    const stagedFiles = git(["diff", "--cached", "--name-only"], sandbox.dir)
+      .stdout
+      .split("\n")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .sort();
+    if (stagedFiles.length === 0) {
       fail("no files changed — the worker produced no artifacts", {
         stdout: truncate(proc.stdout),
       });
     }
 
     // Make the single sandbox commit (same pattern as the fixture adapter).
-    git(["add", "--all"], sandbox.dir);
     const commitMessage = `gorp: omp worker — ${graphId}/${node.nodeId}/${runId}`;
     git(["commit", "--no-verify", "-m", commitMessage], sandbox.dir, {
       GIT_AUTHOR_NAME: WORKER_NAME,
@@ -198,6 +226,8 @@ export const ompAdapter: WorkerAdapter = {
     });
 
     const commitSha = sandboxHead(sandbox);
+    // Post-commit diff base..HEAD now reflects exactly the OMP worker's changes.
+    const changedFiles = sandboxChangedFiles(sandbox);
 
     return {
       schemaVersion: 1,
