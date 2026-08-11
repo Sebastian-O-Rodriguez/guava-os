@@ -98,28 +98,28 @@ export function review(projectId: string, graphId: string, nodeId: string, opts:
 
 /** approve — operator review decision: approve. */
 export function approve(projectId: string, graphId: string, nodeId: string, actorId: string, reviewedCommit: string, reason: string, opts: { runId?: string } = {}): unknown {
-  const args = ["approve", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor", actorId, "--commit", reviewedCommit, "--reason", reason];
+  const args = ["approve", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor-id", actorId, "--reviewed-commit", reviewedCommit, "--reason", reason];
   if (opts.runId) args.push("--run-id", opts.runId);
   return callGorp(args);
 }
 
 /** reject — operator review decision: reject. */
 export function reject(projectId: string, graphId: string, nodeId: string, actorId: string, reason: string, opts: { runId?: string } = {}): unknown {
-  const args = ["reject", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor", actorId, "--reason", reason];
+  const args = ["reject", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor-id", actorId, "--reason", reason];
   if (opts.runId) args.push("--run-id", opts.runId);
   return callGorp(args);
 }
 
 /** retry — operator review decision: retry. */
 export function retry(projectId: string, graphId: string, nodeId: string, actorId: string, reason: string, opts: { runId?: string } = {}): unknown {
-  const args = ["retry", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor", actorId, "--reason", reason];
+  const args = ["retry", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor-id", actorId, "--reason", reason];
   if (opts.runId) args.push("--run-id", opts.runId);
   return callGorp(args);
 }
 
 /** promote — promote an approved, reviewed commit onto the target. */
 export function promote(projectId: string, graphId: string, nodeId: string, actorId: string, opts: { runId?: string } = {}): unknown {
-  const args = ["promote", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor", actorId];
+  const args = ["promote", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor-id", actorId];
   if (opts.runId) args.push("--run-id", opts.runId);
   return callGorp(args);
 }
