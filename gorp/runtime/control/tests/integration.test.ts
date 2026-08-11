@@ -285,3 +285,84 @@ describe("Wave B+C integration: approved graph -> sandbox -> worker -> result ->
     ]);
   });
 });
+
+describe("Sprint 3A orchestrate from source (tsx loader)", () => {
+  const TSX_LOADER = join(PKG, "..", "..", "..", "node_modules", "tsx", "dist", "loader.mjs");
+  const TS_CLI = join(PKG, "src", "cli", "main.ts");
+
+  /** Spawn the CLI from TypeScript source via tsx, passing GORP_STATE_HOME. */
+  function runCliTs(argv: string[]): { stdout: string; code: number } {
+    try {
+      const stdout = execFileSync(
+        process.execPath,
+        ["--import", TSX_LOADER, TS_CLI, ...argv],
+        {
+          env: { ...process.env, GORP_STATE_HOME: stateHome },
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      return { stdout, code: 0 };
+    } catch (e) {
+      const err = e as { status?: number; stdout?: string };
+      return { stdout: err.stdout ?? "", code: err.status ?? -1 };
+    }
+  }
+
+  it("orchestrate from source completes a single-node graph with zero UNPARSEABLE_OUTPUT", () => {
+    const baseCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+
+    // Create and approve a single-node graph via the compiled CLI (fast).
+    const created = runCli([
+      "graph", "create",
+      "--graph-id", "orch-src-slice",
+      "--project-id", "fixture-project",
+      "--base-commit", baseCommit,
+      "--objective", "governed write from source orchestrator",
+      "--acceptance", "file exists",
+      "--allowed", "docs/**",
+      "--artifacts", "docs/orch-src.md",
+      "--worker", "fixture",
+      "--actor-id", "operator:integration",
+    ]);
+    expect(created.code).toBe(0);
+
+    const approved = runCli([
+      "graph", "transition", "--project-id", "fixture-project", "--graph-id", "orch-src-slice",
+      "--to", "approved", "--actor-type", "operator", "--actor-id", "operator:integration",
+      "--reason-code", "OPERATOR_APPROVAL", "--reason", "approved for source orchestrate test",
+    ]);
+    expect(approved.code).toBe(0);
+
+    // Launch orchestrate from TypeScript source. The scheduler self-spawns
+    // subprocesses; each must inherit the --import loader or it falls through
+    // to UNPARSEABLE_OUTPUT.
+    const orch = runCliTs(["orchestrate", "--project-id", "fixture-project", "--graph-id", "orch-src-slice"]);
+    expect(orch.code).toBe(0);
+    const parsed = JSON.parse(orch.stdout) as {
+      success: boolean;
+      data: {
+        outcome: string;
+        graphStatus: string;
+        steps: Array<{ ok: boolean; error?: { code: string } }>;
+        nodeStates: Record<string, string>;
+      };
+    };
+    expect(parsed.success).toBe(true);
+    expect(parsed.data.outcome).toBe("completed");
+    expect(parsed.data.graphStatus).toBe("completed");
+    expect(parsed.data.nodeStates).toEqual({ "node-1": "promoted" });
+
+    // The decisive check: NO step should carry an UNPARSEABLE_OUTPUT error.
+    for (const step of parsed.data.steps) {
+      expect(step.ok).toBe(true);
+      if (step.error) {
+        expect(step.error.code).not.toBe("UNPARSEABLE_OUTPUT");
+      }
+    }
+
+    // Consumer received the artifact.
+    expect(existsSync(join(repo, "docs", "orch-src.md"))).toBe(true);
+    expect(execFileSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).trim()).toBe("");
+  }, 180_000);
+});
