@@ -9,11 +9,11 @@ import { fileURLToPath } from "node:url";
 // drives the compiled CLI as subprocesses; these internal imports are used
 // solely to CONSTRUCT test states (graphs, a simulated crash) and to call
 // runSchedulerLoop directly with maxSteps for crash simulation.
-import { runSchedulerLoop, type SchedulerResult, type StepRecord } from "../src/orchestrator/scheduler.js";
 import { registerProjects, writeProjectRegistry } from "./helpers.js";
 import { loadConfig, type RuntimeConfig } from "../src/config/index.js";
 import { GraphStore } from "../src/storage/graph-store.js";
 import { applyGraphTransition, applyNodeTransition, buildDraftGraph, type Clock } from "../src/graph/graph.js";
+import { currentLoader, runSchedulerLoop, schedulerSpawnArgs, type SchedulerResult, type StepRecord } from "../src/orchestrator/scheduler.js";
 import { executeRun } from "../src/run/run.js";
 import { executeReject } from "../src/review/decision.js";
 import type { GraphNode } from "../src/contracts/types.js";
@@ -307,3 +307,68 @@ describe("Sprint 3A scheduler: single-process loop over the public CLI", () => {
     expect(parsed2.data.steps).toEqual([]);
   }, 180_000);
 });
+
+  describe("loader detection and forwarding", () => {
+    let origArgv: string[];
+
+    beforeEach(() => {
+      origArgv = [...process.execArgv];
+    });
+
+    afterEach(() => {
+      process.execArgv = origArgv;
+    });
+
+    it("currentLoader returns --import value when flag is present (space-separated)", () => {
+      process.execArgv = ["--import", "/abs/path/to/tsx/loader.mjs"];
+      expect(currentLoader()).toBe("/abs/path/to/tsx/loader.mjs");
+    });
+
+    it("currentLoader returns --import value when flag is present (= syntax)", () => {
+      process.execArgv = ["--import=/abs/path/to/tsx/loader.mjs", "--no-warnings"];
+      expect(currentLoader()).toBe("/abs/path/to/tsx/loader.mjs");
+    });
+
+    it("currentLoader returns undefined when no --import flag", () => {
+      process.execArgv = ["--no-warnings", "--experimental-vm-modules"];
+      expect(currentLoader()).toBeUndefined();
+    });
+
+    it("throws actionable error when .ts CLI is used without a loader", () => {
+      process.execArgv = [];
+      expect(() => {
+        runSchedulerLoop({
+          cli: "/abs/path/to/main.ts",
+          projectId: "p1",
+          graphId: "g1",
+          maxSteps: 1,
+        });
+      }).toThrow("Cannot spawn source .ts CLI without a --import loader");
+    });
+
+    it("spawns subprocess with --import loader when loader is present, plain argv when absent", () => {
+      // With loader: spawn args must include --import <loader>
+      expect(
+        schedulerSpawnArgs(
+          "/abs/path/to/main.ts",
+          ["graph", "show", "--project-id", "p1", "--graph-id", "g1"],
+          "/fake/tsx/loader.mjs",
+        ),
+      ).toEqual([
+        "--import", "/fake/tsx/loader.mjs", "/abs/path/to/main.ts",
+        "graph", "show", "--project-id", "p1", "--graph-id", "g1",
+      ]);
+
+      // Without loader (compiled JS): spawn args are plain, no --import
+      expect(
+        schedulerSpawnArgs(
+          "/abs/path/to/dist/cli/main.js",
+          ["graph", "show", "--project-id", "p1", "--graph-id", "g1"],
+          undefined,
+        ),
+      ).toEqual([
+        "/abs/path/to/dist/cli/main.js",
+        "graph", "show", "--project-id", "p1", "--graph-id", "g1",
+      ]);
+    });
+  });

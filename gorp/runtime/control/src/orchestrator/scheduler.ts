@@ -25,7 +25,43 @@
  */
 
 import { execFileSync } from "node:child_process";
+
 import { fixtureReviewPolicy, type ReviewPolicy } from "./review-policy.js";
+/**
+ * Return the value of the `--import` flag from the current process's execArgv,
+ * or undefined when absent. The scheduler reuses this to spawn its own CLI
+ * subprocesses with the same ESM loader (tsx) that the parent was launched with.
+ */
+export function currentLoader(): string | undefined {
+  const argv = process.execArgv;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg === "--import") {
+      return argv[i + 1];
+    }
+    if (arg.startsWith("--import=")) {
+      return arg.slice("--import=".length);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Build the argv for a scheduler CLI subprocess. When a `--import` loader is
+ * available (the parent was launched under tsx), forward it so ESM `.js`
+ * specifiers over `.ts` files resolve. A source `.ts` CLI without a loader is
+ * refused loudly — plain `node main.ts` cannot resolve those specifiers and
+ * would otherwise surface as a cryptic UNPARSEABLE_OUTPUT.
+ */
+export function schedulerSpawnArgs(cli: string, argv: string[], loader?: string): string[] {
+  if (cli.endsWith(".ts") && loader === undefined) {
+    throw new Error(
+      "Cannot spawn source .ts CLI without a --import loader. " +
+        "Run through the guava-os workflow wrapper which supplies the tsx loader.",
+    );
+  }
+  return loader !== undefined ? ["--import", loader, cli, ...argv] : [cli, ...argv];
+}
 
 export interface SchedulerOptions {
   /** Path to the compiled CLI (dist/cli/main.js). */
@@ -118,8 +154,9 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
   const steps: StepRecord[] = [];
 
   const cli = (argv: string[]): CliEnvelope => {
+    const execArgs = schedulerSpawnArgs(opts.cli, argv, currentLoader());
     try {
-      const stdout = execFileSync(process.execPath, [opts.cli, ...argv], {
+      const stdout = execFileSync(process.execPath, execArgs, {
         env: { ...process.env, ...(opts.env ?? {}) },
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
