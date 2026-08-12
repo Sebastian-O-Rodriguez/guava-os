@@ -39,6 +39,7 @@ export interface SprintTask {
   review: "human" | "fixture-auto";
   maxAttempts: 1;
   escalation: "operator";
+  persona?: string;
 }
 
 export interface SprintDocument {
@@ -184,6 +185,7 @@ export function generateSprint(
       }
       deps.push(bid);
     }
+    const personaLabel = c.labels.find((l) => personaLabels.has(l));
     tasks.push({
       taskId: c.id, // issue ID preserved through to the graph
       objective: c.title,
@@ -197,6 +199,7 @@ export function generateSprint(
       worker: PERSONA_TO_WORKER,
       review: "human",
       maxAttempts: 1,
+      persona: personaLabel,
       escalation: "operator",
     });
   }

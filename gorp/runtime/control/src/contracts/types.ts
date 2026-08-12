@@ -81,6 +81,7 @@ export interface GraphNode {
   readonly dependencies: readonly string[];
   readonly state: NodeState;
   readonly attempt: number;
+  readonly persona?: string;
 }
 
 export interface ExecutionGraph {
@@ -203,5 +204,10 @@ export interface RunRecord {
   }>;
   readonly finalStatus: RunFinalStatus;
   readonly startedAt: string;
+  readonly profile?: {
+    readonly persona?: string;
+    readonly model?: string;
+    readonly role?: string;
+  };
   readonly endedAt?: string;
 }

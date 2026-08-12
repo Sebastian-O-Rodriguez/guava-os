@@ -157,8 +157,15 @@ export const ompAdapter: WorkerAdapter = {
       `When done, output a JSON summary of what you did.`,
     ].filter(Boolean).join("\n");
 
-    // Invoke OMP in print mode with auto-approve.
-    const args = ["-p", "--auto-approve", "--mode", "json", "--model", model, prompt];
+    // Invoke OMP in print mode with auto-approve. The persona body arrives via
+    // GORP_OMP_SYSTEM_PROMPT_APPEND — set by the guava-os wf layer, never
+    // resolved from guava-os paths here (adapter stays source-neutral).
+    const args = ["-p", "--auto-approve", "--mode", "json", "--model", model];
+    const appendSystemPrompt = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    if (appendSystemPrompt) {
+      args.push("--append-system-prompt", appendSystemPrompt);
+    }
+    args.push(prompt);
     const proc = await runOmp(cmd, args, sandbox.dir, "", timeoutMs);
 
     if (proc.timedOut) {
