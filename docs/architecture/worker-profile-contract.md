@@ -1,9 +1,12 @@
 # Worker Profile Contract
 
 > **Authority:** ADR_001 → `guava-os-gorp-contract.md` → this document.
-> Status: **contract only — no implementation yet** (Phase 5A). The gorp omp
-> adapter currently dispatches blind; this document defines what "wired"
-> means. Approval required before any schema or adapter change.
+> Status: **IMPLEMENTED** (GUA-123, merge ed1a6ff, 2026-08-12). Persona flows
+> issue → SprintTask.persona → graph node.persona → run-record `profile
+> {persona, model}`; the omp adapter is source-neutral and persona-aware via
+> env (`GORP_OMP_MODEL`, `GORP_OMP_SYSTEM_PROMPT_APPEND` → omp `--model` +
+> `--append-system-prompt`). Real persona-aware OMP execution is proven
+> (GOS-35; guava-site live proof 2026-08-12).
 
 ## Purpose
 
@@ -32,12 +35,12 @@ Worker
 | Layer | What it is | Owner | Where it lives | Status |
 |---|---|---|---|---|
 | **Issue** | The unit of work: intent, scope, acceptance criteria, one persona label. | guava-os | Linear | Implemented |
-| **Persona** | Execution policy: scope, patterns, anti-patterns; frontmatter `maps_to` / `model` / `tools`. | guava-os (defines), guava-os (chooses via issue label) | `.guava-os/personas/<name>/persona.md` | Files exist; **never read at dispatch** |
+| **Persona** | Execution policy: scope, patterns, anti-patterns; frontmatter `maps_to` / `model` / `tools`. | guava-os (defines), guava-os (chooses via issue label) | `.guava-os/personas/<name>/persona.md` | Read at dispatch (GUA-123): label → task.persona → node.persona |
 | **Playbook** | The execution loop the worker operates inside: gates, audit, return-shape expectations. | gorp | `gorp/PLAYBOOK.md` | Implemented (doc) |
-| **OMP Role** | Runtime agent role (`scout` / `designer` / `reviewer` / `librarian` / `task` / `sonic`). | OMP (runtime config); persona `maps_to` selects it | OMP bundled agents | Documented; **not passed at dispatch** |
-| **Worker Skills** | Execution behaviors loaded by OMP (backend, frontend, QA, review, docs, migration). | Execution layer (ADR_001 skill taxonomy §3) | `.omp/skills/` (target), persona bodies (today) | Documented only; **no delivery mechanism** |
-| **Runtime Config** | Model tier, tool allowlist, flags (`--auto-approve --mode json`), sandbox cwd, env. | gorp (assembles), OMP (provides runtime) | `gorp/runtime/control/src/worker/omp.ts` | Partial: model from `GORP_OMP_MODEL` only; tools/flags not persona-aware |
-| **Worker** | The OMP agent process executing one graph node in a sandbox worktree. | OMP (lifecycle), gorp (dispatch) | spawned by `worker/omp.ts` | Implemented (blind) |
+| **OMP Role** | Runtime agent role (`scout` / `designer` / `reviewer` / `librarian` / `task` / `sonic`). | OMP (runtime config); persona `maps_to` selects it | OMP bundled agents | `maps_to` carried in the run-record profile (GUA-123) |
+| **Worker Skills** | Execution behaviors loaded by OMP (backend, frontend, QA, review, docs, migration). | Execution layer (ADR_001 skill taxonomy §3) | `.omp/skills/` (target), persona bodies (today) | Delivered via `--append-system-prompt` (persona body; GUA-123) |
+| **Runtime Config** | Model tier, tool allowlist, flags (`--auto-approve --mode json`), sandbox cwd, env. | gorp (assembles), OMP (provides runtime) | `gorp/runtime/control/src/worker/omp.ts` | Persona-aware: model `GORP_OMP_MODEL`, persona body `GORP_OMP_SYSTEM_PROMPT_APPEND` forwarded by the adapter |
+| **Worker** | The OMP agent process executing one graph node in a sandbox worktree. | OMP (lifecycle), gorp (dispatch) | spawned by `worker/omp.ts` | Implemented, persona-aware |
 
 ## Rules
 
@@ -55,37 +58,34 @@ Worker
 6. **Workers never govern.** No Linear access, no approval/promotion, no
    project-management decisions (ADR_001).
 
-## Current vs target
+## Current (implemented) vs target
 
-| Concern | Current (blind adapter) | Target |
+| Concern | Current (GUA-123, landed) | Target (unchanged) |
 |---|---|---|
-| Prompt | built from node fields only | node fields + persona body + worker skills (e.g. `--append-system-prompt`) |
-| Model | `GORP_OMP_MODEL ?? "default"` | persona `model` → resolved tier; env override stays |
-| Role | omp default | persona `maps_to` |
-| Tools | omp default allowlist | persona `tools` |
-| Run record | no profile fields | profile stamped; `gorp inspect` surfaces it |
+| Prompt | node fields + persona body appended via `--append-system-prompt` (env `GORP_OMP_SYSTEM_PROMPT_APPEND`) | same |
+| Model | persona `model` tier via `GORP_OMP_MODEL`; env override stays | same |
+| Role | persona `maps_to` carried in run-record profile | surfaced in inspect |
+| Tools | persona `tools` documented in persona file; env-driven | allowlist refinement |
+| Run record | `profile {persona, model}` stamped; visible via `wf review` / `gorp inspect` | same |
 
-## Open boundaries (must be settled before implementation)
+## Boundaries (resolved by GUA-123, merge ed1a6ff)
 
-1. **Persona flow into the graph.** The sprint doc carries tasks; the graph
-   carries nodes; neither has a persona field today, and all schemas are
-   `additionalProperties: false`. Proposal: sprint task gains optional
-   `persona` (guava-os sets it at compile input); compiler carries it to the
-   node; run record stamps the assembled profile. This is a **schema
-   amendment** to `sprint.schema.json`, `execution-graph.schema.json`, and
-   `run-record.schema.json`.
-2. **Worker-skill delivery.** Workers run with cwd = sandbox checkout of the
-   target repo, so guava-os's `.omp/skills/` is not on their discovery path.
-   Recommendation: prompt injection (persona body + skill content appended
-   via `--append-system-prompt`) — no file copying into sandboxes.
-3. **Adapter stays source-neutral.** Persona resolution reads
-   `.guava-os/personas/` — a guava-os path. The adapter must receive the
-   *resolved profile* (or a persona document path) as explicit invocation
-   input, never hardcode guava-os layout (ADR_001: gorp must not depend on
-   consumer specifics). guava-os `wf` layer resolves persona id → persona
-   file; gorp consumes it as data.
+1. **Persona flow into the graph — RESOLVED.** Optional `persona` added to
+   `sprint.schema.json` (task), `execution-graph.schema.json` (node), and
+   `run-record.schema.json` (`profile`). Additive-optional: old documents and
+   records remain schema-valid. Compiler carries task.persona → node.persona;
+   run.ts stamps the profile.
+2. **Worker-skill delivery — RESOLVED.** Prompt injection: the persona body
+   is delivered to the omp invocation via `--append-system-prompt`
+   (`GORP_OMP_SYSTEM_PROMPT_APPEND` env read by the adapter). No file copying
+   into sandboxes.
+3. **Adapter stays source-neutral — RESOLVED.** The adapter never reads
+   guava-os paths. It consumes `node.persona` as data and the
+   `GORP_OMP_MODEL` / `GORP_OMP_SYSTEM_PROMPT_APPEND` env. The guava-os `wf`
+   layer is responsible for resolving persona → env (follow-up: automate
+   per-graph env resolution from `.guava-os/personas/`).
 
 ## Approval gate
 
-This contract is submitted for operator approval. No schema, adapter, or
-inspection changes until approved.
+Approved via the Operational Spine sprint (GUA-123, GUA-111, GUA-137) and
+landed on main (merge ed1a6ff, 2026-08-12); proven live on guava-site.

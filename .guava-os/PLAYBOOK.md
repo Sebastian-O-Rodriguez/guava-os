@@ -14,8 +14,12 @@ Layout & operating model (where checkouts live, dev isolation rules):
 
 1. **Understand** — operator intent + live state: Linear board, project
    registry, target repo docs. Skill: `planning`.
-2. **Plan** — decompose into a sprint: parent + scoped children, one persona
-   label each, measurable acceptance, explicit dependencies. Skill: `planning`.
+2. **Plan** — decompose into a sprint: a container parent + scoped children,
+   OR a standalone dependency chain (top-level deliverables wired by
+   `blocks`). Each deliverable: one persona label, measurable acceptance,
+   explicit dependencies. Standalone deliverables are valid work (GUA-111);
+   chains generate via `sprint generate --parent <chain-head>` (GUA-137).
+   Skill: `planning`.
 3. **Write Linear** — create/update issues, dependency links, statuses per
    GOS-21 (native fields first; labels for metadata only; one persona label).
    Skill: `linear`.

@@ -21,9 +21,10 @@ Gorp operates from inside the guava-os checkout (`~/dev/guava-os`); layout:
    approves the draft before anything runs. Skill: `execution`.
 3. **Build worker profile** — persona + OMP role + worker skills + runtime
    config → one worker invocation. Contract:
-   `docs/architecture/worker-profile-contract.md`. Adapter wiring pending —
-   today the adapter dispatches blind (persona/model not read). Skill:
-   `execution`.
+   `docs/architecture/worker-profile-contract.md`. IMPLEMENTED (GUA-123):
+   persona flows task → node → run-record profile; the omp adapter is
+   persona-aware via env (`GORP_OMP_MODEL`, `GORP_OMP_SYSTEM_PROMPT_APPEND`)
+   and stays source-neutral. Skill: `execution`.
 4. **Dispatch** — run graph nodes via the worker adapter seam (fixture | omp)
    inside isolated sandbox worktrees. Skill: `execution`.
 5. **QA / gates** — scope gate, command gate, review policy; fail closed.
