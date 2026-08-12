@@ -106,6 +106,22 @@ describe("planner: approved sprint -> deterministic draft graph", () => {
     expect(graph.provenance.source).toContain("graph-compiler: sprint sprint-t1");
   });
 
+  it("carries optional task persona to node persona", () => {
+    const g = compileGraph(
+      sprint({ tasks: [task("t1", "docs/a.md", { review: "human", worker: "omp", persona: "architect" })] }),
+      { baseCommit: BASE, clock },
+    );
+    expect(g.nodes[0]!.persona).toBe("architect");
+  });
+
+  it("omits persona from node when task has no persona", () => {
+    const g = compileGraph(
+      sprint({ tasks: [task("t1", "docs/a.md")] }),
+      { baseCommit: BASE, clock },
+    );
+    expect(g.nodes[0]!.persona).toBeUndefined();
+  });
+
   it("same input = same graph (byte-identical, twice)", () => {
     const a = serializeDeterministic(compileGraph(sprint(), { baseCommit: BASE, clock }));
     const b = serializeDeterministic(compileGraph(sprint(), { baseCommit: BASE, clock }));

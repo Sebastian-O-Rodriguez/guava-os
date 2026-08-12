@@ -118,6 +118,7 @@ describe("generateSprint", () => {
     expect(a.review).toBe("human");
     expect(a.maxAttempts).toBe(1);
     expect(a.escalation).toBe("operator");
+    expect(a.persona).toBe("backend");
   });
 
   it("excludes blocked issues (unresolved native blocker)", () => {

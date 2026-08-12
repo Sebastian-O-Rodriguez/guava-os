@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { ompAdapter, extractOmpSummary } from "../src/worker/omp.js";
 import { createSandbox, sandboxHead, type Sandbox } from "../src/sandbox/worktree.js";
@@ -141,5 +141,89 @@ describe("extractOmpSummary (NDJSON)", () => {
   it("falls back to a default when no agent_end/assistant text exists", () => {
     expect(extractOmpSummary("not json at all\n")).toBe("OMP worker completed.");
     expect(extractOmpSummary('{"type":"session"}')).toBe("OMP worker completed.");
+  });
+});
+
+describe("OMP adapter --append-system-prompt env passthrough", () => {
+  let argTracePath: string;
+  let prevAppend: string | undefined;
+
+  function writeArgTraceFakeOmp(): string {
+    const tmp = mkdtempSync(join(tmpdir(), "gorp-omp-argtrace-"));
+    argTracePath = join(tmp, "args.json");
+    const path = join(fakeOmpDir, "fake-omp-args.sh");
+    writeFileSync(
+      path,
+      [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        // Drain stdin
+        "cat > /dev/null 2>&1 || true",
+        // Produce an expected artifact so the adapter's changed-files check passes
+        "mkdir -p docs",
+        "printf 'GOS-35 probe artifact\\n' > docs/probe.md",
+        // Write all args to the trace file as a JSON array
+        `printf '%s\\n' "$(printf '%s\\n' "$@" | jq -R -s -c 'split("\n")[:-1]')" > "${argTracePath}"`,
+        // Emit a valid agent_end so the adapter doesn't fail on missing summary
+        "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Args captured.\"}]}]}'",
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  beforeEach(() => {
+    prevAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+  });
+
+  afterEach(() => {
+    if (prevAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevAppend;
+    else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    if (argTracePath && existsSync(dirname(argTracePath))) {
+      rmSync(dirname(argTracePath), { recursive: true, force: true });
+    }
+  });
+
+  it("forwards --append-system-prompt and its value when GORP_OMP_SYSTEM_PROMPT_APPEND is set", async () => {
+    process.env["GORP_OMP_CMD"] = writeArgTraceFakeOmp();
+    process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are a backend architect.";
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sandbox-append"),
+      "gorp/run/omp-adapter-append/node-1/run-1",
+    );
+    try {
+      await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node: makeNode(), clock });
+      expect(existsSync(argTracePath)).toBe(true);
+      const args: string[] = JSON.parse(readFileSync(argTracePath, "utf8"));
+      const appendIdx = args.indexOf("--append-system-prompt");
+      expect(appendIdx).not.toBe(-1);
+      expect(args[appendIdx + 1]).toBe("You are a backend architect.");
+      // --model is also present (existing behavior)
+      expect(args.includes("--model")).toBe(true);
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
+  });
+
+  it("does NOT include --append-system-prompt when env is unset", async () => {
+    delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    process.env["GORP_OMP_CMD"] = writeArgTraceFakeOmp();
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sandbox-noappend"),
+      "gorp/run/omp-adapter-noappend/node-1/run-1",
+    );
+    try {
+      await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node: makeNode(), clock });
+      expect(existsSync(argTracePath)).toBe(true);
+      const args: string[] = JSON.parse(readFileSync(argTracePath, "utf8"));
+      expect(args.includes("--append-system-prompt")).toBe(false);
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
   });
 });
