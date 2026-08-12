@@ -1,32 +1,57 @@
 # Guava OS Operator Runbook
 
-> **Authority note (2026-07).** Execution state for governed work is owned by the gorp execution engine; Linear is an input format for this classifier only.
-
-Operational guide for running the Guava OS CLI in the Guava planning/execution loop.
+> **Authority note (2026-08).** This runbook covers the classifier commands
+> (`doctor`, `status`, `validate`, `next`). Planning, project management, and
+> governed execution go through `pm`, `sprint`, and `wf` — see
+> `.omp/skills/planning/SKILL.md` for the canonical operational loop.
+Operational guide for the classifier commands and the input contract they
+expect. For planning (pm/sprint) and governed execution (wf), see
+`.omp/skills/planning/SKILL.md` and `.omp/skills/execution/SKILL.md`.
 
 **Layout & operating model** (checkouts, dev isolation, archives):
 `docs/architecture/repo-layout.md`. Guava OS tooling is invoked from the
 guava-os checkout — the CLI resolves `gorp/` and skills relative to it.
 
-## Workflow Overview
+## Classifier Data Input Contract
 
-```
-Human/CTO defines plan in Linear
-        ↓
-Operator fetches Linear issue data (via MCP tools or Linear export)
-        ↓
-Data piped into Guava OS CLI
-        ↓
-CLI reports: queue state, violations, parent health
-        ↓
-Human/CTO decides: proceed / fix Linear / pivot
-        ↓
-Agents execute validated work
+The classifier commands (`doctor`, `status`, `validate`, `next`) do not call
+Linear — the caller provides data via stdin. The recommended pipeline:
+
+```bash
+guava-os pm search --project guava-os --json | guava-os validate
+guava-os pm search --project guava-os --json | guava-os status
 ```
 
-The CLI sits between Linear (source of truth) and agent execution. It is a checkpoint, not a controller.
+The `pm search` response maps directly to the CLI input format without
+transformation.
 
-## When to Run Each Command
+### Required Issue Shape
+
+Each issue in the JSON array must have:
+
+| Field | Type | Required |
+|-------|------|----------|
+| `id` | string | Yes |
+| `title` | string | Yes |
+| `status` | string | Yes |
+| `statusType` | string | Yes |
+| `priority` | object | Yes |
+| `labels` | string[] | Yes |
+| `parentId` | string | Only for sub-issues |
+| `project` | string | Yes |
+| `createdAt` | string | Yes |
+| `updatedAt` | string | Yes |
+| `completedAt` | string or null | Yes |
+| `canceledAt` | string or null | Yes |
+| `assignee` | string | No |
+
+### Common Mistakes
+
+- Piping an object `{"issues": [...]}` instead of a bare array `[...]` — the classifiers expect a bare array
+- Omitting `statusType` — needed to distinguish Backlog
+- Omitting `canceledAt` — needed to exclude canceled issues
+
+See `.omp/skills/planning/SKILL.md` for `pm`, `sprint`, and `wf` commands.
 
 ### `doctor` — Run Once Per Session
 
@@ -73,14 +98,14 @@ cat issues.json | .guava-os/bin/guava-os validate
 
 ## Required Command Sequence
 
-For a standard operator cycle:
+For a standard classifier cycle:
 
 ```bash
 # 1. Verify repo setup
 .guava-os/bin/guava-os doctor
 
-# 2. Fetch Linear data (caller's responsibility — see Data Input below)
-# Example: save MCP list_issues output to issues.json
+# 2. Fetch Linear data via pm and pipe to classifier
+guava-os pm search --project guava-os --json > issues.json
 
 # 3. Check for violations
 cat issues.json | .guava-os/bin/guava-os validate
@@ -93,56 +118,6 @@ cat issues.json | .guava-os/bin/guava-os status
 
 Do not skip `validate`. Running `status` on a graph with errors gives misleading results — INVALID sub-issues are excluded from the queue silently.
 
-## Data Input Contract
-
-The CLI does not fetch Linear data. The caller must provide it.
-
-### How to Get Linear Data
-
-**Using guava-os tooling:**
-
-```
-guava-os pm search --project guava-os --json
-```
-
-Pipe the resulting JSON array to the CLI. Agents reach Linear only through
-guava-os tooling (GOS-19) — never Claude Code or raw MCP.
-
-**Option B: Manual export**
-
-Copy issue data from Linear's API or export tools into a JSON file.
-
-### Required Issue Shape
-
-Each issue in the JSON array must have:
-
-| Field | Type | Source | Required |
-|-------|------|--------|----------|
-| `id` | string | Linear issue identifier (e.g. `"GUA-10"`) | Yes |
-| `title` | string | Issue title | Yes |
-| `status` | string | Linear status name (e.g. `"Todo"`, `"In Progress"`) | Yes |
-| `statusType` | string | Linear status type (e.g. `"unstarted"`, `"started"`, `"completed"`, `"backlog"`, `"canceled"`) | Yes |
-| `priority` | object | `{ "value": 2, "name": "High" }` | Yes |
-| `labels` | string[] | Array of label names (e.g. `["backend"]`) | Yes |
-| `parentId` | string | Parent issue identifier, if this is a sub-issue | Only for sub-issues |
-| `project` | string | Project name | Yes |
-| `createdAt` | string | ISO date | Yes |
-| `updatedAt` | string | ISO date | Yes |
-| `completedAt` | string or null | ISO date or null | Yes |
-| `canceledAt` | string or null | ISO date or null | Yes |
-| `assignee` | string | Assignee name (optional) | No |
-
-### Field Mapping from Linear MCP
-
-The `guava-os pm search` response maps directly to the CLI input format. The `issues` array from the MCP response can be piped to the CLI without transformation.
-
-
-> **Note:** Agents use `guava-os pm` commands, not Linear MCP directly (GOS-18).
-### Common Mistakes
-
-- Piping an object `{"issues": [...]}` instead of a bare array `[...]` to `status`/`validate` — the CLI expects a bare array for these commands
-- Omitting `statusType` — the CLI uses this to distinguish Backlog from other statuses
-- Omitting `canceledAt` — the CLI uses this to exclude canceled issues
 
 ## Exit Code Reference
 
@@ -184,19 +159,20 @@ Agents should NOT be dispatched if:
 
 - **Warnings in validate** — review them, but they don't block execution
 - **`status` exit code 1** — means no executable work, which may be correct (all work is in Backlog awaiting promotion)
-- **BLOCKED category empty** — this is expected. Dependency relation data is not yet available (`dependencyRelationsLoaded: false`)
+- **BLOCKED category empty** — the classifier doesn't load dependency data;
+  use `sprint generate` for dependency-aware execution.
 - **`doctor` label check failing** — only fails if Linear data wasn't piped in. Run with `{"issues":[], "labels":[...]}` for full check.
 
-## What Must Be Fixed in Linear Manually
+## Fixing Violations
 
-The CLI is read-only. All fixes happen in Linear:
+Fix in Linear (or via `pm update`). The classifier commands are read-only.
 
 | Problem | Fix |
 |---------|-----|
-| Missing persona label | Add label to the sub-issue in Linear |
-| Multiple persona labels | Remove extra labels in Linear |
-| Inactive parent | Change parent status to Todo or In Progress in Linear |
-| Empty parent | Create sub-issues under the parent in Linear, or move parent to Backlog |
+| Missing persona label | Add label via Linear or `pm update` |
+| Multiple persona labels | Remove extra labels |
+| Inactive parent | Change parent status to Todo or In Progress |
+| Empty parent | Create sub-issues under the parent, or move parent to Backlog |
 | Orphan sub-issue | Re-link to correct parent, or delete if stale |
 
 ## Go / No-Go Rules
@@ -240,9 +216,12 @@ Any of the following:
 error: command requires issue data on stdin
 ```
 
-The CLI received no input. Pipe Linear issue data:
+The CLI received no input. Pipe Linear issue data via `pm search` or from a
+saved file:
 
 ```bash
+guava-os pm search --project guava-os --json | .guava-os/bin/guava-os status
+# or
 cat issues.json | .guava-os/bin/guava-os status
 ```
 
@@ -250,7 +229,7 @@ cat issues.json | .guava-os/bin/guava-os status
 
 `status` shows all personas as `(none)`. Possible causes:
 
-- All sub-issues are in Backlog (need Robo promotion or manual move to Todo)
+- All sub-issues are in Backlog (need promotion via gorp or manual move to Todo)
 - Sub-issues are Todo but parent is Backlog (V303 — validate will catch this)
 - Sub-issues are missing persona labels (V400 — validate will catch this)
 - All work is Done or In Progress (nothing left to claim)
@@ -277,13 +256,16 @@ cat issues.json | .guava-os/bin/guava-os status
 
 ### Blocker detection unavailable
 
-`status` output includes:
+`status` output may include:
 
 ```
 BLOCKED (dependency relations not loaded — blocker detection unavailable)
 ```
 
-This is expected. The CLI cannot detect blocking relationships because Linear's `list_issues` API does not return them. Sub-issues that have blockers will appear as EXECUTABLE even if they shouldn't be. This is a known limitation — operators should manually check blocking relations in Linear for critical work.
+The classifier does not load dependency data on its own. For dependency-aware
+execution, use `sprint generate --parent <chain-head>` (chain mode) or
+`sprint generate --parent <container-id>` (container mode). The BLOCKED
+category is populated when the caller provides dependency relations.
 
 ## Pilot Checklist
 

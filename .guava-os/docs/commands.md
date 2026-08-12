@@ -1,10 +1,17 @@
 # Commands
 
-All available Guava OS commands. There are three: `doctor`, `status`, `validate`.
+The Guava OS CLI has two surfaces:
 
-All commands are read-only. None mutate Linear, git, or any external state.
+- **Classifier commands** (`doctor`, `status`, `validate`, `next`) — read-only,
+  stdin-driven. This doc covers these.
+- **Planning/management commands** (`pm`, `sprint`, `wf`) — these call Linear,
+  mutate state, and drive the governed execution pipeline. See
+  `.omp/skills/planning/SKILL.md`.
 
-## Running the CLI
+## Classifier Commands
+
+There are four classifier commands. All are read-only over stdin data; none
+mutate Linear, git, or external state.
 
 ```bash
 # Recommended

@@ -79,16 +79,22 @@ Every issue must have:
 
 ## Parent/child structure
 
-- One parent issue per sprint (the container).
-- Every work issue is a child of the sprint parent.
-- Children carry exactly one persona label.
-- Parents carry no persona label (they are containers, not executable work).
+- A sprint may be a **container** (parent with children) or a **standalone
+  dependency chain** (chain head wired by native `blocks`). Using a final
+  deliverable as a fake sprint container is forbidden.
+- Container: one parent issue per sprint; every child carries exactly one
+  persona label; parents carry no persona label (they group, never execute).
+- Chain: top-level deliverables wired by `blocks`; the chain head is
+  executable; `sprint generate --parent <chain-head>` produces the chain
+  document.
+- Standalone deliverables (no parent, no children) are valid executable work
+  (GUA-111) — they do not need a container parent.
 
 ## Dependencies
 
 - Linear native `blocks` / `blocked-by` relations.
-- A child is `Todo` only when all its `blocked-by` dependencies are `Done`.
 - Dependencies mirror the critical path; no cycles.
+- gorp enforces execution order from the dependency graph.
 
 ## Acceptance criteria
 

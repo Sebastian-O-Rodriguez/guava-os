@@ -1,7 +1,8 @@
 # Limitations
 
-Current capabilities and constraints of Guava OS CLI.
-
+> These apply to the classifier commands (`doctor`, `status`, `validate`,
+> `next`) only. Planning/management (`pm`, `sprint`, `wf`) call Linear and
+> mutate state — see `.omp/skills/planning/SKILL.md`.
 ## Implemented
 
 | Capability | Status |
@@ -16,34 +17,19 @@ Current capabilities and constraints of Guava OS CLI.
 | Read-only operation | Enforced — tested |
 | Fixture-based testing | Working — 91 tests |
 
-## Not Implemented
+## Not Implemented (classifier commands)
 
 | Capability | Why | Impact |
 |-----------|-----|--------|
-| **Dependency/blocker detection** | Linear's `list_issues` doesn't return blocking relations. Per-issue `get_issue` calls needed. | BLOCKED category is always empty. Sub-issues with real blockers appear as EXECUTABLE. Operators must manually verify dependency order. |
-| **Linear data fetching** | CLI is a pure data processor by design. No network layer. | Caller must pipe data via stdin. |
-| **Linear mutations** | Read-only by design in current phase. | Promotion, reclamation, status changes must be done manually in Linear. |
+| **Dependency/blocker detection** | Classifier reads stdin only; dependency data is available via `pm search` and used by `sprint generate`. | BLOCKED category empty unless caller provides relations. |
 | **Stale claim detection** | Requires git branch activity data and Linear comment timestamps. | In Progress sub-issues are not age-checked. Stale work is invisible. |
 | **Agent identity context** | CLI doesn't know which agent is running. | Cannot detect persona mismatch on active claims (V102). |
 | **Status transition history** | CLI sees current state, not history. | Cannot detect illegal transitions (V200), skipped review (V203), or unauthorized Done (V202). |
 | **Git integration** | CLI doesn't read git state. | Cannot validate branch naming, detect commits, or verify branch existence. |
 | **Hooks / pre-action enforcement** | No OMP runtime hooks configured. | Protocol violations are detected after the fact, not prevented. |
-| **Robo control loop** | Not implemented. | No automated promotion, reclamation, or queue management. |
 | **Dashboard / GUI** | Not implemented. | CLI output only. |
 | **Activity tracking** | No lease or activity monitoring. | Cannot extend claim leases or detect abandoned work. |
 | **Concurrency handling** | No lock or contention detection. | If two agents claim the same sub-issue, the CLI won't detect it. |
-
-## Intentionally Deferred
-
-These are planned but deliberately postponed to maintain system stability:
-
-| Capability | Deferred Until | Rationale |
-|-----------|---------------|-----------|
-| `guava-os robo` (dry-run) | Phase 3 | Requires dependency data for safe promotion recommendations |
-| `guava-os robo --apply` | Phase 3+ | Mutation authority requires human opt-in and audit logging |
-| OMP runtime hooks | Phase 3+ | Enforcement should be proven via validate before being automated |
-| Dependency relation loading | Phase 3 | N+1 API call pattern needs rate-limit design |
-| Manifest generation | Phase 3 | Useful for hooks, not needed for manual workflow |
 
 ## Known Edge Cases
 

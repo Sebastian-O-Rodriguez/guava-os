@@ -14,8 +14,7 @@ How to read and use `guava-os doctor` output.
 | gitignore | `.guava-os/manifest.json` is in `.gitignore` | No |
 
 ## What Doctor Does NOT Check
-
-- Linear network connectivity (the CLI has no network layer)
+- Linear network connectivity (the classifier has no network layer; `pm` handles it)
 - Issue graph structure (that's `validate`)
 - Execution readiness (that's `status`)
 - Code quality or build state

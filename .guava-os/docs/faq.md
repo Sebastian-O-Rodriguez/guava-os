@@ -1,9 +1,8 @@
 # FAQ
 
-## Does Linear own execution state?
-
-No. Since 2026-07 guava-os is the control plane and Gorp is the executor. Execution state lives in the Gorp-governed persisted graph. Linear is an input format for this classifier only — promotion of governed work happens through Gorp review and promotion, not by moving Linear issues.
-
+> **Authority note (2026-08).** This FAQ covers the classifier commands.
+> `pm`, `sprint`, and `wf` call Linear and mutate state. See
+> `.omp/skills/planning/SKILL.md` for the canonical operational loop.
 ## Why is the executable queue empty?
 
 All sub-issues are in Backlog. They need to be promoted to Todo in Linear before agents can claim them. This is the normal state before a sprint starts.
@@ -19,20 +18,12 @@ These answer different questions.
 
 A graph where all sub-issues are in Backlog has zero structural problems (validate passes) but zero executable work (status shows empty queue). Both are correct.
 
-## Why are blockers unavailable?
-
-Linear's `list_issues` API returns issue data but not blocking/dependency relations. To get relations, the CLI would need to call `get_issue` for each issue individually — that's an N+1 query pattern that's deferred to a future phase.
-
-Until then, the CLI cannot distinguish between "executable" and "would be executable if blocker X were resolved." Operators must manually verify dependency order in Linear for critical work.
 
 ## Why must work be promoted manually?
 
-Guava OS is read-only. It cannot change Linear state. Promotion (Backlog → Todo) requires either:
-
-- A human moving the issue in Linear
-- Gorp's governed execution pipeline with mutation authority (the deprecated `robo` persona previously covered this domain)
-
-Today, all queue management is manual.
+The classifier commands are read-only. Promotion (Backlog → Todo) for
+governed work flows through gorp's execution pipeline (`sprint generate` →
+`wf plan` → gorp); manual promotion in Linear is also possible.
 
 ## Why is missing persona label an error (V400)?
 
@@ -44,37 +35,35 @@ This was promoted from warning to error because:
 - Leaving it as a warning would let operators proceed with un-routable work in the graph
 
 Fix: add exactly one persona label (architect, backend, frontend, or qa) to the sub-issue in Linear.
+## Why doesn't the classifier fetch Linear itself?
 
-## Why doesn't Guava OS fetch Linear itself?
-
-Design decision: the CLI is a pure data processor with no network layer.
+The classifier commands (`doctor`, `status`, `validate`, `next`) are stdin
+processors. `pm search` fetches Linear data; pipe it to the classifers.
 
 Benefits:
-- No API keys or auth configuration in the CLI
-- No rate limiting concerns
-- No network failure modes
+- No API keys or auth configuration in the classifiers
+- No rate limiting concerns in the classifiers
+- No network failure modes in the classifiers
 - Testable with fixture files
-- Same CLI works regardless of how data is fetched
-- Clear separation: callers own data access, CLI owns validation
+- Clear separation: `pm` owns data access, classifiers own validation
 
-The caller (guava-os agents via pm tooling, or a human via Linear export) is responsible for fetching.
+## Why are the classifiers read-only?
 
-## Why is this read-only?
-
-The guava-os CLI is the control plane's validation surface — inspect-only, no mutation. Read-only ensures:
+The classifier commands are the validation surface — stdin in, report out.
+Read-only ensures:
 
 - No accidental mutations during validation
 - Safe to run repeatedly without side effects
 - Output is deterministic for the same input
-- No risk of corrupting Linear state during development
 
-Mutation authority (promoting, reclaiming, transitioning) is a separate capability that will be added incrementally with explicit operator opt-in.
+Mutations, planning, and governed execution go through `pm`, `sprint`, and
+`wf` — these are the active surface.
 
 ## What does "dependency relations not loaded" mean?
 
-The CLI declares its data capabilities in the output. `dependencyRelationsLoaded: false` means blocking relationship data was not provided, so the BLOCKED category cannot be populated. Sub-issues that have real blockers will incorrectly appear as EXECUTABLE.
-
-This is not a bug — it's an honest declaration of what the CLI can and cannot determine from the data it received.
+The classifier output declares `dependencyRelationsLoaded: false` when the
+caller didn't provide dependency data. The BLOCKED category can't be
+populated without it. For dependency-aware execution, use `sprint generate`.
 
 ## What if doctor fails on "linear" and "labels"?
 

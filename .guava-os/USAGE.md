@@ -1,23 +1,31 @@
 # Guava OS CLI
 
-> **Authority note (2026-07).** guava-os is the control plane; Gorp is the execution engine. Execution state for governed work lives in the Gorp graph. Linear is an input format for this classifier only.
+> **Authority note (2026-08).** The classifier commands (`doctor`, `status`,
+> `validate`, `next`) are the read-only validation surface. Planning and
+> project management use `pm`, `sprint`, and `wf` commands, which do call
+> Linear and mutate state. See `.omp/skills/planning/SKILL.md` for the
 
-## What It Does
+## What It Does (classifier commands: `doctor`, `status`, `validate`, `next`)
 
 - Validates repo Guava OS setup (`doctor`)
 - Shows executable work queue by persona (`status`)
 - Detects protocol violations in the issue graph (`validate`)
 
-## What It Does NOT Do
+Planning and project management go through `pm`, `sprint`, and `wf` — those
+commands call Linear and are covered by `.omp/skills/planning/SKILL.md`.
 
-- Call Linear API (the CLI has no network layer)
-- Mutate Linear issues, labels, or statuses
+## What the Classifier Commands Do NOT Do
+
+- Call Linear API (they read stdin only; `pm`/`sprint`/`wf` handle network)
+- Mutate Linear issues, labels, or statuses (`pm` handles mutations)
 - Write to the filesystem (except stdout)
 - Execute git operations
 - Deploy, build, or run product code
 - Make autonomous decisions
 
-The CLI is the control plane's validation surface: a **pure data processor** — JSON in via stdin, deterministic output to stdout.
+The classifier commands are the validation surface: JSON in via stdin,
+deterministic output to stdout. Planning/mutation commands (`pm`, `sprint`,
+`wf`) are the active surface and do call Linear.
 
 ## How to Run
 
@@ -67,7 +75,7 @@ cat issues.json | guava-os status --json
 Categories:
 - **EXECUTABLE** — Todo sub-issues with valid persona, active parent
 - **NOT_PROMOTED** — Backlog sub-issues awaiting promotion
-- **BLOCKED** — Sub-issues with unresolved dependencies (requires dependency data, currently unavailable)
+- **BLOCKED** — Sub-issues with unresolved native Linear blockers (populated when dependency data is provided by caller)
 - **INVALID** — Sub-issues violating protocol (missing label, inactive parent, etc.)
 - **PARENTS** — Parent issue health summary
 
@@ -153,10 +161,12 @@ cat .guava-os/fixtures/warnings.json | guava-os validate   # exit 0 (warnings on
 cat .guava-os/fixtures/errors.json | guava-os validate     # exit 1 (errors)
 ```
 
-## Known Limitations
+## Known Limitations (classifier commands only)
 
-- **No dependency/blocker detection** — Linear's `list_issues` API does not return blocking relations. BLOCKED category is always empty. `dependencyRelationsLoaded: false` in capabilities.
+- The classifier commands (`doctor`, `status`, `validate`, `next`) are
+  stdin-only — they do not call Linear and process data the caller provides.
+  Dependency data for the BLOCKED category must come from the caller.
 - **No stale claim detection** — requires git branch activity data not available to the CLI.
 - **No agent identity context** — the CLI does not know which agent is running. Violations like V100–V102 (claim violations) require caller context.
-
-- **No mutation authority** — the CLI cannot promote, reclaim, or transition issues. Those operations are handled by Gorp's governed execution pipeline (the deprecated `robo` persona previously covered this domain).
+- Mutations and dependency-aware planning go through `pm`, `sprint`, and `wf`
+  (see `.omp/skills/planning/SKILL.md`), not the classifier commands.

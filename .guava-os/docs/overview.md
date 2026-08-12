@@ -1,12 +1,11 @@
 # Guava OS Overview
 
-Guava OS is the read-only control plane for Guava's agent-operated projects. Its CLI inspects Linear execution graphs and reports queue state, protocol violations, and parent health. Operators iterate and create plans here; approved plans are delegated to Gorp (the executor) for governed execution.
-
-## What It Is
-
-A pure data processor. It takes Linear issue data as JSON input and produces deterministic, structured output about what work is executable, what is blocked or invalid, and whether the issue graph follows protocol rules.
-
-It is the checkpoint between "human plans work in Linear" and "agents execute work."
+Guava OS is the control plane for Guava's agent-operated projects. Its
+classifier commands (`doctor`, `status`, `validate`, `next`) inspect Linear
+execution graphs and report queue state, protocol violations, and parent
+health. Planning and project management use `pm`, `sprint`, and `wf`; governed
+execution flows through gorp. See `.omp/skills/planning/SKILL.md` for the
+canonical loop.
 
 ## What It Does
 
@@ -15,13 +14,16 @@ It is the checkpoint between "human plans work in Linear" and "agents execute wo
 - **Detects violations** (`validate`) — finds structural problems in the issue graph that would cause agents to fail
 - **Generates launch directives** (`next`) — compiles the graph into one operator-ready launch directive per persona (branch name plus context notes)
 
-## What It Does NOT Do
+## What the Classifier Commands Do NOT Do
 
-- Fetch data from Linear (the caller provides data via stdin)
-- Mutate Linear issues, statuses, labels, or assignments
-- Promote sub-issues from Backlog to Todo
+These apply to `doctor`, `status`, `validate`, `next`. Planning/mutation
+commands (`pm`, `sprint`, `wf`) call Linear and drive execution.
+
+- Fetch data from Linear (they read stdin; `pm search` handles fetching)
+- Mutate Linear issues, statuses, labels, or assignments (`pm` handles mutations)
+- Promote sub-issues from Backlog to Todo (gorp handles promotion)
 - Reclaim stale work
-- Dispatch or control agents
+- Dispatch or control agents (gorp dispatches workers)
 - Deploy code
 - Write to the filesystem
 - Make autonomous decisions
@@ -29,23 +31,20 @@ It is the checkpoint between "human plans work in Linear" and "agents execute wo
 
 ## Current Architecture
 
-
 ```
 Linear (source of truth)
     ↓
-Caller fetches issue data (MCP tools, export, API)
+guava-os pm search / sprint generate / wf plan
     ↓
-JSON piped to stdin
+gorp compile-graph → orchestrate → gate → review → promote
     ↓
-guava-os CLI (pure function: data in → report out)
-    ↓
-stdout: human-readable or JSON output
-    ↓
-Human decides: proceed / fix Linear / pivot
+OMP worker dispatch (persona-aware, sandboxed)
 ```
 
-The CLI has no network layer. It reads stdin and local config files. It writes to stdout only.
-guava-os sits above Gorp as the control plane: operators plan and validate here; approved plans flow down to Gorp for governed execution (plan → orchestrate → gate → review → promote). The CLI itself is a pure data processor — it never drives execution.
+The classifier commands (`doctor`, `status`, `validate`, `next`) are the
+read-only validation surface — stdin in, stdout out. The full governed
+pipeline uses `pm`, `sprint`, and `wf` to plan, then hands off to gorp for
+execution.
 
 
 ## Authority Model

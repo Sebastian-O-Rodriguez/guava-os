@@ -36,14 +36,16 @@ These need manual promotion to Todo in Linear before agents can claim them.
 ### BLOCKED
 
 Sub-issues that would be executable but have unresolved dependencies.
+Populated when the caller provides dependency data.
 
-**Current state**: always empty. Dependency relation data is not available to the CLI. The output includes a notice:
+The output may include a notice when dependency data is absent:
 
 ```
 BLOCKED (dependency relations not loaded — blocker detection unavailable)
 ```
 
-This means sub-issues with real blockers appear as EXECUTABLE. Operators must manually verify dependency order in Linear.
+For dependency-aware execution, use `sprint generate` (chain mode or
+container mode).
 
 ### INVALID
 
@@ -129,7 +131,7 @@ cat issues.json | .guava-os/bin/guava-os status --json
 The JSON includes:
 - `executable` — object with persona keys, each containing an array of sub-issues
 - `not_promoted` — array
-- `blocked` — array (currently always empty)
+- `blocked` — array (empty unless caller provides dependency data)
 - `invalid` — array
 - `parents` — array of parent health objects
 - `summary` — canonical counts
