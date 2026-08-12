@@ -105,6 +105,22 @@ Move to Done when acceptance criteria are met:
 guava-os pm move GUA-50 --status "Done"
 ```
 
+#### planning handoff (SprintDocument)
+
+Build the execution input from a container parent OR a standalone chain head
+(GUA-137 — shape inferred from the parent):
+
+```bash
+guava-os sprint generate --parent GUA-44 --out sprint.json   # container -> children
+guava-os sprint generate --parent GUA-104 --out sprint.json  # chain head -> dependency chain
+guava-os sprint approve sprint.json --by operator
+```
+
+`project.projectId` in the document is the canonical GOS registry id (not the
+Linear project name; GUA-135). Standalone deliverables (no parent, persona +
+Todo + unblocked) are valid executable work (GUA-111) — do not force them
+into a container to satisfy tooling.
+
 #### sprint summary
 
 Get the sprint parent + children:

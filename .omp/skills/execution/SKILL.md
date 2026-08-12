@@ -13,21 +13,24 @@ operator approval transition → `wf orchestrate` (scheduler drives run → gate
 Every step fails closed: Ajv schemas (`additionalProperties: false`), the
 transition table, hash-bound decisions, the hash-chained audit trail.
 
-## Worker profile
+## Worker profile (GUA-123, landed)
 
-Dispatch assembles a worker profile: persona
-(`.guava-os/personas/<name>/persona.md`) → OMP role (`maps_to`) → worker
-skills → runtime config (model, tools). Contract:
-`docs/architecture/worker-profile-contract.md`. Adapter wiring is pending —
-today the omp adapter dispatches blind (model from
-`GORP_OMP_MODEL ?? "default"`; persona files are not read).
+Dispatch composes a worker profile: persona (`.guava-os/personas/<name>/persona.md`)
+→ OMP role (`maps_to`) → worker skills → runtime config (model, tools).
+The persona label flows issue → SprintTask.persona → graph node.persona →
+run-record `profile {persona, model}` (visible via `wf review`/`gorp inspect`).
+The omp adapter stays source-neutral: it reads `node.persona` as data and the
+env vars `GORP_OMP_MODEL` (model tier) and `GORP_OMP_SYSTEM_PROMPT_APPEND`
+(persona body) and forwards them to the omp invocation
+(`--model`, `--append-system-prompt`). Real persona-aware OMP execution is
+PROVEN (GOS-35, guava-site proof 2026-08-12). Contract:
+`docs/architecture/worker-profile-contract.md`.
 
 ## Worker skills
 
 Execution behaviors (backend, frontend, architecture, QA, review, docs,
-migration) are loaded by OMP at dispatch. Documented only; current embodiment
-is the persona files. Workers never touch Linear and never make governance
-decisions.
+migration) are loaded by OMP at dispatch via the persona body. Workers never
+touch Linear and never make governance decisions.
 
 ## Uses
 

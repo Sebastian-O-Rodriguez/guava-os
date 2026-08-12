@@ -30,20 +30,71 @@ operator-approved sprints; gorp never plans.
 9. Execute writes via the `linear` skill.
 10. Verify with the board read-back.
 
+## Operational loop (canonical)
+
+```
+project root → OMP session → GOS planning → Linear → IssueGraph → executable
+work → SprintDocument → gorp graph → persona-aware OMP worker → gates → human
+review → approve/reject/retry → promote → Linear refresh
+```
+
+guava-os plans and decides; gorp compiles and executes; workers execute;
+OMP runs; gorp never touches Linear (ADR_001). guava-os updates Linear from
+execution results via `pm`.
+
+## Work shapes (decide which before planning)
+
+- **Container** = a Linear issue with ≥1 child (native parentId pointing at
+  it). A container groups deliverables and is **never executable itself**.
+  Sprint parents are containers.
+- **Deliverable** = a Linear issue with **no children**. A deliverable is
+  executable when: status Todo, exactly one persona label, and no unresolved
+  native blockers. A deliverable may be a **child** (under a container) or
+  **standalone** (no parent) — both are equally eligible. Standalone
+  deliverables are VALID work (GUA-111); a clean board must never show
+  executable work as zero.
+- **Standalone dependency chain** = a set of top-level deliverables wired by
+  native `blocks` edges. The chain head (unblocked issue) is executable; the
+  rest are blocked until their dependency satisfies. `status` exposes the
+  head; `sprint generate --parent <chain-head>` produces the chain document
+  (GUA-137). Using a final deliverable as a fake sprint container is
+  forbidden — chain mode replaces it.
+
 ## Sprint model
 
-- A sprint is a Linear parent issue + children (native parent/child).
-- Children per parent ≤ `max_subtasks_per_parent` (config). **Enforced** —
-  `validate` raises V305 (`subtask_overflow`, error) when an active parent
-  exceeds the cap. The cap is per parent: split work across multiple parents
-  (each ≤ cap) rather than overloading one.
-- Every child: exactly one persona label; description with Why / Scope /
+- A sprint is a Linear **container** parent + children (deliverables), OR a
+  standalone dependency chain generated from a chain head.
+- Children per container ≤ `max_subtasks_per_parent` (config). **Enforced** —
+  `validate` raises V305 (`subtask_overflow`, error) when an active container
+  exceeds the cap. The cap is per container: split work across multiple
+  containers (each ≤ cap) rather than overloading one.
+- Every deliverable: exactly one persona label; description with Why / Scope /
   Acceptance criteria (template: `docs/architecture/linear-conventions.md`).
 - Workflow state = Status; labels carry metadata only (GOS-21).
-- Two-artifact model: the Linear sprint is the board artifact; the gorp
-  sprint document (operator-approved, schema-validated) is the execution
-  input. Planning produces the first; operator approval + `wf plan` produces
-  the second.
+- Two-artifact model: the Linear board is the planning artifact; the gorp
+  SprintDocument (operator-approved, schema-validated) is the execution
+  input. `sprint generate` produces the second; `wf plan` compiles it.
+
+## SprintDocument generation (GUA-137)
+
+- `sprint generate --parent <id>` infers shape from the parent:
+  - parent has ≥1 child → **container mode**: tasks from its children
+    (blocked children excluded, GOS-28).
+  - parent has no children → **chain mode**: tasks = parent + transitive
+    forward `blocks`-closure; dependencies carried so gorp pipelines them.
+- `project.projectId` = the canonical GOS registry id from
+  `.guava-os/registry/projects.yml` (`linear_project` field maps the Linear
+  name), e.g. Linear `guava-bi` → registry id `guavabi`. Never the Linear
+  project name (GUA-135).
+- Invalid shapes fail loudly (empty container, missing/backlog parent) —
+  never a silent empty SprintDocument.
+
+## Persona → worker (GUA-123)
+
+Each task carries `persona` (the issue's persona label) → graph node →
+run-record `profile {persona, model}`. The OMP invocation is persona-aware
+(via `GORP_OMP_MODEL` + `GORP_OMP_SYSTEM_PROMPT_APPEND`); persona/profile
+definitions live in `.guava-os/personas/<name>/persona.md`.
 
 ## Identity (canonical IDs)
 
