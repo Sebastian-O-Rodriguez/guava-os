@@ -54,6 +54,12 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     }
   }
 
+  // Containers (issues with ≥1 child) are groupings, not deliverables —
+  // persona/queue checks apply to deliverables only (GUA-111).
+  const containerIds = new Set(
+    issues.filter((i) => !i.canceledAt && subtasksByParent.has(i.id)).map((i) => i.id),
+  );
+
   // ── V302: orphan_sub_issue ──
   for (const issue of issues) {
     if (issue.canceledAt) continue;
@@ -87,20 +93,30 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   }
 
   // ── V304: empty_parent ──
-  for (const [id, parent] of parentMap) {
-    if (parent.canceledAt || parent.statusType === "completed") continue;
-    if (!activeParentStatuses.includes(parent.status)) continue;
+  // Fires for active top-level issues that have NO children AND NO persona label.
+  // Standalone deliverables (have persona) are excluded — they're executable candidates.
+  // Real containers (have children) are excluded — they group work.
+  for (const issue of issues) {
+    if (issue.canceledAt || issue.statusType === "completed") continue;
+    if (issue.parentId) continue; // child deliverables — handled by other codes
+    if (!activeParentStatuses.includes(issue.status)) continue;
 
-    const subs = subtasksByParent.get(id) || [];
-    if (subs.length === 0) {
-      violations.push({
-        code: "V304",
-        name: "empty_parent",
-        severity: "warning",
-        issue_id: id,
-        detail: `Parent issue in "${parent.status}" has no sub-issues`,
-      });
-    }
+    // Skip if this issue has non-canceled children (it's a real container)
+    const hasChildren = issues.some(i => i.parentId === issue.id && !i.canceledAt);
+    if (hasChildren) continue;
+
+    // Skip if it has a persona label (it's a standalone deliverable)
+    const hasPersona = issue.labels.some(l => personaLabels.includes(l));
+    if (hasPersona) continue;
+
+    // Degenerate: no children, no persona — an empty parent with no reason to exist
+    violations.push({
+      code: "V304",
+      name: "empty_parent",
+      severity: "warning",
+      issue_id: issue.id,
+      detail: `Parent issue in "${issue.status}" has no sub-issues`,
+    });
   }
 
   // ── V305: subtask_overflow ──
@@ -124,7 +140,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   // ── V400: missing_persona_label ──
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
-    if (!issue.parentId) continue; // only check sub-issues
+    if (containerIds.has(issue.id)) continue;
 
     const matched = issue.labels.filter(l => personaLabels.includes(l));
     if (matched.length === 0) {
@@ -141,7 +157,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   // ── V401: multiple_persona_labels ──
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
-    if (!issue.parentId) continue;
+    if (containerIds.has(issue.id)) continue;
 
     const matched = issue.labels.filter(l => personaLabels.includes(l));
     if (matched.length > 1) {
@@ -161,7 +177,6 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   const knownNonPersona = new Set(["Feature", "Bug", "Improvement"]);
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
-    if (!issue.parentId) continue;
 
     for (const label of issue.labels) {
       if (!personaLabels.includes(label) && !knownNonPersona.has(label)) {
@@ -180,7 +195,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   const todoCountByPersona = new Map<string, number>();
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
-    if (!issue.parentId) continue;
+    if (containerIds.has(issue.id)) continue;
     if (issue.status !== config.statuses.todo) continue;
 
     const matched = issue.labels.filter(l => personaLabels.includes(l));
