@@ -56,7 +56,7 @@ export interface ExecutableSubtask {
   priority: number;
   priorityName: string;
   persona: string;
-  parentId: string;
+  parentId?: string;
   updatedAt: string;
 }
 
@@ -131,27 +131,43 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     }
   }
 
-  // Separate parents and sub-issues using Linear's native parentId relationship
-  const parentMap = new Map<string, LinearIssue>();
+  // Compute which IDs are someone's parent (used for container detection).
+  // A container is an issue that has ≥1 non-canceled child pointing at it.
+  const childOf = new Set<string>();
   const subtasksByParent = new Map<string, LinearIssue[]>();
-  const allSubtasks: LinearIssue[] = [];
-
   for (const issue of issues) {
     if (issue.canceledAt) continue;
-
     if (issue.parentId) {
-      allSubtasks.push(issue);
+      childOf.add(issue.parentId);
       const existing = subtasksByParent.get(issue.parentId) || [];
       existing.push(issue);
       subtasksByParent.set(issue.parentId, existing);
-    } else {
-      parentMap.set(issue.id, issue);
     }
   }
 
-  // Build parent health
+  // Build a lookup for all issues (needed for parent validation in deliverables).
+  const allById = new Map<string, LinearIssue>();
+  for (const issue of issues) {
+    if (issue.canceledAt) continue;
+    allById.set(issue.id, issue);
+  }
+
+  // Classify every non-canceled issue as container or deliverable.
+  const containerIds = new Set<string>();
+  const deliverables: LinearIssue[] = [];
+  for (const issue of issues) {
+    if (issue.canceledAt) continue;
+    if (childOf.has(issue.id)) {
+      containerIds.add(issue.id);
+    } else {
+      deliverables.push(issue);
+    }
+  }
+
+  // Build parent health from containers only.
   const parents: ParentHealth[] = [];
-  for (const [id, parent] of parentMap) {
+  for (const id of containerIds) {
+    const container = allById.get(id)!;
     const subs = subtasksByParent.get(id) || [];
     const done = subs.filter(s => s.statusType === "completed").length;
     const inProgress = subs.filter(s =>
@@ -164,14 +180,14 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     );
 
     parents.push({
-      id, title: parent.title, status: parent.status,
+      id, title: container.title, status: container.status,
       subtasks: subs, done, inProgress, todo, backlog,
       total: subs.length, hasPersonaLabels,
       hasSubtasks: subs.length > 0,
     });
   }
 
-  // Categorize sub-issues
+  // Categorize deliverables (standalone + child).
   const executable = new Map<string, ExecutableSubtask[]>();
   const notPromoted: NotPromotedSubtask[] = [];
   const blocked: BlockedSubtask[] = [];
@@ -181,15 +197,15 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     executable.set(persona, []);
   }
 
-  for (const sub of allSubtasks) {
-    if (sub.statusType === "completed") continue;
+  for (const issue of deliverables) {
+    if (issue.statusType === "completed") continue;
 
-    const matchedLabels = sub.labels.filter(l => personaLabels.includes(l));
+    const matchedLabels = issue.labels.filter(l => personaLabels.includes(l));
 
     // INVALID: missing persona label
     if (matchedLabels.length === 0) {
       invalid.push({
-        id: sub.id, title: sub.title,
+        id: issue.id, title: issue.title,
         violation: "missing persona label",
       });
       continue;
@@ -200,60 +216,63 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     // INVALID: multiple persona labels
     if (matchedLabels.length > 1) {
       invalid.push({
-        id: sub.id, title: sub.title,
+        id: issue.id, title: issue.title,
         violation: `multiple persona labels: ${matchedLabels.join(", ")}`,
       });
       continue;
     }
 
-    // NOT_PROMOTED: sub-issue in Backlog
-    if (sub.statusType === "backlog") {
+    // NOT_PROMOTED: deliverable in Backlog
+    if (issue.statusType === "backlog") {
       notPromoted.push({
-        id: sub.id, title: sub.title, persona, status: sub.status,
+        id: issue.id, title: issue.title, persona, status: issue.status,
       });
       continue;
     }
 
     // In Progress or In Review — actively being worked, not in any category
-    if (sub.status !== config.statuses.todo) {
+    if (issue.status !== config.statuses.todo) {
       continue;
     }
 
-    // Status is Todo — check parent eligibility
-    const parent = parentMap.get(sub.parentId!);
+    // Status is Todo — parent checks only for child deliverables.
+    if (issue.parentId) {
+      const parent = allById.get(issue.parentId);
 
-    // INVALID: parent not found in dataset (orphan sub-issue)
-    if (!parent) {
-      invalid.push({
-        id: sub.id, title: sub.title,
-        violation: `parent ${sub.parentId} not found in project issues`,
-      });
-      continue;
-    }
+      // INVALID: parent not found in dataset (orphan)
+      if (!parent) {
+        invalid.push({
+          id: issue.id, title: issue.title,
+          violation: `parent ${issue.parentId} not found in project issues`,
+        });
+        continue;
+      }
 
-    // INVALID: parent not active
-    if (!activeParentStatuses.includes(parent.status)) {
-      invalid.push({
-        id: sub.id, title: sub.title,
-        violation: `parent ${parent.id} status "${parent.status}" is not active (requires: ${activeParentStatuses.join(" or ")})`,
-      });
-      continue;
+      // INVALID: parent not active
+      if (!activeParentStatuses.includes(parent.status)) {
+        invalid.push({
+          id: issue.id, title: issue.title,
+          violation: `parent ${parent.id} status "${parent.status}" is not active (requires: ${activeParentStatuses.join(" or ")})`,
+        });
+        continue;
+      }
     }
 
     // BLOCKED: native relation blocker not yet completed (GOS-28).
+    // Applies to BOTH standalone and child deliverables.
     if (dependencyRelationsLoaded) {
-      const blockers = blockedBy.get(sub.id);
+      const blockers = blockedBy.get(issue.id);
       if (blockers && blockers.size > 0) {
         const unresolved: string[] = [];
         for (const bid of blockers) {
-          const b = parentMap.get(bid) ?? issues.find((i) => i.id === bid);
+          const b = allById.get(bid) ?? issues.find((i) => i.id === bid);
           if (b && b.statusType !== "completed" && !b.canceledAt) {
             unresolved.push(b.title);
           }
         }
         if (unresolved.length > 0) {
           blocked.push({
-            id: sub.id, title: sub.title, persona,
+            id: issue.id, title: issue.title, persona,
             reason: `blocked by: ${unresolved.join(", ")}`,
           });
           continue;
@@ -264,13 +283,13 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     // Eligible
     const queue = executable.get(persona)!;
     queue.push({
-      id: sub.id,
-      title: sub.title,
-      priority: sub.priority.value,
-      priorityName: sub.priority.name,
+      id: issue.id,
+      title: issue.title,
+      priority: issue.priority.value,
+      priorityName: issue.priority.name,
       persona,
-      parentId: sub.parentId!,
-      updatedAt: sub.updatedAt,
+      parentId: issue.parentId,
+      updatedAt: issue.updatedAt,
     });
   }
 
@@ -289,7 +308,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     totalExecutable += queue.length;
   }
   const activeParentCount = parents.filter(p =>
-    !issues.find(i => i.id === p.id)?.canceledAt && p.status !== config.statuses.done
+    p.status !== config.statuses.done
   ).length;
 
   const summary: GraphSummary = {

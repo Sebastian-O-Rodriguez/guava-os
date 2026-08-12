@@ -19,7 +19,7 @@ export interface Directive {
   title: string;
   branch: string;
   priority: { value: number; label: string };
-  parent_id: string;
+  parent_id?: string;
   context: string[];
   /** Reserved for future dependency projection. Not populated in Phase 2A. */
   _reserved?: Record<string, unknown>;
