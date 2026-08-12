@@ -425,8 +425,11 @@ async function runSprint(
 
 Subcommands:
   generate --parent <id|GUA-N> [--project <linear-project-or-registry-id>] [--out <path>]
-            Fetch the parent subtree from Linear, generate a schema-valid
+            Fetch the parent from Linear and generate a schema-valid
             gorp SprintDocument (UNAPPROVED), write to --out (or stdout).
+            Shape is inferred: container parent (has children) → tasks from
+            children (blocked excluded); deliverable / standalone parent
+            (no children) → tasks = parent + transitive dependency chain.
   approve <file> --by <actor>
             Record explicit operator approval on a generated document.
 

@@ -162,10 +162,140 @@ describe("generateSprint", () => {
     expect(res.excludedBacklog.map((i) => i.id)).toEqual(["bl"]);
   });
 
-  it("fails closed on a sprint with no tasks", () => {
-    const issues = [issue({ id: PARENT, title: "empty", labels: [] })];
-    const res = generateSprint(issues, PARENT, "guava-os", config);
-    expect(res.doc.tasks).toEqual([]);
+  it("throws when deliverable parent has no persona label", () => {
+    const issues = [issue({ id: "D1", title: "lonely", labels: [] })];
+    expect(() =>
+      generateSprint(issues, "D1", "guava-os", config),
+    ).toThrow("D1 has no valid persona label");
+  });
+
+  it("throws when container parent has zero schedulable children", () => {
+    // parent has children but all are excluded (backlog)
+    const issues = [
+      issue({
+        id: PARENT,
+        title: "Container",
+        labels: [],
+        status: "Todo",
+        statusType: "unstarted",
+      }),
+      issue({
+        id: "c1",
+        title: "backlogged child",
+        parentId: PARENT,
+        labels: ["backend"],
+        status: "Backlog",
+        statusType: "backlog",
+      }),
+    ];
+    expect(() =>
+      generateSprint(issues, PARENT, "guava-os", config),
+    ).toThrow("container has no schedulable children");
+  });
+
+  it("throws when parent not found in dataset", () => {
+    expect(() =>
+      generateSprint([], "GHOST", "guava-os", config),
+    ).toThrow("GHOST not found in dataset");
+  });
+
+  it("generates standalone chain A->B->C with dependencies and persona", () => {
+    const issues = [
+      issue({
+        id: "CA",
+        title: "First step",
+        labels: ["architect"],
+        blocks: ["CB"],
+        description: "## Acceptance criteria\n- start\n",
+      }),
+      issue({
+        id: "CB",
+        title: "Second step",
+        labels: ["architect"],
+        blocks: ["CC"],
+        description: "## Acceptance criteria\n- middle\n",
+      }),
+      issue({
+        id: "CC",
+        title: "Third step",
+        labels: ["architect"],
+        description: "## Acceptance criteria\n- end\n",
+      }),
+    ];
+    const res = generateSprint(issues, "CA", "guava-os", config);
+    expect(res.doc.sprintId).toBe("CA");
+    expect(res.doc.tasks).toHaveLength(3);
+    const ids = res.doc.tasks.map((t) => t.taskId);
+    expect(ids).toEqual(["CA", "CB", "CC"]);
+
+    const tB = res.doc.tasks.find((t) => t.taskId === "CB")!;
+    expect(tB.dependencies).toEqual(["CA"]);
+    expect(tB.persona).toBe("architect");
+
+    const tC = res.doc.tasks.find((t) => t.taskId === "CC")!;
+    expect(tC.dependencies).toEqual(["CB"]);
+    expect(tC.persona).toBe("architect");
+
+    const tA = res.doc.tasks.find((t) => t.taskId === "CA")!;
+    expect(tA.dependencies).toEqual([]);
+    expect(tA.persona).toBe("architect");
+  });
+
+  it("excludes backlog chain member with warning (chain mode)", () => {
+    const issues = [
+      issue({
+        id: "CA",
+        title: "Head",
+        labels: ["backend"],
+        blocks: ["CB"],
+        description: "## Acceptance criteria\n- x\n",
+      }),
+      issue({
+        id: "CB",
+        title: "later",
+        labels: ["backend"],
+        status: "Backlog",
+        statusType: "backlog",
+        description: "## Acceptance criteria\n- y\n",
+      }),
+    ];
+    const res = generateSprint(issues, "CA", "guava-os", config);
+    expect(res.doc.tasks.map((t) => t.taskId)).toEqual(["CA"]);
+    expect(res.excludedBacklog.map((i) => i.id)).toEqual(["CB"]);
+    expect(res.warnings).toContain("excluded (backlog): later");
+  });
+
+  it("generates 1-task doc for deliverable chain head that blocks nobody", () => {
+    const issues = [
+      issue({
+        id: "FINAL",
+        title: "Solo deliverable",
+        labels: ["frontend"],
+        description: "## Acceptance criteria\n- done\n",
+      }),
+    ];
+    const res = generateSprint(issues, "FINAL", "guava-os", config);
+    expect(res.doc.sprintId).toBe("FINAL");
+    expect(res.doc.tasks).toHaveLength(1);
+    expect(res.doc.tasks[0].taskId).toBe("FINAL");
+    expect(res.doc.tasks[0].dependencies).toEqual([]);
+    expect(res.doc.tasks[0].persona).toBe("frontend");
+  });
+
+  it("throws for backlog chain head", () => {
+    const issues = [
+      issue({
+        id: "BH",
+        title: "backlog head",
+        labels: ["backend"],
+        status: "Backlog",
+        statusType: "backlog",
+        description: "## Acceptance criteria\n- x\n",
+      }),
+    ];
+    expect(() =>
+      generateSprint(issues, "BH", "guava-os", config),
+    ).toThrow("BH is backlog");
   });
 });
 
