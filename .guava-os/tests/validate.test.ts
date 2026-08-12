@@ -95,7 +95,7 @@ describe("V303 parent_not_active", () => {
 });
 
 describe("V304 empty_parent", () => {
-  it("detects active parent with no sub-issues", () => {
+  it("detects active issue with no children and no persona", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
     ];
@@ -107,7 +107,7 @@ describe("V304 empty_parent", () => {
     }));
   });
 
-  it("does not flag parent with sub-issues", () => {
+  it("does not flag issue with children (real container)", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["backend"], parentId: "TST-1" }),
@@ -118,9 +118,21 @@ describe("V304 empty_parent", () => {
     expect(result.violations.filter(v => v.code === "V304")).toHaveLength(0);
   });
 
-  it("does not flag Backlog parent with no sub-issues", () => {
+  it("does not flag Backlog issue with no sub-issues", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Backlog", statusType: "backlog" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+
+    expect(result.violations.filter(v => v.code === "V304")).toHaveLength(0);
+  });
+
+  it("does not flag standalone deliverable with persona label (GUA-111)", () => {
+    // A top-level issue with no children but with a persona label
+    // is a standalone deliverable, not an empty parent.
+    const issues = [
+      makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["architect"] }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -212,6 +224,18 @@ describe("V400 missing_persona_label", () => {
 
     expect(result.violations.filter(v => v.code === "V400")).toHaveLength(0);
   });
+
+  it("flags standalone deliverable with no persona label (GUA-111)", () => {
+    const issues = [
+      makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: [] }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+
+    expect(result.violations).toContainEqual(expect.objectContaining({
+      code: "V400", name: "missing_persona_label", severity: "error", issue_id: "GUA-104",
+    }));
+  });
 });
 
 describe("V401 multiple_persona_labels", () => {
@@ -286,6 +310,23 @@ describe("V500 queue_overflow", () => {
 
     expect(result.violations.filter(v => v.code === "V500")).toHaveLength(0);
   });
+
+  it("counts standalone Todo deliverables in queue overflow (GUA-111)", () => {
+    // max_todo_per_persona = 2. Three standalone backend deliverables -> V500.
+    const issues = [
+      makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
+      makeIssue({ id: "GUA-105", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
+      makeIssue({ id: "GUA-106", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+
+    expect(result.violations).toContainEqual(expect.objectContaining({
+      code: "V500", name: "queue_overflow", severity: "warning",
+    }));
+    expect(result.violations.find(v => v.code === "V500")!.detail).toContain("3");
+    expect(result.violations.find(v => v.code === "V500")!.detail).toContain("backend");
+  });
 });
 
 // ──────────────────────────────────────────────────────────────────
@@ -318,9 +359,11 @@ describe("exit code semantics", () => {
   });
 
   it("warning-only violations have errors = 0", () => {
+    // V402 unknown_persona_label is warning-only.
+    // Child under active parent — avoids V304/V400.
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      // empty parent = warning only
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "devops"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -332,6 +375,7 @@ describe("exit code semantics", () => {
   it("strict mode: hasFailures when warnings exist", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "devops"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);

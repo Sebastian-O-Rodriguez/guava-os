@@ -39,6 +39,7 @@ export interface SprintTask {
   review: "human" | "fixture-auto";
   maxAttempts: 1;
   escalation: "operator";
+  persona?: string;
 }
 
 export interface SprintDocument {
@@ -113,17 +114,8 @@ export function parseScope(descriptionText: string): { allowedPaths: string[]; f
 
 const PERSONA_TO_WORKER = "omp"; // real workers are OMP agents (ADR_001)
 
-/** Generate a SprintDocument from a Linear parent subtree. Pure + deterministic. */
-export function generateSprint(
-  issues: LinearIssue[],
-  parentId: string,
-  projectId: string,
-  config: Config,
-): GenerateResult {
-  const warnings: string[] = [];
-  const children = issues.filter((i) => i.parentId === parentId);
-
-  // Blocks edges for blocked detection (dataset-internal, same as buildGraph).
+/** Build a "blocked by" map from the `blocks` out-edges. */
+function buildBlockedByMap(issues: LinearIssue[]): Map<string, Set<string>> {
   const blockedBy = new Map<string, Set<string>>();
   for (const i of issues) {
     for (const target of i.blocks ?? []) {
@@ -132,73 +124,236 @@ export function generateSprint(
       blockedBy.set(target, set);
     }
   }
+  return blockedBy;
+}
+
+/** Walk transitive forward blocks-closure from a start id within the dataset. */
+function walkForwardChain(
+  issues: LinearIssue[],
+  startId: string,
+): LinearIssue[] {
   const byId = new Map(issues.map((i) => [i.id, i]));
+  const chain: LinearIssue[] = [];
+  const visited = new Set<string>();
+  const queue = [startId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    const issue = byId.get(id);
+    if (!issue) continue; // edge to issue not in dataset — skip
+    chain.push(issue);
+    for (const blocked of issue.blocks ?? []) {
+      if (!visited.has(blocked)) queue.push(blocked);
+    }
+  }
+  return chain;
+}
+
+/** Build a single SprintTask from a filtered, included issue. */
+function issueToTask(
+  issue: LinearIssue,
+  blockedBy: Map<string, Set<string>>,
+  includedIds: Set<string>,
+  byId: Map<string, LinearIssue>,
+  personaLabels: Set<string>,
+): { task: SprintTask; warnings: string[] } {
+  const warnings: string[] = [];
+  const desc = description(issue);
+  const ac = parseAcceptanceCriteria(desc);
+  if (ac.length === 0)
+    warnings.push(
+      `no Acceptance criteria section; fell back to title: ${issue.title}`,
+    );
+  const { allowedPaths, forbiddenPaths } = parseScope(desc);
+  if (allowedPaths.length === 0)
+    warnings.push(
+      `scope defaulted to whole tree (no allowedPaths marker): ${issue.title}`,
+    );
+  const deps: string[] = [];
+  for (const bid of blockedBy.get(issue.id) ?? []) {
+    const b = byId.get(bid);
+    if (!b) continue;
+    if (!includedIds.has(bid)) {
+      warnings.push(
+        `dependency outside sprint subtree dropped: ${issue.title} ← ${b.title}`,
+      );
+      continue;
+    }
+    deps.push(bid);
+  }
+  const personaLabel = issue.labels.find((l) => personaLabels.has(l));
+  const task: SprintTask = {
+    taskId: issue.id,
+    objective: issue.title,
+    acceptanceCriteria: ac.length > 0 ? ac : [issue.title],
+    dependencies: deps,
+    scope: {
+      allowedPaths: allowedPaths.length > 0 ? allowedPaths : ["**"],
+      forbiddenPaths,
+    },
+    gates: [],
+    worker: PERSONA_TO_WORKER,
+    review: "human",
+    maxAttempts: 1,
+    persona: personaLabel,
+    escalation: "operator",
+  };
+  return { task, warnings };
+}
+
+
+/** Generate a SprintDocument from a Linear parent subtree. Pure + deterministic.
+ *
+ * Two shapes, inferred from whether the parent has children:
+ * 1. **Container** (≥1 child) — tasks come from the parent's children;
+ *    blocked children are excluded (GOS-28 semantics).
+ * 2. **Deliverable / standalone chain** (no children) — tasks = parent +
+ *    transitive forward blocks-closure within the project dataset.
+ */
+export function generateSprint(
+  issues: LinearIssue[],
+  parentId: string,
+  projectId: string,
+  config: Config,
+): GenerateResult {
+  const warnings: string[] = [];
+  const byId = new Map(issues.map((i) => [i.id, i]));
+  const blockedBy = buildBlockedByMap(issues);
   const personaLabels = new Set(config.personas);
 
-  const excludedBlocked: LinearIssue[] = [];
+  const hasChildren = issues.some((i) => i.parentId === parentId);
+
+  if (hasChildren) {
+    // ── Container mode ──────────────────────────────────────────────
+    const children = issues.filter((i) => i.parentId === parentId);
+
+    const excludedBlocked: LinearIssue[] = [];
+    const excludedInvalid: LinearIssue[] = [];
+    const excludedBacklog: LinearIssue[] = [];
+    const included: LinearIssue[] = [];
+
+    for (const c of children) {
+      if (c.statusType === "completed" || c.canceledAt) continue;
+      if (c.status === config.statuses.backlog) {
+        excludedBacklog.push(c);
+        warnings.push(`excluded (backlog): ${c.title}`);
+        continue;
+      }
+      const persona = c.labels.filter((l) => personaLabels.has(l));
+      if (persona.length !== 1) {
+        excludedInvalid.push(c);
+        warnings.push(
+          `excluded (persona label missing or ambiguous): ${c.title}`,
+        );
+        continue;
+      }
+      const blockers = blockedBy.get(c.id);
+      const unresolved = (blockers ? [...blockers] : [])
+        .map((bid) => byId.get(bid))
+        .filter((b) => b && b.statusType !== "completed" && !b.canceledAt)
+        .map((b) => b!.title);
+      if (unresolved.length > 0) {
+        excludedBlocked.push(c);
+        warnings.push(
+          `excluded (blocked by ${unresolved.join(", ")}): ${c.title}`,
+        );
+        continue;
+      }
+      included.push(c);
+    }
+
+    if (included.length === 0) {
+      throw new Error("container has no schedulable children");
+    }
+
+    const includedIds = new Set(included.map((i) => i.id));
+    const tasks: SprintTask[] = [];
+    for (const c of included) {
+      const { task, warnings: tw } = issueToTask(
+        c,
+        blockedBy,
+        includedIds,
+        byId,
+        personaLabels,
+      );
+      tasks.push(task);
+      warnings.push(...tw);
+    }
+
+    return {
+      doc: {
+        schemaVersion: 1,
+        sprintId: parentId,
+        project: { projectId },
+        approvedBy: UNAPPROVED_BY,
+        approvedAt: UNAPPROVED_AT,
+        tasks,
+      },
+      warnings,
+      excludedBlocked,
+      excludedInvalid,
+      excludedBacklog,
+    };
+  }
+
+  // ── Chain mode (deliverable / standalone) ─────────────────────────
+  const parent = byId.get(parentId);
+  if (!parent) throw new Error(`parent ${parentId} not found in dataset`);
+
+  const chain = walkForwardChain(issues, parentId);
+
   const excludedInvalid: LinearIssue[] = [];
   const excludedBacklog: LinearIssue[] = [];
   const included: LinearIssue[] = [];
 
-  for (const c of children) {
-    if (c.statusType === "completed" || c.canceledAt) continue;
-    if (c.status === config.statuses.backlog) {
-      excludedBacklog.push(c);
-      warnings.push(`excluded (backlog): ${c.title}`);
+  for (const issue of chain) {
+    if (issue.statusType === "completed" || issue.canceledAt) continue;
+    if (issue.status === config.statuses.backlog) {
+      excludedBacklog.push(issue);
+      warnings.push(`excluded (backlog): ${issue.title}`);
       continue;
     }
-    const persona = c.labels.filter((l) => personaLabels.has(l));
+    const persona = issue.labels.filter((l) => personaLabels.has(l));
     if (persona.length !== 1) {
-      excludedInvalid.push(c);
-      warnings.push(`excluded (persona label missing or ambiguous): ${c.title}`);
+      excludedInvalid.push(issue);
+      warnings.push(
+        `excluded (persona label missing or ambiguous): ${issue.title}`,
+      );
       continue;
     }
-    const blockers = blockedBy.get(c.id);
-    const unresolved = (blockers ? [...blockers] : [])
-      .map((bid) => byId.get(bid))
-      .filter((b) => b && b.statusType !== "completed" && !b.canceledAt)
-      .map((b) => b!.title);
-    if (unresolved.length > 0) {
-      excludedBlocked.push(c);
-      warnings.push(`excluded (blocked by ${unresolved.join(", ")}): ${c.title}`);
-      continue;
-    }
-    included.push(c);
+    included.push(issue);
+  }
+
+  // The parent must survive the exclusion filters — the chain is
+  // meaningless without its head.
+  const parentPersona = parent.labels.filter((l) => personaLabels.has(l));
+  if (parent.statusType === "completed" || parent.canceledAt) {
+    throw new Error(
+      `parent ${parentId} is completed/canceled — cannot generate chain`,
+    );
+  }
+  if (parent.status === config.statuses.backlog) {
+    throw new Error(`parent ${parentId} is backlog — cannot generate chain`);
+  }
+  if (parentPersona.length !== 1) {
+    throw new Error(
+      `parent ${parentId} has no valid persona label — cannot generate chain`,
+    );
   }
 
   const includedIds = new Set(included.map((i) => i.id));
   const tasks: SprintTask[] = [];
-  for (const c of included) {
-    const desc = description(c);
-    const ac = parseAcceptanceCriteria(desc);
-    if (ac.length === 0) warnings.push(`no Acceptance criteria section; fell back to title: ${c.title}`);
-    const { allowedPaths, forbiddenPaths } = parseScope(desc);
-    if (allowedPaths.length === 0) warnings.push(`scope defaulted to whole tree (no allowedPaths marker): ${c.title}`);
-    const deps: string[] = [];
-    for (const bid of blockedBy.get(c.id) ?? []) {
-      const b = byId.get(bid);
-      if (!b) continue;
-      if (!includedIds.has(bid)) {
-        warnings.push(`dependency outside sprint subtree dropped: ${c.title} ← ${b.title}`);
-        continue;
-      }
-      deps.push(bid);
-    }
-    tasks.push({
-      taskId: c.id, // issue ID preserved through to the graph
-      objective: c.title,
-      acceptanceCriteria: ac.length > 0 ? ac : [c.title],
-      dependencies: deps,
-      scope: {
-        allowedPaths: allowedPaths.length > 0 ? allowedPaths : ["**"],
-        forbiddenPaths,
-      },
-      gates: [],
-      worker: PERSONA_TO_WORKER,
-      review: "human",
-      maxAttempts: 1,
-      escalation: "operator",
-    });
+  for (const issue of included) {
+    const { task, warnings: tw } = issueToTask(
+      issue,
+      blockedBy,
+      includedIds,
+      byId,
+      personaLabels,
+    );
+    tasks.push(task);
+    warnings.push(...tw);
   }
 
   return {
@@ -211,7 +366,7 @@ export function generateSprint(
       tasks,
     },
     warnings,
-    excludedBlocked,
+    excludedBlocked: [],
     excludedInvalid,
     excludedBacklog,
   };

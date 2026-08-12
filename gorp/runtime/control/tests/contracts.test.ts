@@ -138,3 +138,39 @@ describe("contracts: every fixture directory has positive and negative coverage"
     }
   });
 });
+
+describe("contracts: optional persona/profile fields validate (GUA-123)", () => {
+  it("sprint: task with persona validates", () => {
+    const sprint = readFixture("sprint/positive.two-task.json") as Record<string, unknown>;
+    const tasks = sprint["tasks"] as Array<Record<string, unknown>>;
+    tasks[0]["persona"] = "architect";
+    const r = validateAgainst("sprint", sprint);
+    expect(r.valid).toBe(true);
+    expect(r.issues).toEqual([]);
+  });
+
+  it("execution-graph: node with persona validates", () => {
+    const graph = readFixture("execution-graph/positive.single-node.json") as Record<string, unknown>;
+    const nodes = graph["nodes"] as Array<Record<string, unknown>>;
+    nodes[0]["persona"] = "architect";
+    const r = validateAgainst("execution-graph", graph);
+    expect(r.valid).toBe(true);
+    expect(r.issues).toEqual([]);
+  });
+
+  it("run-record: record with profile validates", () => {
+    const record = readFixture("run-record/positive.minimal.json") as Record<string, unknown>;
+    record["profile"] = { persona: "architect", model: "claude-sonnet-4-20250514" };
+    const r = validateAgainst("run-record", record);
+    expect(r.valid).toBe(true);
+    expect(r.issues).toEqual([]);
+  });
+
+  it("run-record: profile with extra fields is rejected (additionalProperties)", () => {
+    const record = readFixture("run-record/positive.minimal.json") as Record<string, unknown>;
+    record["profile"] = { persona: "architect", model: "default", extra: "nope" };
+    const r = validateAgainst("run-record", record);
+    expect(r.valid).toBe(false);
+    expect(r.issues.some((i) => i.keyword === "additionalProperties")).toBe(true);
+  });
+});

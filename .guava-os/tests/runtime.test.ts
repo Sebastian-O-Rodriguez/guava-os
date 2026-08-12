@@ -190,7 +190,9 @@ describe("classification correctness", () => {
 
   it("canceled issues are excluded entirely", () => {
     const issues: LinearIssue[] = [
-      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      // TST-1 is a deliverable in progress (skipped from every category);
+      // TST-10 is its canceled child (excluded entirely).
+      makeIssue({ id: "TST-1", status: "In Progress", statusType: "started", labels: ["architect"] }),
       makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1", canceledAt: "2026-01-05" }),
     ];
 
@@ -366,14 +368,17 @@ describe("capabilities", () => {
 // ──────────────────────────────────────────────────────────────────
 
 describe("parent health", () => {
-  it("parent with no sub-issues has hasSubtasks=false", () => {
+  it("standalone issue without children is a deliverable, not a parent (GUA-111)", () => {
     const issues: LinearIssue[] = [
-      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
-    expect(graph.parents[0].hasSubtasks).toBe(false);
-    expect(graph.parents[0].total).toBe(0);
+    // Not in parents — no children means it's a deliverable
+    expect(graph.parents.find(p => p.id === "TST-1")).toBeUndefined();
+    // It's executable as a standalone deliverable
+    expect(graph.executable.get("backend")![0].id).toBe("TST-1");
+    expect(graph.executable.get("backend")![0].parentId).toBeUndefined();
   });
 
   it("parent health counts match actual sub-issue statuses", () => {

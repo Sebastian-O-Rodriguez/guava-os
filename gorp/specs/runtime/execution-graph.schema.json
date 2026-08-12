@@ -260,6 +260,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Execution attempt counter. 0 before any execution."
+        },
+        "persona": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional persona label from the sprint task, carried into the graph node for dispatch."
         }
       }
     },
