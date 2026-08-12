@@ -44,6 +44,7 @@ interface SprintTask {
   readonly expectedArtifacts?: readonly string[];
   readonly worker: string;
   readonly review: "human" | "fixture-auto";
+  readonly persona?: string;
 }
 
 interface Sprint {
@@ -144,6 +145,7 @@ export function compileGraph(sprintDoc: unknown, opts: PlanOptions): ExecutionGr
     expectedArtifacts: [...(t.expectedArtifacts ?? [])],
     workerAdapter: t.worker,
     dependencies: [...t.dependencies],
+      ...(t.persona ? { persona: t.persona } : {}),
     state: "pending",
     attempt: 0,
   }));

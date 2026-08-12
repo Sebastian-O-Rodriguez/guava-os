@@ -4,8 +4,13 @@
     "title": "Parent: No Sub-Issues Yet",
     "status": "Todo",
     "statusType": "unstarted",
-    "priority": { "value": 2, "name": "High" },
-    "labels": [],
+    "priority": {
+      "value": 2,
+      "name": "High"
+    },
+    "labels": [
+      "architect"
+    ],
     "project": "TestProject",
     "createdAt": "2026-01-01",
     "updatedAt": "2026-01-01",
@@ -17,7 +22,10 @@
     "title": "Parent: Has Sub-Issues",
     "status": "In Progress",
     "statusType": "started",
-    "priority": { "value": 2, "name": "High" },
+    "priority": {
+      "value": 2,
+      "name": "High"
+    },
     "labels": [],
     "project": "TestProject",
     "createdAt": "2026-01-01",
@@ -30,8 +38,14 @@
     "title": "Sub with unknown label",
     "status": "Todo",
     "statusType": "unstarted",
-    "priority": { "value": 3, "name": "Medium" },
-    "labels": ["backend", "spike"],
+    "priority": {
+      "value": 3,
+      "name": "Medium"
+    },
+    "labels": [
+      "backend",
+      "spike"
+    ],
     "parentId": "TST-2",
     "project": "TestProject",
     "createdAt": "2026-01-01",

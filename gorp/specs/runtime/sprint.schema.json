@@ -168,6 +168,11 @@
             "type": "string",
             "const": "operator",
             "description": "The only escalation path that exists."
+          },
+          "persona": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional persona label driving dispatch (ADR_001 persona→profile wiring)."
           }
         }
       }

@@ -271,6 +271,23 @@ describe("Wave B run: approved graph -> sandbox -> worker -> result -> gate -> r
     expect(g.transitions).toHaveLength(1); // only the operator approval
   });
 
+
+  it("stamps profile into run record when node has persona", async () => {
+    approvedGraph("g-profile", makeNode({ persona: "architect" }));
+    const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-profile", actorId: "orch" }, clock);
+    const rr = JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
+    expect(rr.profile).toBeDefined();
+    expect(rr.profile!.persona).toBe("architect");
+    expect(rr.profile!.model).toBe("default");
+  });
+
+  it("omits profile from run record when node has no persona", async () => {
+    approvedGraph("g-noprofile", makeNode());
+    const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-noprofile", actorId: "orch" }, clock);
+    const rr = JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
+    expect(rr.profile).toBeUndefined();
+  });
+
   it("worker output is deterministic for identical inputs", async () => {
     approvedGraph("g-det", makeNode());
     const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-det", actorId: "orch" }, clock);
