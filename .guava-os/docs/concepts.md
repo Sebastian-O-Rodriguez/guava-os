@@ -12,10 +12,12 @@ A Linear issue that has sub-issues. Parents are containers — they define scope
 
 A Linear issue with `parentId` set, linking it to a parent. Sub-issues are the executable units. Agents claim and work on sub-issues, never parents.
 
-### Standalone Issue
+### Standalone Deliverable
 
-A Linear issue with no `parentId` and no children. Outside the execution graph. Reported but not classified into execution categories.
-
+A Linear issue with no `parentId` and no children, but eligible for execution
+when: status Todo, exactly one persona label, and no unresolved native
+blockers. Standalone deliverables are valid work (GUA-111) — they do not
+require a parent container.
 ## Execution States
 
 ### EXECUTABLE
@@ -26,20 +28,21 @@ A sub-issue that meets ALL conditions for an agent to claim it:
 2. Has exactly one **persona label**
 3. Persona label is in config
 4. Parent issue is in an **active status** (Todo or In Progress)
-5. No unresolved blockers (currently not enforceable — see Limitations)
+5. No unresolved native Linear blockers (enforced when dependency data is available)
 
-Executable sub-issues appear in persona queues in `status` output.
+Executable sub-issues (and standalone deliverables) appear in persona queues in `status` output.
 
 ### NOT_PROMOTED
 
-NOT_PROMOTED is not an error. It means the sub-issue exists but isn't scheduled for execution yet. Promotion is done manually in Linear (or through Gorp's governed execution pipeline; the deprecated `robo` persona previously covered this domain).
-
+NOT_PROMOTED is not an error. It means the issue exists but isn't scheduled
+for execution yet. Promotion is done via gorp's governed execution pipeline
+or manually in Linear.
 
 ### BLOCKED
 
-A sub-issue that would be EXECUTABLE except it has an unresolved blocking dependency. Another issue must reach Done before this sub-issue can be claimed.
-
-**Current limitation**: dependency relation data is not available to the CLI. The BLOCKED category is always empty. Sub-issues with unresolved blockers appear as EXECUTABLE. Operators must manually verify dependency order.
+A sub-issue that would be EXECUTABLE except it has an unresolved blocking
+dependency. The classifier populates BLOCKED when the caller provides
+dependency data; `sprint generate` handles this for governed execution.
 
 ### INVALID
 
@@ -104,7 +107,11 @@ A structural problem in the issue graph detected by `validate`. Each violation h
 
 ## Governed Execution (Gorp)
 
-Gorp is the execution engine — it owns the governed execution pipeline (plan, orchestrate, gate, review, promote). guava-os is the control plane: operators plan and approve work here; approved plans are delegated to Gorp for execution. Workers are OMP agents dispatched by Gorp via personas.
+Gorp is the execution engine — it owns the governed execution pipeline:
+compile-graph, orchestrate (enforcement), gate, review (enforcement),
+promote. guava-os owns the decision layer: `wf plan`, `wf review`,
+`wf approve/reject/retry`, `wf promote`. Workers are OMP agents dispatched
+by gorp via persona-aware profiles.
 
 guava-os is also a consumer of Gorp in a compounding loop: Gorp builds and improves guava-os itself.
 

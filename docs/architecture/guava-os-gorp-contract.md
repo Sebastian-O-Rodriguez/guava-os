@@ -141,10 +141,11 @@ file and has no gorp-internal default path.
 ## Personas
 
 Personas are defined in guava-os (`.guava-os/personas/<name>/persona.md`) and
-map to OMP roles. They are loaded by OMP at worker dispatch time and passed
-through the gorp adapter seam. Personas do not own governance, approval, or
-promotion — those are operator-only.
-
+map to OMP roles. They flow issue → SprintTask.persona → graph node.persona →
+run-record `profile {persona, model}` (GUA-123, implemented). The omp adapter
+is persona-aware via `GORP_OMP_MODEL` + `GORP_OMP_SYSTEM_PROMPT_APPEND`.
+Personas do not own governance, approval, or promotion — those are
+operator-only.
 ## Project management (Linear)
 
 **guava-os owns project management via Linear.** Linear is the provider;

@@ -170,14 +170,16 @@ Run semantics (Sprint 2A):
   - **omp** (`src/worker/omp.ts`; hermes retired 2026-07-31) — spawns ONE
     external process per attempt: `omp -p --auto-approve --mode json --model
     <model> <prompt>`, cwd = the sandbox; the model comes from
-    `GORP_OMP_MODEL` (default `"default"`). **The adapter makes the single
-    sandbox commit** — a worker that touches git HEAD is a contract
-    violation. Fail closed on: timeout/signal, non-zero exit, HEAD movement,
-    and "success" with no changes. Changed files are computed from git, never
-    trusted. Persona files are not yet read (worker-profile wiring pending —
-    see `docs/architecture/worker-profile-contract.md`). **Human review
-    stays**: the review policy never auto-approves omp output — the
-    scheduler stops at the review boundary.
+    `GORP_OMP_MODEL` and the persona body from
+    `GORP_OMP_SYSTEM_PROMPT_APPEND` (forwarded as `--append-system-prompt`).
+    Persona-aware dispatch is implemented (GUA-123): issue persona label →
+    task.persona → node.persona → run-record `profile {persona, model}`.
+    **The adapter makes the single sandbox commit** — a worker that touches
+    git HEAD is a contract violation. Fail closed on: timeout/signal,
+    non-zero exit, HEAD movement, and "success" with no changes. Changed
+    files are computed from git, never trusted. **Human review stays**: the
+    review policy never auto-approves omp output — the scheduler stops at
+    the review boundary.
   Workers are blind either way: an invocation carries only the sandbox
   handle, node spec, ids, and clock — no config, no store, no state-home
   path.
