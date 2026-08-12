@@ -26,6 +26,21 @@ After execution: inspect the run evidence (audit trail, artifacts, gates),
 then approve / reject / retry / promote. Decisions are hash-bound to the
 reviewed state — re-review after any new worker output.
 
+Decision surface (guava-os `wf` CLI — the ONLY path; no direct gorp for
+decisions, GUA-146):
+
+```bash
+guava-os wf review <project> <graph> <node>                 # read-only evidence
+guava-os wf approve <project> <graph> <node> --actor <a> --commit <sha> --reason <r>
+guava-os wf reject <project> <graph> <node> --actor <a> --reason <r>
+guava-os wf retry <project> <graph> <node> --actor <a> --reason <r>
+guava-os wf promote <project> <graph> <node> --actor <a>
+```
+
+Non-fixture workers always stop for human review (review policy) — resume
+with `wf orchestrate` after a decision; promotion unlocks the next
+dependency; guava-os then updates Linear via `pm move <id> --status "Done"`.
+
 ## Retrospective
 
 At sprint close: what shipped, what stalled, which estimates were wrong, what
