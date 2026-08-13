@@ -20,6 +20,7 @@ guava-os pm search [--status <s>] [--label <l>] [--assignee <a>]
 guava-os pm create --title "..." --team "Guava AI" [--project guava-os] [--parent <id>] [--label architect] [--priority 2]
 guava-os pm update <id> [--status "In Progress"] [--assignee me] [--priority 3]
 guava-os pm link <id> --blocked-by <id>
+guava-os pm unlink <id> --blocked-by <id>   # remove a dependency edge (GOS-41)
 guava-os pm move <id> --status "Done"
 guava-os pm assign <id> --assignee me
 guava-os pm comment <id> --body "..."
@@ -111,8 +112,9 @@ Build the execution input from a container parent OR a standalone chain head
 (GUA-137 — shape inferred from the parent):
 
 ```bash
-guava-os sprint generate --parent GUA-44 --out sprint.json   # container -> children
-guava-os sprint generate --parent GUA-104 --out sprint.json  # chain head -> dependency chain
+guava-os sprint generate --parent GUA-44 --out sprint.json        # container -> children
+guava-os sprint generate --parent GUA-104 --out sprint.json       # chain head -> dependency chain
+guava-os sprint generate --parent GUA-171 --parent GUA-172 --out s.json  # multi-parent union (GOS-42)
 guava-os sprint approve sprint.json --by operator
 ```
 
@@ -120,6 +122,15 @@ guava-os sprint approve sprint.json --by operator
 Linear project name; GUA-135). Standalone deliverables (no parent, persona +
 Todo + unblocked) are valid executable work (GUA-111) — do not force them
 into a container to satisfy tooling.
+
+#### dependencies: add, fix, and remove edges (GOS-41 / GOS-44)
+
+- `pm link <id> --blocks/--blocked-by` creates a native `blocks` relation.
+- `pm unlink <id> --blocks/--blocked-by` removes one (correct a wrong/early
+  edge) — no hand-editing Linear.
+- A `blocks` edge means a **hard result-dependency** (downstream consumes the
+  upstream result). Never use it for "roughly before" preferred order — that
+  needlessly serializes independent work (GOS-44).
 
 #### sprint summary
 
@@ -152,6 +163,6 @@ Set `LINEAR_API_KEY` env var (Linear Settings → API → Personal API keys).
 
 ## Uses
 
-- `pm create`, `pm update`, `pm link`, `pm move`, `pm assign`, `pm comment` — all Linear writes
+- `pm create`, `pm update`, `pm link`, `pm unlink`, `pm move`, `pm assign`, `pm comment` — all Linear writes
 - `pm get-issue`, `pm get-project` — issue/project reads (board-wide reads belong to `planning`)
 - Issue template: `docs/architecture/linear-conventions.md` (GOS-21)

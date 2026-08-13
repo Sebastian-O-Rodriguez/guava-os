@@ -13,6 +13,11 @@ operator approval transition → `wf orchestrate` (scheduler drives run → gate
 Every step fails closed: Ajv schemas (`additionalProperties: false`), the
 transition table, hash-bound decisions, the hash-chained audit trail.
 
+> **Parallel scope.** Independent (zero-indegree) nodes are simultaneously
+> eligible and dispatched independently, but that is DAG eligibility — not a
+> claim of proven concurrent OMP-worker execution. Concurrent/parallel worker
+> execution is a separate, unbuilt capability (GOS reconcile).
+
 ## Worker profile (GUA-123, landed)
 
 Dispatch composes a worker profile: persona (`.guava-os/personas/<name>/persona.md`)

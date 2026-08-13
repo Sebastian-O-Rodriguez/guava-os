@@ -186,6 +186,7 @@ above the tooling layer.
 | create issue | Create an issue (title, description, parent, labels, project). |
 | update issue | Update an issue (description, priority, assignee, labels). |
 | link dependencies | Set blocks/blocked-by relations between issues. |
+| unlink dependencies | Remove a blocks/blocked-by relation to correct an edge (GOS-41). |
 | move status | Transition an issue's Status. |
 | assign issue | Set an issue's Assignee. |
 

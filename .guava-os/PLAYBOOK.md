@@ -19,9 +19,13 @@ Layout & operating model (where checkouts live, dev isolation rules):
    `blocks`). Each deliverable: one persona label, measurable acceptance,
    explicit dependencies. Standalone deliverables are valid work (GUA-111);
    chains generate via `sprint generate --parent <chain-head>` (GUA-137).
-   Skill: `planning`.
+   Work spanning several containers unifies into ONE document via multi-parent
+   `sprint generate` (GOS-42). A `blocks` edge means a hard result-dependency,
+   never "roughly before" preferred order (GOS-44). Skill: `planning`.
 3. **Write Linear** — create/update issues, dependency links, statuses per
    GOS-21 (native fields first; labels for metadata only; one persona label).
+   Wrong/early dependency edges are fixable: `pm unlink <id> --blocks/
+   --blocked-by` removes them cleanly (GOS-41) — no hand-editing Linear.
    Skill: `linear`.
 4. **Refresh graph** — re-sync the planning snapshot from Linear; validate
    board health; surface blocked and invalid work. Skill: `planning`.
@@ -34,6 +38,13 @@ Layout & operating model (where checkouts live, dev isolation rules):
    approve / reject / retry / promote decisions. Skills: `review`, then
    `linear` to update the board.
 8. **Refresh graph** — re-sync and loop.
+
+> **Independent work = simultaneously eligible, not concurrent execution.**
+> Zero-indegree tasks in one compiled graph are ready together and may be
+> dispatched independently, but that is DAG eligibility — it is NOT a claim
+> of proven concurrent OMP-worker execution. Concurrent/parallel worker
+> execution is a separate, not-yet-built capability; do not plan or document
+> the loop as if it exists (GOS reconcile).
 
 ## Ownership
 
