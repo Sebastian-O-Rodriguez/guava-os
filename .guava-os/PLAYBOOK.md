@@ -17,7 +17,9 @@ Layout & operating model (where checkouts live, dev isolation rules):
 2. **Plan** — decompose into a sprint: a container parent + scoped children,
    OR a standalone dependency chain (top-level deliverables wired by
    `blocks`). Each deliverable: one persona label, measurable acceptance,
-   explicit dependencies. Standalone deliverables are valid work (GUA-111);
+   explicit dependencies. **Scope granularly — one issue = one observable
+   outcome fit for a default/smol worker; split anything needing a stronger
+   model.** Standalone deliverables are valid work (GUA-111);
    chains generate via `sprint generate --parent <chain-head>` (GUA-137).
    Work spanning several containers unifies into ONE document via multi-parent
    `sprint generate` (GOS-42). A `blocks` edge means a hard result-dependency,

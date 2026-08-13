@@ -43,6 +43,11 @@ Labels classify the *kind* of work, never its state.
 Every issue must have:
 
 - **Title** — `GOS-N — <short outcome>`. One issue = one outcome.
+- **Worker-fit size** — a deliverable must be replicable by a `default`/`smol`
+  worker in a single turn: a bounded `allowedPaths` scope, one observable
+  outcome, tight numbered acceptance. If an issue would need a stronger model
+  than `default`, split it into smaller deliverables and wire them by a
+  container or dependency chain (granular scoping, planning skill).
 - **Description** — structured:
   - `## Why this exists` (purpose)
   - `## Current owner` / `## Target owner`
