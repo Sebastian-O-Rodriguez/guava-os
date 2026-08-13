@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, rmSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -372,3 +373,78 @@ describe("Sprint 3A scheduler: single-process loop over the public CLI", () => {
       ]);
     });
   });
+
+describe("GOS multi-persona: per-node worker-profile env in the scheduler", () => {
+  // A fixture worker tagged with a persona label — run.ts stamps the resolved
+  // per-node profile {persona, model, promptHash} from the env the scheduler
+  // injects onto THIS node's run subprocess.
+  function personaNode(nodeId: string, artifact: string, persona: string, deps: string[] = []): GraphNode {
+    return { ...node(nodeId, artifact, deps), persona };
+  }
+  function scheduleWithPersonas(
+    graphId: string,
+    profiles: Record<string, { model: string; systemPrompt: string }>,
+    maxSteps = 30,
+  ): SchedulerResult {
+    return runSchedulerLoop({
+      cli: CLI,
+      projectId: "p1",
+      graphId,
+      env: { GORP_STATE_HOME: stateHome },
+      personaProfiles: profiles,
+      maxSteps,
+    });
+  }
+  function loadRunRecords(home: string): Array<{ nodeId: string; profile?: { persona?: string; model?: string; promptHash?: string } }> {
+    const out: Array<{ nodeId: string; profile?: { persona?: string; model?: string; promptHash?: string } }> = [];
+    const walk = (d: string): void => {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const p = join(d, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name === "run-record.json") out.push(JSON.parse(readFileSync(p, "utf8")));
+      }
+    };
+    walk(home);
+    return out;
+  }
+  function promptHash(persona: string, model: string, systemPrompt: string): string {
+    return createHash("sha256").update(JSON.stringify({ persona, model, systemPrompt })).digest("hex");
+  }
+
+  it("runs a MIXED-persona graph, each node under its own profile env", async () => {
+    approvedGraph("mp", [
+      personaNode("qa", "docs/qa.md", "qa"),
+      personaNode("bk", "docs/bk.md", "backend"),
+    ]);
+    const r = scheduleWithPersonas("mp", {
+      qa: { model: "qa-model", systemPrompt: "QA BODY" },
+      backend: { model: "bk-model", systemPrompt: "BK BODY" },
+    });
+    expect(r.outcome).toBe("completed");
+    expect(r.graphStatus).toBe("completed");
+
+    const byNode = new Map(loadRunRecords(stateHome).map((x) => [x.nodeId, x]));
+    const qa = byNode.get("qa")!;
+    const bk = byNode.get("bk")!;
+    expect(qa.profile?.persona).toBe("qa");
+    expect(qa.profile?.model).toBe("qa-model");
+    expect(qa.profile?.promptHash).toBe(promptHash("qa", "qa-model", "QA BODY"));
+    expect(bk.profile?.persona).toBe("backend");
+    expect(bk.profile?.model).toBe("bk-model");
+    expect(bk.profile?.promptHash).toBe(promptHash("backend", "bk-model", "BK BODY"));
+    expect(qa.profile?.promptHash).not.toBe(bk.profile?.promptHash);
+    // both artifacts actually landed in the consumer repo
+    expect(existsSync(join(repo, "docs", "qa.md"))).toBe(true);
+    expect(existsSync(join(repo, "docs", "bk.md"))).toBe(true);
+  }, 180_000);
+
+  it("fails closed before spawn when a persona node has no resolved profile", async () => {
+    approvedGraph("mp-bad", [personaNode("qa", "docs/qa.md", "qa")]);
+    const r = scheduleWithPersonas("mp-bad", {}); // bundle omits qa
+    expect(r.outcome).toBe("stopped");
+    expect(r.reason).toBe("command-failed");
+    expect(r.stopState?.error?.code).toBe("PROFILE_UNRESOLVED");
+    // nothing spawned, no run directory/record created
+    expect(loadRunRecords(stateHome)).toHaveLength(0);
+  }, 60_000);
+});

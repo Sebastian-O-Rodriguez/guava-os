@@ -11,10 +11,11 @@
 
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { resolve } from "node:path";
-import { existsSync } from "node:fs";
+import { resolve, join } from "node:path";
+import { existsSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { findRepoRoot } from "./config.js";
-import { personaEnv, resolvePersona } from "./persona.js";
+import { resolvePersona } from "./persona.js";
 
 // Resolve tsx from the repo root node_modules (same place guava-os CLI
 // itself is loaded from). Cwd-based: the CLI documents running from the
@@ -82,17 +83,35 @@ export function plan(from: string, opts: { baseCommit?: string; overwrite?: bool
   return callGorp(args);
 }
 
-/** Resolve the worker-profile environment for every persona used by a graph.
+/** Resolve a worker profile (model + persona body) for EVERY persona used by a
+ * graph, keyed by persona label (multi-persona orchestration).
  *
  * Fail closed: any missing persona file or unresolvable model is surfaced as
  * an error before the gorp orchestrate call — the scheduler never starts with
  * a missing or ambiguous profile.
  */
-function resolveGraphPersonaEnv(
+/** Resolve worker profiles (model + persona body) for every persona, keyed by
+ * persona label (multi-persona orchestration). Pure: fails closed on a missing
+ * persona file, missing model, or empty body.
+ */
+export function resolvePersonasBundle(
+  personas: readonly string[],
+  repoRoot: string,
+): Record<string, { model: string; systemPrompt: string }> {
+  const bundle: Record<string, { model: string; systemPrompt: string }> = {};
+  for (const p of personas) {
+    const resolved = resolvePersona(p, repoRoot); // fails closed on missing file/model/body
+    bundle[p] = { model: resolved.model, systemPrompt: resolved.systemPrompt };
+  }
+  return bundle;
+}
+
+/** Resolve worker profiles for EVERY persona used by a graph (multi-persona). */
+function resolveGraphPersonaBundle(
   projectId: string,
   graphId: string,
   repoRoot: string,
-): Readonly<Record<string, string>> {
+): Record<string, { model: string; systemPrompt: string }> {
   const show = callGorp(["graph", "show", "--project-id", projectId, "--graph-id", graphId]) as {
     data?: { nodes?: ReadonlyArray<{ persona?: string }> };
   };
@@ -102,33 +121,34 @@ function resolveGraphPersonaEnv(
         .map((n) => n?.persona)
         .filter((p): p is string => typeof p === "string" && p.trim().length > 0),
     ),
-  ];
-  if (personas.length === 0) {
-    // Graph has no persona-annotated nodes — no profile env to inject.
-    // The omp adapter will fail closed at run time with a clear error
-    // ("node has no persona — a resolved worker profile is required").
-    return {};
-  }
-  if (personas.length > 1) {
-    throw new Error(
-      `graph '${graphId}' mixes multiple personas (${personas.join(", ")}): ` +
-        "a single worker-profile environment cannot be resolved — split the graph or assign one persona",
-    );
-  }
-  const resolved = resolvePersona(personas[0]!, repoRoot);
-  return personaEnv(resolved);
+  ].sort();
+  return resolvePersonasBundle(personas, repoRoot);
 }
 
 /** orchestrate — start the scheduler loop on an approved graph.
  *
- * Resolves the graph's worker profile from `.guava-os/personas/` and passes
- * it as environment to gorp so the omp adapter dispatches every worker with
- * the intended model + persona body (GOS-46).
+ * Resolves a worker profile for EVERY persona in the graph and passes the
+ * bundle to gorp so each node's `run` dispatches under ITS OWN persona
+ * (multi-persona graphs supported; the scheduler injects per-node env from the
+ * bundle). A node with no persona (fixture) runs without profile env.
  */
 export function orchestrate(projectId: string, graphId: string): unknown {
   const repoRoot = findRepoRoot();
-  const env = resolveGraphPersonaEnv(projectId, graphId, repoRoot);
-  return callGorp(["orchestrate", "--project-id", projectId, "--graph-id", graphId], env);
+  const bundle = resolveGraphPersonaBundle(projectId, graphId, repoRoot);
+  if (Object.keys(bundle).length === 0) {
+    return callGorp(["orchestrate", "--project-id", projectId, "--graph-id", graphId]);
+  }
+  const dir = mkdtempSync(join(tmpdir(), "gos-pers-"));
+  const path = join(dir, "personas.json");
+  writeFileSync(path, JSON.stringify(bundle), "utf-8");
+  try {
+    return callGorp(
+      ["orchestrate", "--project-id", projectId, "--graph-id", graphId, "--persona-profiles", path],
+      {},
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 export function orchestrateStatus(projectId: string, graphId: string): unknown {
   return callGorp(["orchestrate-status", "--project-id", projectId, "--graph-id", graphId]);

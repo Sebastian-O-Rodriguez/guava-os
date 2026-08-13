@@ -71,6 +71,14 @@ export interface SchedulerOptions {
   readonly actorId?: string;
   /** Extra environment (e.g. GORP_STATE_HOME) merged over process.env. */
   readonly env?: Readonly<Record<string, string>>;
+  /**
+   * Resolved worker profiles keyed by persona label (GOS multi-persona). Each
+   * node's `run` subprocess is spawned with ITS OWN GORP_OMP_MODEL +
+   * GORP_OMP_SYSTEM_PROMPT_APPEND from this bundle, so a mixed-persona graph
+   * dispatches every worker under the correct persona. A persona-annotated
+   * node with no matching profile fails closed before spawn.
+   */
+  readonly personaProfiles?: Readonly<Record<string, PersonaProfile>>;
   /** Safety cap; also enables crash simulation (run N steps, then restart). */
   readonly maxSteps?: number;
   /**
@@ -135,10 +143,17 @@ interface NodeView {
   readonly dependencies: readonly string[];
   readonly workerAdapter: string;
   readonly attempt?: number;
+  readonly persona?: string;
 }
 interface GraphView {
   readonly status: string;
   readonly nodes: readonly NodeView[];
+}
+
+/** A resolved worker profile (model + persona body) keyed by persona label. */
+export interface PersonaProfile {
+  readonly model: string;
+  readonly systemPrompt: string;
 }
 
 function nodeStatesOf(g: GraphView): Record<string, string> {
@@ -153,11 +168,11 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
   const reviewPolicy = opts.reviewPolicy ?? fixtureReviewPolicy;
   const steps: StepRecord[] = [];
 
-  const cli = (argv: string[]): CliEnvelope => {
+  const cli = (argv: string[], env?: Readonly<Record<string, string>>): CliEnvelope => {
     const execArgs = schedulerSpawnArgs(opts.cli, argv, currentLoader());
     try {
       const stdout = execFileSync(process.execPath, execArgs, {
-        env: { ...process.env, ...(opts.env ?? {}) },
+        env: { ...process.env, ...(opts.env ?? {}), ...(env ?? {}) },
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -262,9 +277,33 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
     // --- execute the ONE action ---------------------------------------------
     let result: CliEnvelope;
     switch (action.kind) {
-      case "run":
-        result = cli(["run", "--project-id", opts.projectId, "--graph-id", opts.graphId, "--node-id", action.nodeId, "--actor-id", actorId]);
+      case "run": {
+        // Per-node worker profile (GOS multi-persona): spawn this node's run
+        // subprocess with ITS OWN persona env. A persona-annotated node with no
+        // resolved profile fails closed before any spawn.
+        const persona = byId.get(action.nodeId)?.persona?.trim();
+        if (persona) {
+          const p = opts.personaProfiles?.[persona];
+          if (!p) {
+            return stopped("command-failed", g, {
+              failedCommand: "run",
+              nodeId: action.nodeId,
+              error: {
+                code: "PROFILE_UNRESOLVED",
+                message: `no resolved worker profile supplied for persona '${persona}' (make --persona-profiles cover every node persona)`,
+                details: { persona },
+              },
+            });
+          }
+          result = cli(
+            ["run", "--project-id", opts.projectId, "--graph-id", opts.graphId, "--node-id", action.nodeId, "--actor-id", actorId],
+            { GORP_OMP_MODEL: p.model, GORP_OMP_SYSTEM_PROMPT_APPEND: p.systemPrompt },
+          );
+        } else {
+          result = cli(["run", "--project-id", opts.projectId, "--graph-id", opts.graphId, "--node-id", action.nodeId, "--actor-id", actorId]);
+        }
         break;
+      }
       case "approve": {
         // approve path: recover the facts from the read-only review output,
         // then ask the REVIEW POLICY. There is no auto-approve.
