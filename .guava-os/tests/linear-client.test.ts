@@ -3,6 +3,7 @@ import {
   createIssue,
   updateIssue,
   linkDependencies,
+  unlinkDependencies,
   loadToken,
 } from "../src/linear-client.js";
 import { findRepoRoot } from "../src/config.js";
@@ -26,6 +27,8 @@ type FetchCall = {
 
 const calls: FetchCall[] = [];
 let respond: (query: string, variables: Record<string, unknown>) => unknown;
+/** Relations returned by the relation-probe query (GOS-41 unlink tests). */
+let stubRelations: unknown[] = [];
 
 function mockFetch() {
   return vi.fn(async (_url: string, init: { body?: string }) => {
@@ -85,6 +88,11 @@ function router(query: string, variables: Record<string, unknown>): unknown {
   if (query.includes("viewer")) {
     return { data: { viewer: { id: "viewer-uuid" } } };
   }
+  if (
+    query.includes("relations { nodes { id type issue { id }") &&
+    !query.includes("description")
+  )
+    return { data: { issue: { relations: { nodes: stubRelations } } } };
   if (query.includes("issue(id: $v)")) {
     // identifier -> uuid (getIssue / parent resolution path), distinct per input
     return { data: { issue: { id: `uuid-${String(variables.v)}` } } };
@@ -119,6 +127,9 @@ function router(query: string, variables: Record<string, unknown>): unknown {
   if (query.includes("issueRelationCreate")) {
     return { data: { issueRelationCreate: { success: true } } };
   }
+  if (query.includes("issueRelationDelete")) {
+    return { data: { issueRelationDelete: { success: true } } };
+  }
   if (query.includes("issueUpdate")) {
     return { data: { issueUpdate: { success: true } } };
   }
@@ -127,6 +138,7 @@ function router(query: string, variables: Record<string, unknown>): unknown {
 
 beforeEach(() => {
   calls.length = 0;
+  stubRelations = [];
   vi.stubGlobal("fetch", mockFetch());
   vi.stubEnv("LINEAR_API_KEY", "test-key");
   respond = router;
@@ -226,6 +238,51 @@ describe("GUA-96 native relation creation", () => {
     await expect(linkDependencies("S0", { blocks: ["GUA-6"] })).rejects.toThrow(/Non-canonical/);
     await expect(linkDependencies("GUA-5", { blocks: ["R1"] })).rejects.toThrow(/Non-canonical/);
     expect(calls.filter((c) => c.query.includes("issueRelationCreate("))).toHaveLength(0);
+  });
+});
+
+describe("GOS-41 native relation removal (unlink)", () => {
+  it("--blocked-by deletes the B blocks A relation (inverse of link)", async () => {
+    // source GUA-5 is blocked by GUA-6  <=>  relation issue=uuid-GUA-6 related=uuid-GUA-5
+    stubRelations = [
+      { id: "rel-1", type: "blocks", issue: { id: "uuid-GUA-6" }, relatedIssue: { id: "uuid-GUA-5" } },
+    ];
+    await unlinkDependencies("GUA-5", { blockedBy: ["GUA-6"] });
+    const relProbe = calls.filter((c) => c.query.includes("relations { nodes"));
+    expect(relProbe).toHaveLength(1);
+    expect(relProbe[0].variables.id).toBe("uuid-GUA-5");
+    const del = calls.find((c) => c.query.includes("issueRelationDelete("))!;
+    expect(del.variables.id).toBe("rel-1");
+  });
+
+  it("--blocks deletes the A blocks B relation", async () => {
+    stubRelations = [
+      { id: "rel-2", type: "blocks", issue: { id: "uuid-GUA-5" }, relatedIssue: { id: "uuid-GUA-6" } },
+    ];
+    await unlinkDependencies("GUA-5", { blocks: ["GUA-6"] });
+    const del = calls.find((c) => c.query.includes("issueRelationDelete("))!;
+    expect(del.variables.id).toBe("rel-2");
+  });
+
+  it("deletes nothing when the requested edge is absent (classified error, no mutation)", async () => {
+    stubRelations = [];
+    await expect(unlinkDependencies("GUA-5", { blockedBy: ["GUA-6"] }))
+      .rejects.toThrow(/No "blocks" relation to remove/);
+    expect(calls.some((c) => c.query.includes("issueRelationDelete("))).toBe(false);
+  });
+
+  it("rejects self-unlink before any probe", async () => {
+    await expect(unlinkDependencies("GUA-5", { blockedBy: ["GUA-5"] }))
+      .rejects.toThrow(/itself/);
+    expect(calls.some((c) => c.query.includes("relations { nodes"))).toBe(false);
+  });
+
+  it("rejects non-canonical refs before any probe", async () => {
+    await expect(unlinkDependencies("S0", { blockedBy: ["GUA-6"] }))
+      .rejects.toThrow(/Non-canonical/);
+    await expect(unlinkDependencies("GUA-5", { blockedBy: ["R1"] }))
+      .rejects.toThrow(/Non-canonical/);
+    expect(calls.some((c) => c.query.includes("relations { nodes"))).toBe(false);
   });
 });
 

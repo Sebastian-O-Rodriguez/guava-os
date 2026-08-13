@@ -372,6 +372,123 @@ export function generateSprint(
   };
 }
 
+/**
+ * Generate a SprintDocument spanning MULTIPLE parents (GOS-42) — a union of
+ * container subtrees and/or standalone chains into ONE document, so real work
+ * that must span several containers (max_subtasks_per_parent caps per
+ * container, GUA-124) still yields a single gorp-executable SprintDocument.
+ *
+ * Shape per parent (same inference as generateSprint): a parent with children
+ * contributes its container children; a parent with no children contributes
+ * its forward `blocks`-closure (chain mode, with chain-head validation).
+ * Candidates are deduped across parents.
+ *
+ * Cross-container dependencies are PRESERVED (never silently dropped): a task
+ * is excluded as blocked only when it has an unresolved blocker OUTSIDE the
+ * union's included set. A blocker that is itself scheduled in this document
+ * becomes a dependency edge instead. This differs from single-parent
+ * container mode, which excludes a child blocked by anything unresolved — in
+ * a multi-parent union the blocker may simply be a later task in the same doc.
+ */
+export function generateSprintMulti(
+  issues: LinearIssue[],
+  parentIds: string[],
+  projectId: string,
+  config: Config,
+): GenerateResult {
+  const warnings: string[] = [];
+  const byId = new Map(issues.map((i) => [i.id, i]));
+  const blockedBy = buildBlockedByMap(issues);
+  const personaLabels = new Set(config.personas);
+
+  const candidates = new Map<string, LinearIssue>();
+  for (const pid of parentIds) {
+    if (!byId.has(pid)) throw new Error(`parent ${pid} not found in dataset`);
+    const parent = byId.get(pid)!;
+    const hasChildren = issues.some((i) => i.parentId === pid);
+    let set: LinearIssue[];
+    if (hasChildren) {
+      set = issues.filter((i) => i.parentId === pid);
+    } else {
+      // Chain-head validation mirrors generateSprint chain mode.
+      if (parent.statusType === "completed" || parent.canceledAt)
+        throw new Error(`parent ${pid} is completed/canceled — cannot generate`);
+      if (parent.status === config.statuses.backlog)
+        throw new Error(`parent ${pid} is backlog — cannot generate`);
+      if (parent.labels.filter((l) => personaLabels.has(l)).length !== 1)
+        throw new Error(`parent ${pid} has no valid persona label — cannot generate`);
+      set = walkForwardChain(issues, pid);
+    }
+    for (const s of set) if (!candidates.has(s.id)) candidates.set(s.id, s);
+  }
+
+  const excludedBlocked: LinearIssue[] = [];
+  const excludedInvalid: LinearIssue[] = [];
+  const excludedBacklog: LinearIssue[] = [];
+  const included: LinearIssue[] = [];
+
+  for (const c of candidates.values()) {
+    if (c.statusType === "completed" || c.canceledAt) continue;
+    if (c.status === config.statuses.backlog) {
+      excludedBacklog.push(c);
+      warnings.push(`excluded (backlog): ${c.title}`);
+      continue;
+    }
+    const persona = c.labels.filter((l) => personaLabels.has(l));
+    if (persona.length !== 1) {
+      excludedInvalid.push(c);
+      warnings.push(`excluded (persona label missing or ambiguous): ${c.title}`);
+      continue;
+    }
+    included.push(c);
+  }
+
+  const includedIds = new Set(included.map((i) => i.id));
+
+  // Exclude as blocked only when an unresolved blocker is NOT scheduled here.
+  const blockedOutside = new Set<string>();
+  for (const c of included) {
+    const blockers = blockedBy.get(c.id) ?? [];
+    const hasOutside = [...blockers].some((bid) => {
+      const b = byId.get(bid);
+      return b && b.statusType !== "completed" && !b.canceledAt && !includedIds.has(bid);
+    });
+    if (hasOutside) {
+      blockedOutside.add(c.id);
+      excludedBlocked.push(c);
+      warnings.push(`excluded (blocked by unresolved outside sprint): ${c.title}`);
+    }
+  }
+  const finalIncluded = included.filter((c) => !blockedOutside.has(c.id));
+  const finalIds = new Set(finalIncluded.map((i) => i.id));
+
+  if (finalIncluded.length === 0) {
+    throw new Error("union has no schedulable tasks");
+  }
+
+  const tasks: SprintTask[] = [];
+  for (const c of finalIncluded) {
+    const { task, warnings: tw } = issueToTask(c, blockedBy, finalIds, byId, personaLabels);
+    tasks.push(task);
+    warnings.push(...tw);
+  }
+
+  return {
+    doc: {
+      schemaVersion: 1,
+      sprintId: parentIds.join("-"),
+      project: { projectId },
+      approvedBy: UNAPPROVED_BY,
+      approvedAt: UNAPPROVED_AT,
+      tasks,
+    },
+    warnings,
+    excludedBlocked,
+    excludedInvalid,
+    excludedBacklog,
+  };
+}
+
 /** Record explicit operator approval on a generated SprintDocument file. */
 export function approveSprint(file: string, actor: string): SprintDocument {
   const raw = readFileSync(file, "utf-8");

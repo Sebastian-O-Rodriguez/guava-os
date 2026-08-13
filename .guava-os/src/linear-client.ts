@@ -485,6 +485,87 @@ export async function linkDependencies(
   }
 }
 
+/**
+ * Remove native "blocks" relations (GOS-41) — the inverse of linkDependencies.
+ * A dependency edge, once created, can be corrected without hand-editing
+ * Linear. Symmetric to link: `--blocks` removes A→B; `--blocked-by` removes
+ * B→A. Fails cleanly (classified error) when the requested edge does not
+ * exist. Canonical refs only, matching the link path.
+ */
+export async function unlinkDependencies(
+  issueId: string,
+  opts: { blocks?: string[]; blockedBy?: string[] },
+): Promise<void> {
+  const a = await resolveIssueId(issueId);
+  // Resolve + validate every target up front (self, canonical), so a bad ref
+  // fails before any network probe or mutation.
+  const want = new Map<string, "a-blocks-b" | "b-blocks-a">();
+  for (const raw of opts.blocks ?? []) {
+    const b = await resolveIssueId(raw);
+    if (a === b) throw new Error(`Cannot unlink an issue from itself: ${issueId}`);
+    want.set(b, "a-blocks-b");
+  }
+  for (const raw of opts.blockedBy ?? []) {
+    const b = await resolveIssueId(raw);
+    if (a === b) throw new Error(`Cannot unlink an issue from itself: ${issueId}`);
+    want.set(b, "b-blocks-a");
+  }
+  if (want.size === 0) return;
+
+  const data = await gql<{
+    issue: {
+      relations: {
+        nodes: Array<{
+          id: string;
+          type: string;
+          issue: { id: string };
+          relatedIssue: { id: string } | null;
+        }>;
+      };
+    };
+  }>(
+    `query ($id: String!) {
+      issue(id: $id) {
+        relations { nodes { id type issue { id } relatedIssue { id } } }
+      }
+    }`,
+    { id: a },
+  );
+  const relations = data.issue?.relations?.nodes ?? [];
+  const toDelete: Array<{ id: string; why: string }> = [];
+  for (const [b, dir] of want) {
+    // relation: a blocks b for "a-blocks-b"; b blocks a for "b-blocks-a"
+    const rel = dir === "a-blocks-b"
+      ? relations.find(
+          (r) => r.type === "blocks" && r.issue.id === a && r.relatedIssue?.id === b,
+        )
+      : relations.find(
+          (r) => r.type === "blocks" && r.issue.id === b && r.relatedIssue?.id === a,
+        );
+    if (!rel) {
+      const why = dir === "a-blocks-b"
+        ? `${issueId} blocks ${b}`
+        : `${b} blocks ${issueId}`;
+      throw new Error(`No "blocks" relation to remove: ${why} — nothing to unlink`);
+    }
+    toDelete.push({
+      id: rel.id,
+      why: dir === "a-blocks-b" ? `${issueId} blocks ${b}` : `${b} blocks ${issueId}`,
+    });
+  }
+  for (const { id, why } of toDelete) {
+    try {
+      await gql(
+        `mutation ($id: String!) { issueRelationDelete(id: $id) { success } }`,
+        { id },
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`Failed to remove dependency ${why}: ${msg}`);
+    }
+  }
+}
+
 /** One native "blocks" relation: `from` blocks `to`. */
 async function createBlocksRelation(from: string, to: string): Promise<void> {
   try {
