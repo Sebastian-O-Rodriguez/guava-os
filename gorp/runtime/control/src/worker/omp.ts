@@ -78,6 +78,29 @@ function truncate(s: string): string {
   return s.length > CAPTURE_LIMIT ? s.slice(0, CAPTURE_LIMIT) + "\n... (truncated)" : s;
 }
 
+/**
+ * Instruction appended on the empty-turn retry (GOS-46 follow-on): a worker
+ * that ended a clean turn without editing anything is asked once, explicitly,
+ * to actually modify the working tree.
+ */
+const RETRY_APPEND =
+  "\n\nNOTE: Your previous attempt completed WITHOUT changing any files, so this run FAILED. " +
+  "You MUST edit the working tree now — write new files or modify existing ones to satisfy the " +
+  "objective and acceptance criteria — then finish. Do not merely inspect, plan, or print paths.";
+
+/** Stage all worktree changes; return the sorted staged file list (empty = no artifacts).
+ *  We detect the staged index, not `diff base..HEAD`: HEAD is pinned above and
+ *  worktree edits are not in any commit until the adapter commits. */
+function stageAndList(dir: string): string[] {
+  git(["add", "--all"], dir);
+  return git(["diff", "--cached", "--name-only"], dir)
+    .stdout
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .sort();
+}
+
 interface OmpProcessResult {
   exitCode: number | null;
   signal: NodeJS.Signals | null;
@@ -193,28 +216,63 @@ export const ompAdapter: WorkerAdapter = {
     // GORP_OMP_SYSTEM_PROMPT_APPEND — set by the guava-os wf layer, never
     // resolved from guava-os paths here (adapter stays source-neutral).
     const args = ["-p", "--auto-approve", "--mode", "json", "--model", model, "--append-system-prompt", appendSystemPrompt];
-    args.push(prompt);
-    const proc = await runOmp(cmd, args, sandbox.dir, "", timeoutMs);
 
-    if (proc.timedOut) {
-      fail(`timed out after ${timeoutMs}ms (SIGKILL)`, {
-        timeoutMs,
-        stdout: truncate(proc.stdout),
-        stderr: truncate(proc.stderr),
-      });
+    // One invocation; fails hard on timeout / signal / nonzero exit. A clean
+    // exit (code 0) is the only outcome that may be retried below.
+    const invokeOmp = async (promptText: string): Promise<OmpProcessResult> => {
+      const r = await runOmp(cmd, [...args, promptText], sandbox.dir, "", timeoutMs);
+      if (r.timedOut) {
+        fail(`timed out after ${timeoutMs}ms (SIGKILL)`, {
+          timeoutMs,
+          stdout: truncate(r.stdout),
+          stderr: truncate(r.stderr),
+        });
+      }
+      if (r.signal) {
+        fail(`process was cancelled/killed (signal ${r.signal})`, {
+          signal: r.signal,
+          stdout: truncate(r.stdout),
+          stderr: truncate(r.stderr),
+        });
+      }
+      if (r.exitCode !== 0) {
+        fail(`process exited non-zero (${r.exitCode})`, {
+          exitCode: r.exitCode,
+          stdout: truncate(r.stdout),
+          stderr: truncate(r.stderr),
+        });
+      }
+      return r;
+    };
+    // OMP must not touch git — HEAD stays pinned to the sandbox base.
+    const assertHeadPinned = (): void => {
+      const headAfter = sandboxHead(sandbox);
+      if (headAfter !== headBefore) {
+        fail("OMP moved HEAD — the adapter owns the sandbox commit, not the worker", {
+          headBefore,
+          headAfter,
+        });
+      }
+    };
+
+    // Attempt 1.
+    let proc = await invokeOmp(prompt);
+    assertHeadPinned();
+
+    // Bounded empty-turn retry: a clean exit that changed NOTHING (e.g. the
+    // worker only ran `pwd && ls`) is re-invoked ONCE with an explicit "you
+    // must edit files" instruction. Timeouts and nonzero exits never retry —
+    // only a clean turn that produced zero edits, and only once. Fail-closed
+    // is preserved for real failures while the lazy-turn case is recovered.
+    let stagedFiles = stageAndList(sandbox.dir);
+    if (stagedFiles.length === 0) {
+      proc = await invokeOmp(prompt + RETRY_APPEND);
+      assertHeadPinned();
+      stagedFiles = stageAndList(sandbox.dir);
     }
-    if (proc.signal) {
-      fail(`process was cancelled/killed (signal ${proc.signal})`, {
-        signal: proc.signal,
+    if (stagedFiles.length === 0) {
+      fail("no files changed — the worker produced no artifacts even after an empty-turn retry", {
         stdout: truncate(proc.stdout),
-        stderr: truncate(proc.stderr),
-      });
-    }
-    if (proc.exitCode !== 0) {
-      fail(`process exited non-zero (${proc.exitCode})`, {
-        exitCode: proc.exitCode,
-        stdout: truncate(proc.stdout),
-        stderr: truncate(proc.stderr),
       });
     }
 
@@ -224,32 +282,6 @@ export const ompAdapter: WorkerAdapter = {
     const summary = extractOmpSummary(proc.stdout);
     let reviewerNotes: string | undefined;
     if (proc.stderr.length > 0) reviewerNotes = truncate(proc.stderr);
-
-    // Verify HEAD didn't move (OMP must not touch git).
-    const headAfter = sandboxHead(sandbox);
-    if (headAfter !== headBefore) {
-      fail("OMP moved HEAD — the adapter owns the sandbox commit, not the worker", {
-        headBefore,
-        headAfter,
-      });
-    }
-
-    // Stage the worker's worktree changes FIRST, then check for artifacts:
-    // `diff base..HEAD` (sandboxChangedFiles) is necessarily empty until the
-    // adapter commits — HEAD is pinned above, and worktree edits are not yet
-    // in any commit. Detect the staged index instead.
-    git(["add", "--all"], sandbox.dir);
-    const stagedFiles = git(["diff", "--cached", "--name-only"], sandbox.dir)
-      .stdout
-      .split("\n")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-      .sort();
-    if (stagedFiles.length === 0) {
-      fail("no files changed — the worker produced no artifacts", {
-        stdout: truncate(proc.stdout),
-      });
-    }
 
     // Make the single sandbox commit (same pattern as the fixture adapter).
     const commitMessage = `gorp: omp worker — ${graphId}/${node.nodeId}/${runId}`;

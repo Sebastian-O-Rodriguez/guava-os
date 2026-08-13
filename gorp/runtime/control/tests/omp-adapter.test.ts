@@ -313,3 +313,72 @@ describe("OMP adapter fails closed (GOS-46 / GUA-179)", () => {
     expect(existsSync(spawnMarker)).toBe(false);
   });
 });
+
+describe("OMP adapter empty-turn retry (GOS-46 follow-on)", () => {
+  // Fake OMP that emits a clean exit; whether it edits is driven by a marker
+  // file in the shared sandbox cwd, so the SAME script behaves differently on
+  // the first vs the (retried) second invocation:
+  //   writes-first  : edit on call 1 (retry never needed)
+  //   recovers      : no edits on call 1, edits on call 2 (retry recovers it)
+  //   always-empty  : no edits on either call (retry still fails closed)
+  function writeBehaviorFakeOmp(kind: "writes-first" | "recovers" | "always-empty"): string {
+    const path = join(fakeOmpDir, `fake-tenant-${kind}.sh`);
+    // Counter lives OUTSIDE the sandbox cwd so the shared marker is never
+    // staged/committed as if the worker produced an artifact.
+    const counter = join(fakeOmpDir, `call-${kind}.marker`);
+    const edit = ["mkdir -p docs", "printf 'GOS retry probe\\n' > docs/probe.md"].join("\n");
+    const first = kind === "writes-first" ? edit : ":";
+    const second = kind === "always-empty" ? ":" : edit;
+    const body = [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "cat > /dev/null 2>&1 || true   # drain the prompt the adapter pipes in",
+      `if [ -f "${counter}" ]; then SECOND=1; else SECOND=0; touch "${counter}"; fi`,
+      `if [ "$SECOND" = "0" ]; then`,
+      first,
+      "else",
+      second,
+      "fi",
+      `printf '%s\\n' '{"type":"agent_end","messages":[{"role":"assistant","content":[{"type":"text","text":"done"}]}]}'`,
+    ].join("\n");
+    writeFileSync(path, body + "\n", "utf8");
+    chmodSync(path, 0o755);
+    return path;
+  }
+  async function invoke(kind: "writes-first" | "recovers" | "always-empty"): Promise<WorkerResult | Error> {
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sandbox"),
+      "gorp/run/omp-retry/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeBehaviorFakeOmp(kind);
+    try {
+      return await ompAdapter.invoke({ sandbox, graphId: "g-retry", runId: "run-1", node: makeNode(), clock });
+    } catch (e) {
+      return e as Error;
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
+  }
+
+  it("recovers an empty first turn via one bounded retry that then edits", async () => {
+    const result = (await invoke("recovers")) as WorkerResult;
+    expect(result.outcome).toBe("succeeded");
+    // the retry's edit is committed to the sandbox branch and reported
+    expect(result.changedFiles).toContain("docs/probe.md");
+  });
+
+  it("does not retry when the first turn already produced edits", async () => {
+    const result = (await invoke("writes-first")) as WorkerResult;
+    expect(result.outcome).toBe("succeeded");
+    expect(result.changedFiles).toContain("docs/probe.md");
+  });
+
+  it("fails closed even after the empty-turn retry when the worker still edits nothing", async () => {
+    const err = (await invoke("always-empty")) as Error & { code?: string };
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toContain("even after an empty-turn retry");
+    expect(err.message).toContain("no files changed");
+  });
+});
