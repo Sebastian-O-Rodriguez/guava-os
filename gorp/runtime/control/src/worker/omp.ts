@@ -17,7 +17,13 @@
  * Configuration:
  *   GORP_OMP_CMD      — path to the omp binary (default: "omp" from PATH)
  *   GORP_OMP_TIMEOUT  — timeout in ms (default: 600000)
- *   GORP_OMP_MODEL    — model tier (default: persona's model or "default")
+ *
+ * Worker profile (GOS-46, fail closed): a node MUST carry a persona, and the
+ * guava-os wf layer MUST have resolved it into the environment before
+ * dispatch. A missing persona, model, or persona body aborts the spawn with a
+ * classified WORKER_FAILED error — there is no weak/default fallback.
+ *   GORP_OMP_MODEL                — model tier (required when a persona is set)
+ *   GORP_OMP_SYSTEM_PROMPT_APPEND — persona body (required when a persona is set)
  */
 
 import { spawn } from "node:child_process";
@@ -118,9 +124,35 @@ export const ompAdapter: WorkerAdapter = {
     const { sandbox, graphId, runId, node, clock } = input;
     const startedAt = clock.now();
 
+    // FAIL CLOSED (GOS-46 / GUA-179): a resolved worker profile is REQUIRED
+    // before spawn. The guava-os wf layer resolves node.persona -> env; this
+    // adapter only verifies the profile is present. No weak/default fallback,
+    // no silent no-persona spawn.
+    const persona = node.persona?.trim();
+    if (!persona) {
+      fail("refusing to spawn: node has no persona (a resolved worker profile is required)", {
+        nodeId: node.nodeId,
+        graphId,
+        runId,
+      });
+    }
+    const model = (process.env["GORP_OMP_MODEL"] ?? "").trim();
+    if (!model) {
+      fail(`refusing to spawn: GORP_OMP_MODEL is not resolved for persona '${persona}'`, {
+        persona,
+        nodeId: node.nodeId,
+      });
+    }
+    const appendSystemPrompt = (process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] ?? "").trim();
+    if (!appendSystemPrompt) {
+      fail(`refusing to spawn: GORP_OMP_SYSTEM_PROMPT_APPEND is not resolved for persona '${persona}'`, {
+        persona,
+        nodeId: node.nodeId,
+      });
+    }
+
     const cmd = (process.env["GORP_OMP_CMD"] ?? "omp").trim();
     const timeoutMs = Number.parseInt(process.env["GORP_OMP_TIMEOUT"] ?? "", 10) || DEFAULT_TIMEOUT_MS;
-    const model = process.env["GORP_OMP_MODEL"] ?? "default";
 
     const headBefore = sandboxHead(sandbox);
 
@@ -160,11 +192,7 @@ export const ompAdapter: WorkerAdapter = {
     // Invoke OMP in print mode with auto-approve. The persona body arrives via
     // GORP_OMP_SYSTEM_PROMPT_APPEND — set by the guava-os wf layer, never
     // resolved from guava-os paths here (adapter stays source-neutral).
-    const args = ["-p", "--auto-approve", "--mode", "json", "--model", model];
-    const appendSystemPrompt = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
-    if (appendSystemPrompt) {
-      args.push("--append-system-prompt", appendSystemPrompt);
-    }
+    const args = ["-p", "--auto-approve", "--mode", "json", "--model", model, "--append-system-prompt", appendSystemPrompt];
     args.push(prompt);
     const proc = await runOmp(cmd, args, sandbox.dir, "", timeoutMs);
 

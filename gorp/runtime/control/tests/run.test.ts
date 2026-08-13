@@ -272,13 +272,25 @@ describe("Wave B run: approved graph -> sandbox -> worker -> result -> gate -> r
   });
 
 
-  it("stamps profile into run record when node has persona", async () => {
-    approvedGraph("g-profile", makeNode({ persona: "architect" }));
-    const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-profile", actorId: "orch" }, clock);
-    const rr = JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
-    expect(rr.profile).toBeDefined();
-    expect(rr.profile!.persona).toBe("architect");
-    expect(rr.profile!.model).toBe("default");
+  it("stamps resolved profile + deterministic promptHash into run record when node has persona", async () => {
+    const prevModel = process.env["GORP_OMP_MODEL"];
+    const prevAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    process.env["GORP_OMP_MODEL"] = "slow";
+    process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are an architect.";
+    try {
+      approvedGraph("g-profile", makeNode({ persona: "architect" }));
+      const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-profile", actorId: "orch" }, clock);
+      const rr = JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
+      expect(rr.profile).toBeDefined();
+      expect(rr.profile!.persona).toBe("architect");
+      expect(rr.profile!.model).toBe("slow");
+      expect(rr.profile!.promptHash).toMatch(/^[a-f0-9]{64}$/);
+    } finally {
+      if (prevModel !== undefined) process.env["GORP_OMP_MODEL"] = prevModel;
+      else delete process.env["GORP_OMP_MODEL"];
+      if (prevAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevAppend;
+      else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    }
   });
 
   it("omits profile from run record when node has no persona", async () => {
@@ -286,6 +298,32 @@ describe("Wave B run: approved graph -> sandbox -> worker -> result -> gate -> r
     const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-noprofile", actorId: "orch" }, clock);
     const rr = JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
     expect(rr.profile).toBeUndefined();
+  });
+
+  it("promptHash is deterministic for the same profile and changes with the model", async () => {
+    const prevModel = process.env["GORP_OMP_MODEL"];
+    const prevAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are an architect.";
+    try {
+      const runAndRead = async (graphId: string, model: string): Promise<RunRecord> => {
+        process.env["GORP_OMP_MODEL"] = model;
+        approvedGraph(graphId, makeNode({ persona: "architect" }));
+        const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId, actorId: "orch" }, clock);
+        return JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
+      };
+      const a = await runAndRead("g-hash-a", "default");
+      const b = await runAndRead("g-hash-b", "default");
+      const c = await runAndRead("g-hash-c", "slow");
+      // Same resolved profile -> same hash (review decisions bind to it).
+      expect(a.profile!.promptHash).toBe(b.profile!.promptHash);
+      // A different model tier -> a different hash.
+      expect(a.profile!.promptHash).not.toBe(c.profile!.promptHash);
+    } finally {
+      if (prevModel !== undefined) process.env["GORP_OMP_MODEL"] = prevModel;
+      else delete process.env["GORP_OMP_MODEL"];
+      if (prevAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevAppend;
+      else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    }
   });
 
   it("worker output is deterministic for identical inputs", async () => {

@@ -80,7 +80,12 @@
       "properties": {
         "persona": { "type": "string", "minLength": 1 },
         "model": { "type": "string", "minLength": 1 },
-        "role": { "type": "string", "minLength": 1 }
+        "role": { "type": "string", "minLength": 1 },
+        "promptHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "sha256 of the resolved worker profile (persona body/system-prompt + model) — deterministic lifecycle evidence for the review decision (GOS-46)."
+        }
       }
     },
     "endedAt": { "type": "string", "format": "date-time" }

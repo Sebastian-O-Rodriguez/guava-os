@@ -25,6 +25,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { GorpError } from "../errors/index.js";
 import {
@@ -148,6 +149,34 @@ function persistValidated(name: "worker-result" | "gate-record" | "run-record", 
   atomicWriteJson(path, value);
 }
 
+/**
+ * sha256 of the resolved worker profile — deterministic lifecycle evidence
+ * (GOS-46). The same persona + model + persona body always hash to the same
+ * value, so a review decision can bind to the exact profile that ran.
+ */
+function computePromptHash(persona: string, model: string, systemPrompt: string): string {
+  return createHash("sha256").update(JSON.stringify({ persona, model, systemPrompt })).digest("hex");
+}
+
+/**
+ * Resolve the worker profile to stamp into the run record (GOS-46).
+ *
+ * Present only when the node carries a persona. The model comes from the
+ * environment (set by the guava-os wf layer before dispatch); when it is not
+ * resolvable it is omitted (the omp adapter has already failed closed before
+ * a spawn could happen in that case).
+ */
+function resolveWorkerProfile(persona: string | undefined): RunRecord["profile"] {
+  if (!persona) return undefined;
+  const model = process.env["GORP_OMP_MODEL"] ?? "";
+  const systemPrompt = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] ?? "";
+  return {
+    persona,
+    ...(model ? { model } : {}),
+    promptHash: computePromptHash(persona, model, systemPrompt),
+  };
+}
+
 export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clock = systemClock): Promise<RunOutput> {
   const store = new GraphStore(cfg);
   let graph: ExecutionGraph = store.load(input.projectId, input.graphId);
@@ -155,6 +184,10 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
   // Explicit node selection + eligibility policy (fail closed; no fallback).
   const node = selectNode(graph, input.nodeId);
   assertNodeRunnable(graph, node);
+  // Resolve the worker profile ONCE (GOS-46): persona -> { persona, model,
+  // promptHash }. The omp adapter enforces that a persona + resolved env exist
+  // before spawning; this stamps the same resolved profile into the run record.
+  const profile = resolveWorkerProfile(node.persona);
 
   // Resolve the worker adapter FIRST: an unknown adapter fails closed before
   // any state transition, sandbox, or run directory exists.
@@ -272,7 +305,7 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
       sandboxIdentity: branch,
       ...(workerResult ? { workerResultRef: "worker-result.json" } : {}),
       ...(gateRecord ? { gateRecordRef: "gate-record.json" } : {}),
-      ...(node.persona ? { profile: { persona: node.persona, model: process.env["GORP_OMP_MODEL"] ?? "default" } } : {}),
+      ...(profile ? { profile } : {}),
       controlDecisions: decisions,
       finalStatus: "failed",
       startedAt,
@@ -363,7 +396,7 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
     sandboxIdentity: branch,
     workerResultRef: "worker-result.json",
     gateRecordRef: "gate-record.json",
-      ...(node.persona ? { profile: { persona: node.persona, model: process.env["GORP_OMP_MODEL"] ?? "default" } } : {}),
+      ...(profile ? { profile } : {}),
     controlDecisions: decisions,
     finalStatus: "succeeded",
     startedAt,
