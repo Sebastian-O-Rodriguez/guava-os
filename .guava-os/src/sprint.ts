@@ -25,6 +25,7 @@
  */
 
 import { readFileSync, writeFileSync, renameSync } from "node:fs";
+import { createHash } from "node:crypto";
 import type { Config } from "./config.js";
 import type { LinearIssue } from "./linear.js";
 
@@ -476,7 +477,11 @@ export function generateSprintMulti(
   return {
     doc: {
       schemaVersion: 1,
-      sprintId: parentIds.join("-"),
+      // Deterministic, short, order-independent union id (GOS-48): derived
+      // from the SORTED parent set so A+B == B+A, always under the schema
+      // stableId max (128) regardless of how many parents, and byte-stable
+      // across regenerations of the same set.
+      sprintId: `sprint-${createHash("sha1").update([...parentIds].sort().join("+")).digest("hex").slice(0, 48)}`,
       project: { projectId },
       approvedBy: UNAPPROVED_BY,
       approvedAt: UNAPPROVED_AT,
