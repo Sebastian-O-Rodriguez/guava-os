@@ -1,12 +1,15 @@
 # Worker Profile Contract
 
 > **Authority:** ADR_001 → `guava-os-gorp-contract.md` → this document.
-> Status: **IMPLEMENTED** (GUA-123, merge ed1a6ff, 2026-08-12). Persona flows
-> issue → SprintTask.persona → graph node.persona → run-record `profile
-> {persona, model}`; the omp adapter is source-neutral and persona-aware via
-> env (`GORP_OMP_MODEL`, `GORP_OMP_SYSTEM_PROMPT_APPEND` → omp `--model` +
-> `--append-system-prompt`). Real persona-aware OMP execution is proven
-> (GOS-35; guava-site live proof 2026-08-12).
+> Status: **IMPLEMENTED, fail-closed** (GUA-123 merge ed1a6ff; GOS-46 /
+> GUA-179, 2026-08-13). Persona flows issue → SprintTask.persona → graph
+> node.persona → run-record `profile {persona, model, promptHash}`; the omp
+> adapter is source-neutral and persona-aware via env (`GORP_OMP_MODEL`,
+> `GORP_OMP_SYSTEM_PROMPT_APPEND` → omp `--model` + `--append-system-prompt`).
+> A persona is REQUIRED to spawn: a missing or unresolvable profile fails
+> closed before any worker process starts — never a weak/default fallback.
+> Real persona-aware OMP execution is proven (GOS-35; guava-site live proof
+> 2026-08-12).
 
 ## Purpose
 
@@ -66,7 +69,7 @@ Worker
 | Model | persona `model` tier via `GORP_OMP_MODEL`; env override stays | same |
 | Role | persona `maps_to` carried in run-record profile | surfaced in inspect |
 | Tools | persona `tools` documented in persona file; env-driven | allowlist refinement |
-| Run record | `profile {persona, model}` stamped; visible via `wf review` / `gorp inspect` | same |
+| Run record | `profile {persona, model, promptHash}` stamped; visible via `wf review` / `gorp inspect` | same |
 
 ## Boundaries (resolved by GUA-123, merge ed1a6ff)
 
@@ -82,8 +85,32 @@ Worker
 3. **Adapter stays source-neutral — RESOLVED.** The adapter never reads
    guava-os paths. It consumes `node.persona` as data and the
    `GORP_OMP_MODEL` / `GORP_OMP_SYSTEM_PROMPT_APPEND` env. The guava-os `wf`
-   layer is responsible for resolving persona → env (follow-up: automate
-   per-graph env resolution from `.guava-os/personas/`).
+   layer resolves persona → env from `.guava-os/personas/<name>/persona.md`
+   (`src/persona.ts`) and `wf orchestrate` feeds that env into the gorp
+   orchestrate subprocess, which the scheduler inherits for every `run`
+   subprocess (GOS-46). If resolution fails, orchestrate errors before gorp
+   starts — and the adapter independently fails closed at dispatch.
+
+## Fail-closed profile (GOS-46 / GUA-179)
+
+Live incident GUA-155 traced a worker that timed out at 600s after launching
+with the weak/default model and no persona body. Root cause: the omp adapter
+silently fell back to `GORP_OMP_MODEL ?? "default"` and only appended the
+persona body when `GORP_OMP_SYSTEM_PROMPT_APPEND` happened to be set. Both
+defaults are removed:
+
+- **A persona is required to spawn.** The omp adapter reads `node.persona`
+  and, before spawning any process, verifies the resolved profile is present
+  (`GORP_OMP_MODEL` and `GORP_OMP_SYSTEM_PROMPT_APPEND` both non-empty).
+  A missing persona, model, or body raises a classified `WORKER_FAILED`
+  GorpError — there is no weak/default fallback.
+- **Deterministic lifecycle evidence.** The run record stamps the resolved
+  profile plus a `promptHash` — `sha256({persona, model, systemPrompt})` —
+  so a review decision binds to the exact profile that ran, and any drift in
+  the persona body or model tier is detectable.
+- **Layered enforcement.** guava-os resolves persona → env at orchestrate
+  time (fail closed on a missing persona file or unresolvable model); the
+  gorp omp adapter independently re-checks the resolved env at dispatch.
 
 ## Approval gate
 
