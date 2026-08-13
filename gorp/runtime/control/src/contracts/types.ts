@@ -208,6 +208,8 @@ export interface RunRecord {
     readonly persona?: string;
     readonly model?: string;
     readonly role?: string;
+    /** sha256 of the resolved worker profile (persona body + model), GOS-46. */
+    readonly promptHash?: string;
   };
   readonly endedAt?: string;
 }

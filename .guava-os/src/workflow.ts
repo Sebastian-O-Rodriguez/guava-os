@@ -13,6 +13,8 @@ import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
+import { findRepoRoot } from "./config.js";
+import { personaEnv, resolvePersona } from "./persona.js";
 
 // Resolve tsx from the repo root node_modules (same place guava-os CLI
 // itself is loaded from). Cwd-based: the CLI documents running from the
@@ -47,14 +49,15 @@ function resolveTsxLoader(): string {
   }
   return tsxLoader;
 }
-
 /** Call gorp CLI with args; return parsed JSON result. */
-function callGorp(args: string[]): unknown {
+function callGorp(args: string[], extraEnv: Readonly<Record<string, string>> = {}): unknown {
   const cli = gorpCli();
   const env = {
     ...process.env,
     // Ensure gorp can find the registry (owned by guava-os)
     GORP_PROJECT_REGISTRY: process.env.GORP_PROJECT_REGISTRY ?? "",
+    // Worker-profile env (GOS-46) resolved by the caller (e.g. orchestrate).
+    ...extraEnv,
   };
   if (!env.GORP_PROJECT_REGISTRY) {
     throw new Error(
@@ -79,12 +82,54 @@ export function plan(from: string, opts: { baseCommit?: string; overwrite?: bool
   return callGorp(args);
 }
 
-/** orchestrate — start the scheduler loop on an approved graph. */
-export function orchestrate(projectId: string, graphId: string): unknown {
-  return callGorp(["orchestrate", "--project-id", projectId, "--graph-id", graphId]);
+/** Resolve the worker-profile environment for every persona used by a graph.
+ *
+ * Fail closed: any missing persona file or unresolvable model is surfaced as
+ * an error before the gorp orchestrate call — the scheduler never starts with
+ * a missing or ambiguous profile.
+ */
+function resolveGraphPersonaEnv(
+  projectId: string,
+  graphId: string,
+  repoRoot: string,
+): Readonly<Record<string, string>> {
+  const show = callGorp(["graph", "show", "--project-id", projectId, "--graph-id", graphId]) as {
+    data?: { nodes?: ReadonlyArray<{ persona?: string }> };
+  };
+  const personas = [
+    ...new Set(
+      (show?.data?.nodes ?? [])
+        .map((n) => n?.persona)
+        .filter((p): p is string => typeof p === "string" && p.trim().length > 0),
+    ),
+  ];
+  if (personas.length === 0) {
+    // Graph has no persona-annotated nodes — no profile env to inject.
+    // The omp adapter will fail closed at run time with a clear error
+    // ("node has no persona — a resolved worker profile is required").
+    return {};
+  }
+  if (personas.length > 1) {
+    throw new Error(
+      `graph '${graphId}' mixes multiple personas (${personas.join(", ")}): ` +
+        "a single worker-profile environment cannot be resolved — split the graph or assign one persona",
+    );
+  }
+  const resolved = resolvePersona(personas[0]!, repoRoot);
+  return personaEnv(resolved);
 }
 
-/** orchestrate-status — check scheduler state. */
+/** orchestrate — start the scheduler loop on an approved graph.
+ *
+ * Resolves the graph's worker profile from `.guava-os/personas/` and passes
+ * it as environment to gorp so the omp adapter dispatches every worker with
+ * the intended model + persona body (GOS-46).
+ */
+export function orchestrate(projectId: string, graphId: string): unknown {
+  const repoRoot = findRepoRoot();
+  const env = resolveGraphPersonaEnv(projectId, graphId, repoRoot);
+  return callGorp(["orchestrate", "--project-id", projectId, "--graph-id", graphId], env);
+}
 export function orchestrateStatus(projectId: string, graphId: string): unknown {
   return callGorp(["orchestrate-status", "--project-id", projectId, "--graph-id", graphId]);
 }
