@@ -75,13 +75,36 @@ execution results via `pm`.
   SprintDocument (operator-approved, schema-validated) is the execution
   input. `sprint generate` produces the second; `wf plan` compiles it.
 
-## SprintDocument generation (GUA-137)
+## Hard dependency vs preferred order (GOS-44)
+
+A `blocks` edge means **"downstream work consumes the upstream result"** — a
+hard result-dependency. It is NOT a sequencing preference.
+
+- Use an edge only when the downstream deliverable actually needs the upstream
+  output to proceed. Apply the *results-needed* test: "would downstream fail
+  without the upstream result?" If no → it is not a dependency.
+- **Never use `blocks` for "do roughly before" / nice-to-have ordering.** That
+  needlessly serializes independent work (gorp pipelines edged tasks instead of
+  running them in parallel).
+- **Independent work stays independent.** For concurrent, non-sequenced work
+  use container children or unblocked standalones — the scheduler runs
+  0-indegree tasks in parallel. Do not invent dependencies.
+- A wrongly-added or stale edge is fixable: `pm unlink <id> --blocks <ids> /
+  --blocked-by <ids>` removes it cleanly (GOS-41).
+
+## SprintDocument generation (GUA-137 / GOS-42)
 
 - `sprint generate --parent <id>` infers shape from the parent:
   - parent has ≥1 child → **container mode**: tasks from its children
     (blocked children excluded, GOS-28).
   - parent has no children → **chain mode**: tasks = parent + transitive
     forward `blocks`-closure; dependencies carried so gorp pipelines them.
+- **Multi-parent union (GOS-42):** pass `--parent` multiple times to union
+  several containers / chains into ONE SprintDocument, so work that must span
+  multiple containers (max_subtasks_per_parent per container) still compiles
+  into a single gorp graph. Cross-container `blocks` edges are PRESERVED as
+  task dependencies when both endpoints are in the doc (a task is excluded as
+  blocked only when its blocker is unresolved AND outside the union).
 - `project.projectId` = the canonical GOS registry id from
   `.guava-os/registry/projects.yml` (`linear_project` field maps the Linear
   name), e.g. Linear `guava-bi` → registry id `guavabi`. Never the Linear
@@ -114,5 +137,6 @@ definitions live in `.guava-os/personas/<name>/persona.md`.
 - `validate`, `status`, `next` — board health, ready-work directives
 - `.guava-os/registry/projects.yml` — project registration check
 - Writes: via the `linear` skill — planning decides what, linear writes
+- `pm link` / `pm unlink` — add / remove dependency edges (GOS-41)
 - Execution handoff: `wf plan` (approved sprint → gorp compile-graph); see
   the `execution` skill

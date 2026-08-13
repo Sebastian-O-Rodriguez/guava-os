@@ -17,6 +17,7 @@
  *   npx tsx .guava-os/src/cli.ts pm create --title "..." --team "Guava AI"
  *   npx tsx .guava-os/src/cli.ts pm update GUA-45 --status Done
  *   npx tsx .guava-os/src/cli.ts pm link GUA-45 --blocked-by GUA-47
+ *   npx tsx .guava-os/src/cli.ts pm unlink GUA-45 --blocked-by GUA-47
  *   npx tsx .guava-os/src/cli.ts pm move GUA-45 --status "In Progress"
  *   npx tsx .guava-os/src/cli.ts pm assign GUA-45 --assignee me
  *   npx tsx .guava-os/src/cli.ts pm comment GUA-45 --body "..."
@@ -34,7 +35,7 @@ import { generateNext, formatNext } from "./next.js";
 import { readFileSync, writeFileSync } from "fs";
 import * as pm from "./linear-client.js";
 import * as wf from "./workflow.js";
-import { generateSprint, approveSprint } from "./sprint.js";
+import { generateSprint, generateSprintMulti, approveSprint } from "./sprint.js";
 import { resolveRegistryProjectId, loadRegistry } from "./registry.js";
 
 function usage(): never {
@@ -238,6 +239,7 @@ Subcommands:
   create [flags]           Create an issue (--title, --team, --project, --parent, --label, --priority, --status, --assignee)
   update <id> [flags]      Update an issue (--title, --description, --priority, --assignee, --status, --label, --parent; --parent none detaches)
   link <id> [flags]        Link dependencies (--blocks, --blocked-by)
+  unlink <id> [flags]      Remove dependencies (--blocks, --blocked-by)
   move <id> --status <s>   Move status
   assign <id> --assignee <a>  Assign issue
   comment <id> --body <t>  Create a comment
@@ -313,6 +315,14 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
         blockedBy: flagAll(rest, "--blocked-by"),
       });
       console.log("Dependencies linked.");
+      return;
+    }
+    case "unlink": {
+      await pm.unlinkDependencies(rest[0], {
+        blocks: flagAll(rest, "--blocks"),
+        blockedBy: flagAll(rest, "--blocked-by"),
+      });
+      console.log("Dependencies unlinked.");
       return;
     }
     case "move": {
@@ -424,12 +434,15 @@ async function runSprint(
     console.log(`guava-os sprint <subcommand> [flags]
 
 Subcommands:
-  generate --parent <id|GUA-N> [--project <linear-project-or-registry-id>] [--out <path>]
-            Fetch the parent from Linear and generate a schema-valid
+  generate --parent <id|GUA-N> [--parent <id> ...] [--project <linear-project-or-registry-id>] [--out <path>]
+            Fetch the parent(s) from Linear and generate a schema-valid
             gorp SprintDocument (UNAPPROVED), write to --out (or stdout).
             Shape is inferred: container parent (has children) → tasks from
             children (blocked excluded); deliverable / standalone parent
             (no children) → tasks = parent + transitive dependency chain.
+            Pass --parent MULTIPLE times (or comma/space) to UNION parents
+            into ONE document, preserving cross-container dependencies
+            (GOS-42).
   approve <file> --by <actor>
             Record explicit operator approval on a generated document.
 
@@ -440,16 +453,24 @@ it; gorp never reads Linear (ADR_001).`);
 
   switch (sub) {
     case "generate": {
-      const parent = f(rest, "--parent");
+      const parents = flagAll(rest, "--parent");
       const linearProject = f(rest, "--project") ?? config.linear.project;
-      if (!parent) {
-        console.error("sprint generate requires --parent <id|GUA-N>");
+      if (parents.length === 0) {
+        console.error("sprint generate requires --parent <id|GUA-N> (repeatable for a union)");
         process.exit(1);
       }
-      const parentIssue = await pm.getIssue(parent);
+      const parentIssues = await Promise.all(parents.map((p) => pm.getIssue(p)));
       const { issues } = await pm.searchIssues(config, { projectId: linearProject });
       const registryId = resolveRegistryProjectId(linearProject, loadRegistry());
-      const result = generateSprint(issues, parentIssue.id, registryId, config);
+      const result =
+        parentIssues.length === 1
+          ? generateSprint(issues, parentIssues[0].id, registryId, config)
+          : generateSprintMulti(
+              issues,
+              parentIssues.map((p) => p.id),
+              registryId,
+              config,
+            );
       const docJson = JSON.stringify(result.doc, null, 2) + "\n";
       const out = f(rest, "--out");
       if (out) {

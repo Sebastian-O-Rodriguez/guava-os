@@ -5,6 +5,7 @@ import { join } from "path";
 import { loadConfig, findRepoRoot } from "../src/config.js";
 import {
   generateSprint,
+  generateSprintMulti,
   approveSprint,
   parseAcceptanceCriteria,
   parseScope,
@@ -320,5 +321,81 @@ describe("approveSprint", () => {
     writeFileSync(file, JSON.stringify({ hello: 1 }));
     expect(() => approveSprint(file, "operator:x")).toThrow(/SprintDocument/);
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("generateSprintMulti (GOS-42) — union across parents", () => {
+  it("unions two container parents into ONE document", () => {
+    const issues = [
+      issue({ id: "P1", title: "Container A", labels: [], statusType: "unstarted" }),
+      issue({ id: "P2", title: "Container B", labels: [], statusType: "unstarted" }),
+      issue({ id: "a1", parentId: "P1", labels: ["backend"], description: "## Acceptance criteria\n- a\n" }),
+      issue({ id: "b1", parentId: "P1", labels: ["architect"], description: "## Acceptance criteria\n- b\n" }),
+      issue({ id: "x1", parentId: "P2", labels: ["backend"], description: "## Acceptance criteria\n- x\n" }),
+    ];
+    const res = generateSprintMulti(issues, ["P1", "P2"], "guava-os", config);
+    expect(res.doc.tasks.map((t) => t.taskId).sort()).toEqual(["a1", "b1", "x1"]);
+    expect(res.excludedBlocked).toEqual([]);
+    expect(res.doc.sprintId).toBe("P1-P2");
+  });
+
+  it("preserves a cross-container dependency (A-child blocks B-child) instead of dropping or excluding", () => {
+    const issues = [
+      issue({ id: "P1", title: "Container A", labels: [], statusType: "unstarted" }),
+      issue({ id: "P2", title: "Container B", labels: [], statusType: "unstarted" }),
+      issue({ id: "a1", parentId: "P1", labels: ["backend"], blocks: ["x1"], description: "## Acceptance criteria\n- a\n" }),
+      issue({ id: "x1", parentId: "P2", labels: ["backend"], description: "## Acceptance criteria\n- x\n" }),
+    ];
+    const res = generateSprintMulti(issues, ["P1", "P2"], "guava-os", config);
+    const tasks = res.doc.tasks;
+    expect(tasks).toHaveLength(2);
+    const x = tasks.find((t) => t.taskId === "x1")!;
+    expect(x.dependencies).toEqual(["a1"]);
+    const a = tasks.find((t) => t.taskId === "a1")!;
+    expect(a.dependencies).toEqual([]);
+    expect(res.excludedBlocked).toEqual([]);
+  });
+
+  it("excludes a task blocked only by an unresolved issue OUTSIDE the union", () => {
+    const issues = [
+      issue({ id: "P1", title: "Container A", labels: [], statusType: "unstarted" }),
+      issue({ id: "P2", title: "Container B", labels: [], statusType: "unstarted" }),
+      issue({ id: "a1", parentId: "P1", labels: ["backend"], description: "## Acceptance criteria\n- a\n" }),
+      // x1 blocked by external 'ext' (todo, not in the union)
+      issue({ id: "ext", title: "external", labels: ["backend"], statusType: "unstarted", description: "## Acceptance criteria\n- e\n" }),
+      issue({ id: "x1", parentId: "P2", labels: ["backend"], description: "## Acceptance criteria\n- x\n" }),
+    ];
+    issues.find((i) => i.id === "ext")!.blocks = ["x1"];
+    const res = generateSprintMulti(issues, ["P1", "P2"], "guava-os", config);
+    expect(res.excludedBlocked.map((i) => i.id)).toEqual(["x1"]);
+    expect(res.doc.tasks.map((t) => t.taskId)).toEqual(["a1"]);
+  });
+
+  it("unions a container parent with a standalone chain head, preserving chain deps", () => {
+    const issues = [
+      issue({ id: "C1", title: "Container", labels: [], statusType: "unstarted" }),
+      issue({ id: "c1", parentId: "C1", labels: ["backend"], description: "## Acceptance criteria\n- c\n" }),
+      issue({ id: "CA", title: "chain head", labels: ["architect"], blocks: ["CB"], description: "## Acceptance criteria\n- s\n" }),
+      issue({ id: "CB", title: "chain tail", labels: ["architect"], description: "## Acceptance criteria\n- t\n" }),
+    ];
+    const res = generateSprintMulti(issues, ["C1", "CA"], "guava-os", config);
+    const ids = res.doc.tasks.map((t) => t.taskId);
+    expect(ids).toEqual(["c1", "CA", "CB"]);
+    const tB = res.doc.tasks.find((t) => t.taskId === "CB")!;
+    expect(tB.dependencies).toEqual(["CA"]);
+  });
+
+  it("throws when a parent is missing from the dataset", () => {
+    expect(() => generateSprintMulti([], ["GHOST"], "guava-os", config))
+      .toThrow(/GHOST not found in dataset/);
+  });
+
+  it("throws when the union has no schedulable tasks", () => {
+    const issues = [
+      issue({ id: "P1", title: "Container", labels: [], statusType: "unstarted" }),
+      issue({ id: "c1", parentId: "P1", labels: [], description: "## Acceptance criteria\n- c\n" }),
+    ];
+    expect(() => generateSprintMulti(issues, ["P1"], "guava-os", config))
+      .toThrow(/union has no schedulable tasks/);
   });
 });

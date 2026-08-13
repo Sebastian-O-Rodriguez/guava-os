@@ -96,6 +96,27 @@ Every issue must have:
 - Dependencies mirror the critical path; no cycles.
 - gorp enforces execution order from the dependency graph.
 
+### Hard dependency vs preferred order (GOS-44)
+
+A `blocks` / `blocked-by` relation means **"downstream work consumes the
+upstream result"** — a *hard* result-dependency. It is NOT a sequencing
+preference.
+
+- **Use a hard relation only when the downstream deliverable actually needs
+  the upstream output** (its code, artifact, decision, or data) to proceed.
+  Apply the "results-needed" test: *would the downstream task fail without
+  the upstream deliverable's result?* If no — it is not a dependency.
+- **Never model "do roughly before" / nice-to-have ordering as a `blocks`
+  edge.** Preferred order is a planning preference, not a dependency. Adding
+  an edge for soft ordering needlessly serializes independent work (it forces
+  gorp to pipeline tasks that could run in parallel).
+- **Independent work stays independent.** To group work without implementing
+  it sequentially, put deliverables as parallel children of a container (or as
+  unblocked standalones) — the scheduler runs 0-indegree tasks in parallel.
+- A hard edge that turns out to be wrong or prematurely added can now be
+  removed cleanly: `pm unlink <id> --blocks <ids> / --blocked-by <ids>`
+  (GOS-41).
+
 ## Acceptance criteria
 
 - Numbered, observable, grep-checkable where possible.
