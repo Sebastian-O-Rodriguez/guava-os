@@ -5,7 +5,7 @@ import { join, resolve } from "path";
 import { loadConfig, findRepoRoot } from "../src/config.js";
 import { generateSprint, approveSprint } from "../src/sprint.js";
 import type { LinearIssue } from "../src/linear.js";
-import { plan } from "../src/workflow.js";
+import { plan, resolvePersonasBundle } from "../src/workflow.js";
 
 const config = loadConfig(findRepoRoot());
 const repoRoot = findRepoRoot();
@@ -107,5 +107,24 @@ describe("GOS-27 workflow plan integration", () => {
   it("draft graph refuses to run without operator approval (explicit human gate)", () => {
     const result = plan(docFile, { overwrite: true }) as { data?: { approvalStatus: string } };
     expect(result.data?.approvalStatus).toBe("unapproved");
+  });
+});
+
+describe("GOS multi-persona: resolveGraphPersonaBundle substitutes single-persona guard", () => {
+  it("resolves a profile for EVERY persona (mixed graph no longer rejected)", () => {
+    const bundle = resolvePersonasBundle(["backend", "qa", "architect"], repoRoot);
+    expect(Object.keys(bundle).sort()).toEqual(["architect", "backend", "qa"]);
+    for (const p of Object.values(bundle)) {
+      expect(typeof p.model).toBe("string");
+      expect(p.model.length).toBeGreaterThan(0);
+      expect(p.systemPrompt.length).toBeGreaterThan(0);
+    }
+    // distinct personas -> distinct bodies (each node runs under its own)
+    expect(bundle.backend.model).toBeDefined();
+    expect(bundle.backend.systemPrompt).not.toBe(bundle.qa.systemPrompt);
+  });
+
+  it("fails closed on a missing persona (no silent default)", () => {
+    expect(() => resolvePersonasBundle(["ghost-persona"], repoRoot)).toThrow(/persona 'ghost-persona'/);
   });
 });

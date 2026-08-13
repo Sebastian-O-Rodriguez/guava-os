@@ -86,10 +86,17 @@ Worker
    guava-os paths. It consumes `node.persona` as data and the
    `GORP_OMP_MODEL` / `GORP_OMP_SYSTEM_PROMPT_APPEND` env. The guava-os `wf`
    layer resolves persona → env from `.guava-os/personas/<name>/persona.md`
-   (`src/persona.ts`) and `wf orchestrate` feeds that env into the gorp
-   orchestrate subprocess, which the scheduler inherits for every `run`
-   subprocess (GOS-46). If resolution fails, orchestrate errors before gorp
+   (`src/persona.ts`). If resolution fails, orchestrate errors before gorp
    starts — and the adapter independently fails closed at dispatch.
+4. **Multi-persona graphs — RESOLVED.** `wf orchestrate` resolves a profile
+   (model + persona body) for EVERY persona in the graph into a bundle and
+   passes it to `gorp orchestrate --persona-profiles <bundle>`. The scheduler
+   spawns each node's `run` subprocess under THAT node's own persona env
+   (per-node `GORP_OMP_MODEL` / `GORP_OMP_SYSTEM_PROMPT_APPEND`). A
+   persona-annotated node with no resolved profile fails closed
+   (`PROFILE_UNRESOLVED`) before spawn. Mixed-persona launch graphs (e.g.
+   frontend + qa + backend) now dispatch each worker under the correct
+   persona — no graph-wide single persona, no silent wrong-persona run.
 
 ## Fail-closed profile (GOS-46 / GUA-179)
 

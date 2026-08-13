@@ -368,6 +368,7 @@ function cmdOrchestrate(args: ParsedArgs, clock: Clock): CliResult {
   const actorId = args.flags["actor-id"] ?? "orchestrator:sched";
   const maxStepsRaw = args.flags["max-steps"];
   const policyName = args.flags["review-policy"] ?? "fixture";
+  const profilesPath = args.flags["persona-profiles"];
   let reviewPolicy;
   try {
     reviewPolicy = resolveReviewPolicy(policyName);
@@ -376,6 +377,16 @@ function cmdOrchestrate(args: ParsedArgs, clock: Clock): CliResult {
       reviewPolicy: policyName,
       implemented: implementedReviewPolicies(),
     });
+  }
+  // Optional per-persona worker-profile bundle (guava-os resolves it; gorp
+  // stays source-neutral). Keyed by persona label -> { model, systemPrompt }.
+  let personaProfiles: Readonly<Record<string, { model: string; systemPrompt: string }>> | undefined;
+  if (profilesPath) {
+    const raw = readJsonFile(profilesPath);
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      throw new GorpError("INVALID_ARGUMENT", `--persona-profiles must be a JSON object keyed by persona label: ${profilesPath}`);
+    }
+    personaProfiles = raw as Record<string, { model: string; systemPrompt: string }>;
   }
   // Sprint 2.1: the outcome must survive a detached invocation whose stdout is
   // discarded — persist started/ended to the append-only per-graph status log.
@@ -386,6 +397,7 @@ function cmdOrchestrate(args: ParsedArgs, clock: Clock): CliResult {
     graphId,
     reviewPolicy,
     actorId,
+    ...(personaProfiles ? { personaProfiles } : {}),
     ...(maxStepsRaw !== undefined ? { maxSteps: Number.parseInt(maxStepsRaw, 10) } : {}),
   });
   recordOrchestrateEnded(cfg, projectId, graphId, started.invocationId, result, clock);
