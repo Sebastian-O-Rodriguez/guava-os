@@ -336,7 +336,7 @@ describe("generateSprintMulti (GOS-42) — union across parents", () => {
     const res = generateSprintMulti(issues, ["P1", "P2"], "guava-os", config);
     expect(res.doc.tasks.map((t) => t.taskId).sort()).toEqual(["a1", "b1", "x1"]);
     expect(res.excludedBlocked).toEqual([]);
-    expect(res.doc.sprintId).toBe("P1-P2");
+    expect(res.doc.sprintId).toMatch(/^sprint-[0-9a-f]{40}$/);
   });
 
   it("preserves a cross-container dependency (A-child blocks B-child) instead of dropping or excluding", () => {
@@ -397,5 +397,41 @@ describe("generateSprintMulti (GOS-42) — union across parents", () => {
     ];
     expect(() => generateSprintMulti(issues, ["P1"], "guava-os", config))
       .toThrow(/union has no schedulable tasks/);
+  });
+});
+
+describe("generateSprintMulti sprintId determinism (GOS-48)", () => {
+  // Two deliverable parents, order-independent, schema-valid.
+  function standalone(id: string): GraphIssue {
+    return issue({ id, title: id, labels: ["backend"], description: "## Acceptance criteria\n- x\n" });
+  }
+
+  it("produces the SAME id for A+B and B+A (order-independent)", () => {
+    const issues = [standalone("X"), standalone("Y")];
+    const r1 = generateSprintMulti(issues, ["X", "Y"], "guava-os", config);
+    const r2 = generateSprintMulti(issues, ["Y", "X"], "guava-os", config);
+    expect(r1.doc.sprintId).toBe(r2.doc.sprintId);
+  });
+
+  it("stays under the schema stableId max for a large (16+) parent set", () => {
+    const ids = Array.from({ length: 16 }, (_, i) => `uu${String(i).padStart(2, "0")}-${"a".repeat(26)}`);
+    const issues = ids.map(standalone);
+    const r = generateSprintMulti(issues, ids, "guava-os", config);
+    expect(r.doc.sprintId.length).toBeLessThanOrEqual(128);
+    expect(r.doc.sprintId).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/);
+  });
+
+  it("is byte-stable across regenerations of the same set", () => {
+    const issues = [standalone("A1"), standalone("B2")];
+    const r1 = generateSprintMulti(issues, ["A1", "B2"], "guava-os", config);
+    const r2 = generateSprintMulti(issues, ["A1", "B2"], "guava-os", config);
+    expect(r1.doc.sprintId).toBe(r2.doc.sprintId);
+  });
+
+  it("differs for different parent sets (no trivial collision)", () => {
+    const issues = [standalone("A1"), standalone("B2"), standalone("C3")];
+    const ab = generateSprintMulti(issues, ["A1", "B2"], "guava-os", config);
+    const abc = generateSprintMulti(issues, ["A1", "B2", "C3"], "guava-os", config);
+    expect(ab.doc.sprintId).not.toBe(abc.doc.sprintId);
   });
 });
