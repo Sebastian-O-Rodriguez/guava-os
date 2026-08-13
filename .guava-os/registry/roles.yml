@@ -1,0 +1,31 @@
+# guava-os role manifest — v1 permission model (GOS-45 / GUA-178).
+#
+# Prompt decides intent; permissions decide authority; repo ownership = write
+# authority. v1 is deliberately small: launcher + role manifest + path
+# allowlist. NO IAM/K8s/Vault.
+#
+# Writable-root specifiers (each resolved to an absolute repo path at launch):
+#   self             -> the launched project's own repo (--project); project-agent only
+#   <registry-id>    -> a specific registry project's repo_path (e.g. guava-os)
+#   *                -> every registry project repo (operator only)
+#   (empty list)     -> read/test only; no writable roots (reviewer)
+#
+# The allowlist is fail-closed: any write escaping these roots is rejected with
+# a classified error before it touches disk. No partial write.
+
+roles:
+  - id: project-agent
+    description: Writes only its own project repo, resolved from the registry at launch.
+    writable_roots:
+      - self
+  - id: gos-agent
+    description: Writes guava-os only.
+    writable_roots:
+      - guava-os
+  - id: reviewer
+    description: Read and test only — no writable roots.
+    writable_roots: []
+  - id: operator
+    description: Approvals and cross-repo handoffs; the only cross-repo writer.
+    writable_roots:
+      - "*"
