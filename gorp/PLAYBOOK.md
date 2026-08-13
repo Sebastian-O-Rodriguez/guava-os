@@ -27,6 +27,10 @@ Gorp operates from inside the guava-os checkout (`~/dev/guava-os`); layout:
    and stays source-neutral. Skill: `execution`.
 4. **Dispatch** — run graph nodes via the worker adapter seam (fixture | omp)
    inside isolated sandbox worktrees. Skill: `execution`.
+
+   Independent (zero-indegree) nodes are simultaneously eligible and may be
+   dispatched independently — DAG eligibility only, not proven concurrent
+   OMP-worker execution (a separate, unbuilt capability; GOS reconcile).
 5. **QA / gates** — scope gate, command gate, review policy; fail closed.
    Every non-fixture worker stops for human review. Skill: `execution`.
 6. **Audit** — every run appends hash-chained records; full reconstruction
