@@ -75,6 +75,33 @@ execution results via `pm`.
   SprintDocument (operator-approved, schema-validated) is the execution
   input. `sprint generate` produces the second; `wf plan` compiles it.
 
+## Granular scoping — worker-fit deliverables
+
+The point of guava-os is to create SMALL, well-scoped issues and let the graph
+reconcile larger work reliably. A worker (default/smol model tier) completes a
+SINGLE-purpose task; it fails or runs empty on an over-broad one (the
+GUA-67 / GUA-155 empty-turn + timeout failure mode). Scope for the worker, not
+the ambition.
+
+Rules:
+- **One issue = one observable outcome**, doable in a single worker turn under
+  the `default` (or `smol`) tier. If a task needs a stronger model than
+  `default`, it is TOO BIG — split it. Model tier is a ceiling, not a dial:
+  `default` is the max; `smol` for mechanical pieces; `slow` should be
+  unnecessary when scoping is right.
+- **Narrow scope**: every deliverable gets a tight `allowedPaths` and explicit
+  "Out of scope". A worker without a bounded sandbox drifts into read-only
+  exploration instead of editing (the observed failure).
+- **Tight acceptance**: numbered, observable, pass/fail, checkable in the
+  sandbox (e.g. "docs/foo.md contains X", "`npm test` green").
+- **Big work = a container/chain of small deliverables**, reconciled by the
+  graph (gorp pipelines dependencies, validates each node) — never one giant
+  issue expected to be chewed in a single worker run. Split it into child
+  deliverables or a dependency chain; the graph guarantees they land in order.
+- **Decompose at planning, not execution.** Splitting an oversized ticket into
+  smaller ones is a guava-os planning act (this skill), done before `sprint
+  generate`. gorp never decomposes (ADR_001).
+
 ## Hard dependency vs preferred order (GOS-44)
 
 A `blocks` edge means **"downstream work consumes the upstream result"** — a
