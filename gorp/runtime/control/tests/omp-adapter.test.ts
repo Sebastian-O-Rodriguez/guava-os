@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 
 import { ompAdapter, extractOmpSummary } from "../src/worker/omp.js";
 import { createSandbox, sandboxHead, type Sandbox } from "../src/sandbox/worktree.js";
+import { GorpError } from "../src/errors/index.js";
 import type { GraphNode, WorkerResult } from "../src/contracts/types.js";
 import type { Clock } from "../src/graph/graph.js";
 
@@ -16,6 +17,8 @@ let sandboxRoot: string;
 let fakeOmpDir: string;
 let prevOmpCmd: string | undefined;
 let prevOmpTimeout: string | undefined;
+let prevOmpModel: string | undefined;
+let prevOmpAppend: string | undefined;
 
 function git(args: string[], cwd: string): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -35,8 +38,15 @@ function makeNode(partial: Partial<GraphNode> = {}): GraphNode {
     dependencies: [],
     state: "running",
     attempt: 1,
+    persona: "backend",
     ...partial,
   };
+}
+
+/** A node with the default fields but NO persona (the GUA-155 legacy shape). */
+function makeNodeNoPersona(): GraphNode {
+  const { persona: _persona, ...rest } = makeNode();
+  return rest;
 }
 
 /** Fake OMP binary: writes an artifact in cwd, then emits an NDJSON agent_end event. */
@@ -85,6 +95,12 @@ beforeEach(() => {
   fakeOmpDir = mkdtempSync(join(tmpdir(), "gorp-omp-fake-"));
   prevOmpCmd = process.env["GORP_OMP_CMD"];
   prevOmpTimeout = process.env["GORP_OMP_TIMEOUT"];
+  prevOmpModel = process.env["GORP_OMP_MODEL"];
+  prevOmpAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+  // Resolved worker profile (GOS-46): the adapter requires both to be set
+  // whenever a node carries a persona.
+  process.env["GORP_OMP_MODEL"] = "default";
+  process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are a backend architect.";
   git(["init", "-q"], repo);
   git(["config", "user.email", "t@example.com"], repo);
   git(["config", "user.name", "t"], repo);
@@ -92,11 +108,16 @@ beforeEach(() => {
   git(["add", "."], repo);
   git(["commit", "-q", "-m", "init"], repo);
 });
+
 afterEach(() => {
   if (prevOmpCmd !== undefined) process.env["GORP_OMP_CMD"] = prevOmpCmd;
   else delete process.env["GORP_OMP_CMD"];
   if (prevOmpTimeout !== undefined) process.env["GORP_OMP_TIMEOUT"] = prevOmpTimeout;
   else delete process.env["GORP_OMP_TIMEOUT"];
+  if (prevOmpModel !== undefined) process.env["GORP_OMP_MODEL"] = prevOmpModel;
+  else delete process.env["GORP_OMP_MODEL"];
+  if (prevOmpAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevOmpAppend;
+  else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
   rmSync(sandboxRoot, { recursive: true, force: true });
   rmSync(repo, { recursive: true, force: true });
   rmSync(fakeOmpDir, { recursive: true, force: true });
@@ -144,7 +165,7 @@ describe("extractOmpSummary (NDJSON)", () => {
   });
 });
 
-describe("OMP adapter --append-system-prompt env passthrough", () => {
+describe("OMP adapter resolved-profile passthrough", () => {
   let argTracePath: string;
   let prevAppend: string | undefined;
 
@@ -185,8 +206,9 @@ describe("OMP adapter --append-system-prompt env passthrough", () => {
     }
   });
 
-  it("forwards --append-system-prompt and its value when GORP_OMP_SYSTEM_PROMPT_APPEND is set", async () => {
+  it("forwards the resolved --model and --append-system-prompt to omp", async () => {
     process.env["GORP_OMP_CMD"] = writeArgTraceFakeOmp();
+    process.env["GORP_OMP_MODEL"] = "slow";
     process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are a backend architect.";
     const sandbox: Sandbox = createSandbox(
       repo,
@@ -195,35 +217,99 @@ describe("OMP adapter --append-system-prompt env passthrough", () => {
       "gorp/run/omp-adapter-append/node-1/run-1",
     );
     try {
-      await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node: makeNode(), clock });
+      await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node: makeNode({ persona: "backend" }), clock });
       expect(existsSync(argTracePath)).toBe(true);
       const args: string[] = JSON.parse(readFileSync(argTracePath, "utf8"));
+      const modelIdx = args.indexOf("--model");
+      expect(modelIdx).not.toBe(-1);
+      expect(args[modelIdx + 1]).toBe("slow");
       const appendIdx = args.indexOf("--append-system-prompt");
       expect(appendIdx).not.toBe(-1);
       expect(args[appendIdx + 1]).toBe("You are a backend architect.");
-      // --model is also present (existing behavior)
-      expect(args.includes("--model")).toBe(true);
     } finally {
       delete process.env["GORP_OMP_CMD"];
     }
   });
+});
 
-  it("does NOT include --append-system-prompt when env is unset", async () => {
-    delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
-    process.env["GORP_OMP_CMD"] = writeArgTraceFakeOmp();
+describe("OMP adapter fails closed (GOS-46 / GUA-179)", () => {
+  let spawnMarker: string;
+
+  function writeMarkerFakeOmp(): string {
+    const tmp = mkdtempSync(join(tmpdir(), "gorp-omp-marker-"));
+    spawnMarker = join(tmp, "spawned");
+    const path = join(fakeOmpDir, "fake-omp-marker.sh");
+    writeFileSync(
+      path,
+      [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "cat > /dev/null 2>&1 || true",
+        "mkdir -p docs",
+        "printf 'probe\\n' > docs/probe.md",
+        `touch "${spawnMarker}"`,
+        "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"spawned\"}]}]}'",
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  afterEach(() => {
+    if (spawnMarker && existsSync(dirname(spawnMarker))) {
+      rmSync(dirname(spawnMarker), { recursive: true, force: true });
+    }
+  });
+
+  async function invokeExpectingFailure(
+    node: GraphNode,
+    opts: { model?: string; append?: string },
+  ): Promise<GorpError> {
     const sandbox: Sandbox = createSandbox(
       repo,
       git(["rev-parse", "HEAD"], repo).trim(),
-      join(sandboxRoot, "sandbox-noappend"),
-      "gorp/run/omp-adapter-noappend/node-1/run-1",
+      join(sandboxRoot, "sandbox-fail"),
+      "gorp/run/omp-adapter-fail/node-1/run-1",
     );
+    process.env["GORP_OMP_CMD"] = writeMarkerFakeOmp();
+    if (opts.model === undefined) delete process.env["GORP_OMP_MODEL"];
+    else process.env["GORP_OMP_MODEL"] = opts.model;
+    if (opts.append === undefined) delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    else process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = opts.append;
     try {
-      await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node: makeNode(), clock });
-      expect(existsSync(argTracePath)).toBe(true);
-      const args: string[] = JSON.parse(readFileSync(argTracePath, "utf8"));
-      expect(args.includes("--append-system-prompt")).toBe(false);
+      await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node, clock });
+      throw new Error("expected ompAdapter.invoke to throw");
+    } catch (e) {
+      if (!(e instanceof GorpError)) throw e;
+      return e;
     } finally {
       delete process.env["GORP_OMP_CMD"];
     }
+  }
+
+  it("GUA-155 repro: persona set but no profile env → throws BEFORE spawn (no default worker)", async () => {
+    const err = await invokeExpectingFailure(makeNode({ persona: "backend" }), {});
+    expect(err.code).toBe("WORKER_FAILED");
+    expect(err.message).toContain("GORP_OMP_MODEL");
+    // The omp binary was never executed — no weak/default fallback spawned.
+    expect(existsSync(spawnMarker)).toBe(false);
+  });
+
+  it("no persona → throws before spawn (a persona is required)", async () => {
+    const err = await invokeExpectingFailure(makeNodeNoPersona(), {
+      model: "default",
+      append: "body",
+    });
+    expect(err.code).toBe("WORKER_FAILED");
+    expect(err.message).toContain("no persona");
+    expect(existsSync(spawnMarker)).toBe(false);
+  });
+
+  it("model resolved but persona body missing → throws before spawn", async () => {
+    const err = await invokeExpectingFailure(makeNode({ persona: "backend" }), { model: "default" });
+    expect(err.code).toBe("WORKER_FAILED");
+    expect(err.message).toContain("GORP_OMP_SYSTEM_PROMPT_APPEND");
+    expect(existsSync(spawnMarker)).toBe(false);
   });
 });
