@@ -37,6 +37,7 @@ import * as pm from "./linear-client.js";
 import * as wf from "./workflow.js";
 import { generateSprint, generateSprintMulti, approveSprint } from "./sprint.js";
 import { resolveRegistryProjectId, loadRegistry } from "./registry.js";
+import { runLaunch } from "./launch.js";
 
 function usage(): never {
   console.log(`guava-os <command> [flags]
@@ -49,6 +50,7 @@ Commands:
   pm        Project management via Linear (see: pm --help)
   wf        Operator workflow over gorp (see: wf --help)
   sprint    Generate/approve the gorp SprintDocument from Linear (see: sprint --help)
+  launch    Start a governed agent with a v1 permission role (see: launch --help)
 Flags:
   --json           Output as JSON instead of human-readable text
   --strict         (validate only) Treat warnings as errors
@@ -98,8 +100,15 @@ async function main() {
 
   // Subcommand --help: show usage for any known command
   if (args.includes("--help") || args.includes("-h")) {
-    const known = ["doctor", "status", "validate", "next"];
+    const known = ["doctor", "status", "validate", "next", "launch"];
     if (known.includes(command)) usage();
+  }
+
+  // launch resolves its own registry + role manifest and does not need a
+  // repo-scoped config (it launches agents for ANY registry project).
+  if (command === "launch") {
+    runLaunch(args.slice(1), jsonMode);
+    process.exit(0);
   }
 
   const repoRoot = findRepoRoot();
