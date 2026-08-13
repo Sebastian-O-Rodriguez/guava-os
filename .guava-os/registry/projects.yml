@@ -35,3 +35,9 @@ projects:
     linear_project: Reusable Diagnostic Engine v1
     lifecycle: active
     notes: productizes bell-diagnostic (read-only reference); all RDI v1 code + deliverables live here; Linear project Reusable Diagnostic Engine v1
+  - id: routineme
+    name: RoutineMe
+    repo_path: ~/dev/repos/routineme
+    linear_project: guava-os
+    lifecycle: active
+    notes: AI evidence host — evals, LLM observability, user-grounded retrieval, and bounded agentic tool loops (Phase 4 evidence upgrades); issues tracked in guava-os Linear project
