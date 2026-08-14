@@ -39,18 +39,19 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   const personaLabels = allPersonaLabels(config);
   const activeParentStatuses = config.active_parent_statuses;
 
-  // Build parent lookup
-  const parentMap = new Map<string, LinearIssue>();
+  // Build a full issue lookup (ANY nesting level) + children-by-parent map.
+  // Parent existence/status checks must see nested containers, not just
+  // top-level issues (nested decomposition — wave → container → leaves).
+  const allById = new Map<string, LinearIssue>();
   const subtasksByParent = new Map<string, LinearIssue[]>();
 
   for (const issue of issues) {
     if (issue.canceledAt) continue;
+    allById.set(issue.id, issue);
     if (issue.parentId) {
       const existing = subtasksByParent.get(issue.parentId) || [];
       existing.push(issue);
       subtasksByParent.set(issue.parentId, existing);
-    } else {
-      parentMap.set(issue.id, issue);
     }
   }
 
@@ -63,7 +64,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   // ── V302: orphan_sub_issue ──
   for (const issue of issues) {
     if (issue.canceledAt) continue;
-    if (issue.parentId && !parentMap.has(issue.parentId)) {
+    if (issue.parentId && !allById.has(issue.parentId)) {
       violations.push({
         code: "V302",
         name: "orphan_sub_issue",
@@ -80,7 +81,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     if (!issue.parentId) continue;
     if (issue.status !== config.statuses.todo) continue;
 
-    const parent = parentMap.get(issue.parentId);
+    const parent = allById.get(issue.parentId);
     if (parent && !activeParentStatuses.includes(parent.status)) {
       violations.push({
         code: "V303",
@@ -122,9 +123,11 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   // ── V305: subtask_overflow ──
   // Enforced invariant (GOS-39): children per parent ≤ max_subtasks_per_parent.
   // Cap applies per parent; split work across multiple parents to stay within it.
+  // Applies to EVERY container (nested ones too), not just top-level parents.
   const subtaskCap = config.invariants?.max_subtasks_per_parent ?? 3;
-  for (const [id, parent] of parentMap) {
-    if (parent.canceledAt || parent.statusType === "completed") continue;
+  for (const [id] of subtasksByParent) {
+    const parent = allById.get(id);
+    if (!parent || parent.canceledAt || parent.statusType === "completed") continue;
     const subs = (subtasksByParent.get(id) || []).filter((s) => !s.canceledAt);
     if (subs.length > subtaskCap) {
       violations.push({
@@ -133,6 +136,26 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
         severity: "error",
         issue_id: id,
         detail: `Parent ${parent.id} has ${subs.length} sub-issues, exceeds max_subtasks_per_parent ${subtaskCap} — split across multiple parents`,
+      });
+    }
+  }
+
+  // ── V306: container_persona_label ──
+  // Containers are groupings and must carry NO persona label (GOS-21: labels
+  // classify deliverables; parents never execute). A persona label on a
+  // container is metadata drift — flag so it can be cleaned via
+  // `pm update <id> --label <remaining labels>`.
+  for (const id of containerIds) {
+    const container = allById.get(id);
+    if (!container) continue;
+    const matched = container.labels.filter((l) => personaLabels.includes(l));
+    if (matched.length > 0) {
+      violations.push({
+        code: "V306",
+        name: "container_persona_label",
+        severity: "warning",
+        issue_id: id,
+        detail: `Container carries persona label(s): ${matched.join(", ")} — containers are groupings and must have no persona label (remove via pm update)`,
       });
     }
   }
