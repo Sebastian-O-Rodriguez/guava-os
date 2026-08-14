@@ -122,12 +122,15 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
 
   // ── V305: subtask_overflow ──
   // Enforced invariant (GOS-39): children per parent ≤ max_subtasks_per_parent.
-  // Cap applies per parent; split work across multiple parents to stay within it.
-  // Applies to EVERY container (nested ones too), not just top-level parents.
+  // The cap applies to ACTIVE containers (planning skill: "an active container
+  // exceeds the cap"); a Backlog grouping is not a scheduled sprint, so an
+  // oversized backlog parent is allowed until it becomes active. Applies to
+  // nested containers too, not just top-level parents.
   const subtaskCap = config.invariants?.max_subtasks_per_parent ?? 3;
   for (const [id] of subtasksByParent) {
     const parent = allById.get(id);
     if (!parent || parent.canceledAt || parent.statusType === "completed") continue;
+    if (!activeParentStatuses.includes(parent.status)) continue;
     const subs = (subtasksByParent.get(id) || []).filter((s) => !s.canceledAt);
     if (subs.length > subtaskCap) {
       violations.push({

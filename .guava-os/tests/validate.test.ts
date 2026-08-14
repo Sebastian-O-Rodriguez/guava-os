@@ -538,4 +538,16 @@ describe("nested decomposition — wave → container → leaves", () => {
     expect(detail?.severity).toBe("warning");
     expect(detail?.issue_id).toBe("CONT");
   });
+
+  it("does NOT flag V305 on a BACKLOG container (cap applies to ACTIVE containers)", () => {
+    const issues = nestedFixture();
+    // give CONT 4 children (over cap 3) but make it Backlog (unscheduled grouping)
+    for (let i = 0; i < 2; i++) {
+      issues.push(makeIssue({ id: `LB${i}`, status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }));
+    }
+    const cont = issues.find((i) => i.id === "CONT")!;
+    cont.status = "Backlog";
+    cont.statusType = "backlog";
+    expect(codes(issues)).not.toContain("V305");
+  });
 });
