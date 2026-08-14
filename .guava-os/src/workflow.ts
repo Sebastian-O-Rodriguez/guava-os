@@ -161,6 +161,13 @@ export function review(projectId: string, graphId: string, nodeId: string, opts:
   return callGorp(args);
 }
 
+/** inspect — read-only audit view of a run (incl. deterministic trace). */
+export function inspect(projectId: string, graphId: string, nodeId: string, opts: { runId?: string } = {}): unknown {
+  const args = ["inspect", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId];
+  if (opts.runId) args.push("--run-id", opts.runId);
+  return callGorp(args);
+}
+
 /** approve — operator review decision: approve. */
 export function approve(projectId: string, graphId: string, nodeId: string, actorId: string, reviewedCommit: string, reason: string, opts: { runId?: string } = {}): unknown {
   const args = ["approve", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor-id", actorId, "--reviewed-commit", reviewedCommit, "--reason", reason];

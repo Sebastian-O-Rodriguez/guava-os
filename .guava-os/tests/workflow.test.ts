@@ -5,7 +5,7 @@ import { join, resolve } from "path";
 import { loadConfig, findRepoRoot } from "../src/config.js";
 import { generateSprint, approveSprint } from "../src/sprint.js";
 import type { LinearIssue } from "../src/linear.js";
-import { plan, resolvePersonasBundle } from "../src/workflow.js";
+import { plan, inspect, resolvePersonasBundle } from "../src/workflow.js";
 
 const config = loadConfig(findRepoRoot());
 const repoRoot = findRepoRoot();
@@ -107,6 +107,19 @@ describe("GOS-27 workflow plan integration", () => {
   it("draft graph refuses to run without operator approval (explicit human gate)", () => {
     const result = plan(docFile, { overwrite: true }) as { data?: { approvalStatus: string } };
     expect(result.data?.approvalStatus).toBe("unapproved");
+  });
+
+  it("inspect on a graph with no run fails cleanly (structured RUN_NOT_FOUND)", () => {
+    const result = plan(docFile, { overwrite: true }) as { ids?: { graphId: string } };
+    const graphId = result.ids!.graphId;
+    let code: string | undefined;
+    try {
+      inspect("guava-os", graphId, "wf-a");
+    } catch (e) {
+      const err = e as { stdout?: string };
+      code = (JSON.parse(err.stdout ?? "{}") as { error?: { code?: string } }).error?.code;
+    }
+    expect(code).toBe("RUN_NOT_FOUND");
   });
 });
 
