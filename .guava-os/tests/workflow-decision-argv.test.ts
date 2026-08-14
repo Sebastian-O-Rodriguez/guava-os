@@ -8,7 +8,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { execFileSync } from "node:child_process";
-import { approve, reject, retry, promote } from "../src/workflow.js";
+import { approve, reject, retry, promote, inspect } from "../src/workflow.js";
 
 const MOCK = vi.mocked(execFileSync);
 
@@ -51,5 +51,48 @@ describe("wf decision surface argv (GUA-146)", () => {
     expect(args).toContain("--actor-id");
     expect(args).toContain("op:1");
     expect(args).not.toContain("--actor");
+  });
+});
+
+describe("wf inspect surface (GOS-54)", () => {
+  it("inspect passes --project-id/--graph-id/--node-id (no --run-id by default)", () => {
+    MOCK.mockReturnValue(JSON.stringify({ success: true, data: { trace: [] } }));
+    inspect("p1", "g1", "n1");
+    const args = MOCK.mock.calls[0]![1] as string[];
+    expect(args).toContain("inspect");
+    expect(args).toContain("--project-id");
+    expect(args).toContain("p1");
+    expect(args).toContain("--graph-id");
+    expect(args).toContain("g1");
+    expect(args).toContain("--node-id");
+    expect(args).toContain("n1");
+    expect(args).not.toContain("--run-id");
+  });
+
+  it("inspect passes --run-id when provided", () => {
+    MOCK.mockReturnValue(JSON.stringify({ success: true }));
+    inspect("p1", "g1", "n1", { runId: "run-2" });
+    const args = MOCK.mock.calls[0]![1] as string[];
+    expect(args).toContain("--run-id");
+    expect(args).toContain("run-2");
+  });
+
+  it("inspect returns the gorp envelope (success + data)", () => {
+    MOCK.mockReturnValue(
+      JSON.stringify({ success: true, command: "inspect", data: { readOnly: true, trace: [] } }),
+    );
+    const result = inspect("p1", "g1", "n1") as { success: boolean; data?: { readOnly: boolean; trace: unknown[] } };
+    expect(result.success).toBe(true);
+    expect(result.data?.readOnly).toBe(true);
+    expect(result.data?.trace).toEqual([]);
+  });
+
+  it("inspect propagates gorp failure (structured, not silently swallowed)", () => {
+    const structured = { success: false, command: "inspect", error: { code: "RUN_NOT_FOUND", message: "no run exists", details: {} } };
+    const err = new Error("Command failed") as Error & { stdout?: string; status?: number };
+    err.stdout = JSON.stringify(structured);
+    err.status = 14;
+    MOCK.mockImplementation(() => { throw err; });
+    expect(() => inspect("p1", "g1", "n1")).toThrow();
   });
 });

@@ -42,6 +42,198 @@ import { readValidatedRecord } from "../run/records.js";
 import { verifyChain, type ChainEntry, type ChainProblem } from "../audit/chain.js";
 import type { SchemaName } from "../contracts/validator.js";
 
+/** A single ordered trace event in the deterministic audit timeline. */
+export interface TraceEvent {
+  readonly step: number;
+  readonly at: string;
+  readonly event: string;
+  readonly details?: Record<string, unknown>;
+}
+
+/** Optional usage annotation (GOS-55) — read gracefully when present. */
+interface RunUsage {
+  readonly tokensIn?: number;
+  readonly tokensOut?: number;
+  readonly tokensTotal?: number;
+  readonly costUsd?: number;
+  readonly durationMs?: number;
+}
+
+/**
+ * Canonical lifecycle-phase ordering. Used as a secondary sort key when
+ * timestamps collide (equal-at test clock), so the trace stays deterministic
+ * and human-readable.
+ */
+const EVENT_PHASE: Readonly<Record<string, number>> = {
+  "graph-approved": 0,
+  "run-started": 10,
+  "node-ready": 20,
+  "worker-dispatched": 30,
+  "start-run": 35,
+  "create-sandbox": 40,
+  "worker-profile": 45,
+  "worker-invoked": 50,
+  "worker-returned": 60,
+  "persist-worker-result": 70,
+  "persist-gate-record": 80,
+  "gate-passed": 90,
+  "await-review": 100,
+  "review-approved": 110,
+  "review-rejected": 110,
+  "retry-requested": 110,
+  "promoted": 120,
+  "usage": 130,
+  "fail-run": 200,
+  "node-failed": 210,
+  "graph-failed": 220,
+  "graph-cancelled": 230,
+  "destroy-sandbox": 240,
+};
+
+/** Map a transition record to a canonical event name. */
+function transitionEventName(t: TransitionRecord): string {
+  if (t.entityType === "node") {
+    switch (t.reasonCode) {
+      case "NODE_ELIGIBLE": return "node-ready";
+      case "WORKER_START": return "worker-dispatched";
+      case "GATE_PASSED": return "gate-passed";
+      case "REVIEW_APPROVED": return "review-approved";
+      case "REVIEW_REJECTED": return "review-rejected";
+      case "RETRY_REQUESTED": return "retry-requested";
+      case "PROMOTED": return "promoted";
+      default:
+        return t.toState === "failed" ? "node-failed" : `node-${t.toState}`;
+    }
+  }
+  // graph transitions
+  switch (t.reasonCode) {
+    case "OPERATOR_APPROVAL": return "graph-approved";
+    case "RUN_START": return "run-started";
+    case "REVIEW_REJECTED": return "graph-cancelled";
+    default:
+      return t.toState === "failed" ? "graph-failed" : `graph-${t.toState}`;
+  }
+}
+
+function phaseRank(event: string): number {
+  return EVENT_PHASE[event] ?? 1000; // unknown events sink to the end
+}
+
+interface TraceItem {
+  at: string;
+  event: string;
+  details?: Record<string, unknown>;
+  rank: number;
+  seq: number;
+}
+
+/**
+ * Build the deterministic, read-only event trace from persisted audit sources.
+ * Pure — never re-runs or mutates.
+ */
+export function buildTrace(input: {
+  readonly nodeId: string;
+  readonly transitions: readonly TransitionRecord[];
+  readonly runRecord: RunRecord | null;
+  readonly workerResult: WorkerResult | null;
+}): TraceEvent[] {
+  const items: TraceItem[] = [];
+  let seq = 0;
+
+  // 1. Transitions — this node's + all graph-level
+  for (const t of input.transitions) {
+    if (t.entityType === "node" && t.entityId !== input.nodeId) continue;
+    const event = transitionEventName(t);
+    items.push({
+      at: t.timestamp,
+      event,
+      details: {
+        from: t.fromState,
+        to: t.toState,
+        actor: t.actorId,
+        reason: t.reasonText,
+      },
+      rank: phaseRank(event),
+      seq: seq++,
+    });
+  }
+
+  // 2. Control decisions
+  const decisions = input.runRecord?.controlDecisions ?? [];
+  const runStartedAt = input.runRecord?.startedAt ?? "";
+  for (const d of decisions) {
+    const at = d.at ?? runStartedAt;
+    items.push({
+      at,
+      event: d.decision, // canonical decision name: "start-run", "create-sandbox", etc.
+      details: {
+        reasonCode: d.reasonCode,
+        ...(d.reasonText !== undefined ? { reasonText: d.reasonText } : {}),
+      },
+      rank: phaseRank(d.decision),
+      seq: seq++,
+    });
+  }
+
+  // 3. Worker profile (GOS-46)
+  const profile = input.runRecord?.profile;
+  if (profile) {
+    items.push({
+      at: runStartedAt,
+      event: "worker-profile",
+      details: profile as unknown as Record<string, unknown>,
+      rank: phaseRank("worker-profile"),
+      seq: seq++,
+    });
+  }
+
+  // 4. Worker invocation / return (actual execution window, from record timestamps)
+  if (input.workerResult?.startedAt) {
+    items.push({
+      at: input.workerResult.startedAt,
+      event: "worker-invoked",
+      rank: phaseRank("worker-invoked"),
+      seq: seq++,
+    });
+  }
+  if (input.workerResult?.endedAt) {
+    items.push({
+      at: input.workerResult.endedAt,
+      event: "worker-returned",
+      details: { outcome: input.workerResult.outcome },
+      rank: phaseRank("worker-returned"),
+      seq: seq++,
+    });
+  }
+
+  // 5. Usage (GOS-55, optional — read gracefully)
+  const usage = input.runRecord ? (input.runRecord as RunRecord & { usage?: RunUsage }).usage : undefined;
+  if (usage) {
+    items.push({
+      at: input.runRecord?.endedAt ?? runStartedAt,
+      event: "usage",
+      details: usage as unknown as Record<string, unknown>,
+      rank: phaseRank("usage"),
+      seq: seq++,
+    });
+  }
+
+  // Sort: timestamp primary (lexicographic = chronological for ISO 8601),
+  // then lifecycle-phase rank, then insertion sequence.
+  items.sort((a, b) => {
+    if (a.at !== b.at) return a.at < b.at ? -1 : 1;
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return a.seq - b.seq;
+  });
+
+  return items.map((it, i) => ({
+    step: i,
+    at: it.at,
+    event: it.event,
+    ...(it.details !== undefined ? { details: it.details } : {}),
+  }));
+}
+
 export interface InspectInput {
   readonly projectId: string;
   readonly graphId: string;
@@ -83,6 +275,12 @@ export interface InspectOutput {
     };
   };
   readonly history: readonly TransitionRecord[];
+  /**
+   * Deterministic, ordered event timeline (GOS-54) — derived only from
+   * persisted audit state (transitions, control decisions, record timestamps).
+   * Read-only: never re-runs the node. Empty when there is no run evidence.
+   */
+  readonly trace: readonly TraceEvent[];
   readonly workerResult: RecordView<WorkerResult>;
   readonly gateRecord: RecordView<GateRecord>;
   readonly reviewDecision: RecordView<ReviewDecision>;
@@ -280,6 +478,12 @@ export function inspectRun(cfg: RuntimeConfig, input: InspectInput): InspectOutp
       },
     },
     history: graph.transitions,
+    trace: buildTrace({
+      nodeId: node.nodeId,
+      transitions: graph.transitions,
+      runRecord: runRecord.record,
+      workerResult: workerResult.record,
+    }),
     workerResult,
     gateRecord,
     reviewDecision,
