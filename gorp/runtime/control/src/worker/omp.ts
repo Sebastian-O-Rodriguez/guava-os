@@ -28,7 +28,7 @@
 
 import { spawn } from "node:child_process";
 import { GorpError } from "../errors/index.js";
-import type { WorkerResult } from "../contracts/types.js";
+import type { WorkerResult, WorkerUsage } from "../contracts/types.js";
 import { git, sandboxChangedFiles, sandboxHead } from "../sandbox/worktree.js";
 import type { WorkerAdapter, WorkerInvocation } from "./adapter.js";
 
@@ -70,6 +70,84 @@ export function extractOmpSummary(stdout: string): string {
   return "OMP worker completed.";
 }
 
+// --- OMP usage extraction (GOS-55) ---
+
+function firstNumber(obj: Record<string, unknown>, keys: readonly string[]): number | undefined {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string") {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return undefined;
+}
+
+/** Read token/cost usage from a single OMP usage object. */
+function readUsage(u: Record<string, unknown>): WorkerUsage | undefined {
+  const tokensIn = firstNumber(u, ["input", "inputTokens", "input_tokens"]);
+  const tokensOut = firstNumber(u, ["output", "outputTokens", "output_tokens"]);
+  const tokensTotal = firstNumber(u, ["totalTokens", "total_tokens", "total"]);
+  const cost = u["cost"];
+  const costUsd = typeof cost === "object" && cost !== null && !Array.isArray(cost)
+    ? firstNumber(cost as Record<string, unknown>, ["total", "totalCost"])
+    : firstNumber(u, ["costUsd", "cost_usd"]);
+  const report: WorkerUsage = {};
+  if (tokensIn !== undefined) report.tokensIn = tokensIn;
+  if (tokensOut !== undefined) report.tokensOut = tokensOut;
+  if (tokensTotal !== undefined) report.tokensTotal = tokensTotal;
+  if (costUsd !== undefined) report.costUsd = costUsd;
+  return Object.keys(report).length > 0 ? report : undefined;
+}
+
+/** Scan event payloads for a usage object (top-level, message.usage, or messages[N].usage). */
+function findUsage(ev: Record<string, unknown>): Record<string, unknown> | undefined {
+  const usage = ev["usage"];
+  if (typeof usage === "object" && usage !== null && !Array.isArray(usage)) return usage as Record<string, unknown>;
+  const message = ev["message"];
+  if (typeof message === "object" && message !== null && !Array.isArray(message)) {
+    const mu = (message as Record<string, unknown>)["usage"];
+    if (typeof mu === "object" && mu !== null && !Array.isArray(mu)) return mu as Record<string, unknown>;
+  }
+  const messages = ev["messages"];
+  if (Array.isArray(messages)) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (typeof m === "object" && m !== null && !Array.isArray(m)) {
+        const mu = (m as Record<string, unknown>)["usage"];
+        if (typeof mu === "object" && mu !== null && !Array.isArray(mu)) return mu as Record<string, unknown>;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Extract token/cost usage defensively from omp JSON-lines (NDJSON) output
+ * (GOS-55). The LAST usage-bearing event carries the most-cumulative run-level
+ * usage. Every field is read defensively: only finite numbers are kept, and
+ * cost is NEVER invented.
+ */
+export function extractOmpUsage(stdout: string): WorkerUsage | undefined {
+  let last: WorkerUsage | undefined;
+  for (const line of stdout.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    let ev: unknown;
+    try {
+      ev = JSON.parse(t) as unknown;
+    } catch {
+      continue;
+    }
+    if (typeof ev !== "object" || ev === null || Array.isArray(ev)) continue;
+    const u = findUsage(ev as Record<string, unknown>);
+    if (!u) continue;
+    const report = readUsage(u);
+    if (report) last = report;
+  }
+  return last;
+}
 function fail(message: string, details: Record<string, unknown> = {}): never {
   throw new GorpError("WORKER_FAILED", `omp adapter: ${message}`, { workerAdapter: OMP_ADAPTER, ...details });
 }
@@ -296,6 +374,10 @@ export const ompAdapter: WorkerAdapter = {
     // Post-commit diff base..HEAD now reflects exactly the OMP worker's changes.
     const changedFiles = sandboxChangedFiles(sandbox);
 
+    const endedAt = clock.now();
+    const durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
+    const usage = { ...(extractOmpUsage(proc.stdout) ?? {}), durationMs };
+
     return {
       schemaVersion: 1,
       graphId,
@@ -311,7 +393,8 @@ export const ompAdapter: WorkerAdapter = {
       commandsExecuted: [{ command: cmd, exitCode: 0 }],
       ...(reviewerNotes ? { reviewerNotes } : {}),
       startedAt,
-      endedAt: clock.now(),
+      endedAt,
+      usage,
     };
   },
 };
