@@ -369,6 +369,7 @@ Subcommands:
   orchestrate <project> <graph>  Start the scheduler loop
   orchestrate-status <project> <graph>  Check scheduler state
   review <project> <graph> <node>  Read-only inspection of a run
+  inspect <project> <graph> <node>  Read-only audit + deterministic trace of a run
   approve <project> <graph> <node> --actor <a> --commit <sha> --reason <r>
   reject <project> <graph> <node> --actor <a> --reason <r>
   retry <project> <graph> <node> --actor <a> --reason <r>
@@ -399,6 +400,11 @@ All wf commands call gorp CLI primitives — guava-os decides; gorp enforces.`);
     }
     case "review": {
       const result = wf.review(rest[0]!, rest[1]!, rest[2]!, { runId: f(rest, "--run-id") });
+      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
+      return;
+    }
+    case "inspect": {
+      const result = wf.inspect(rest[0]!, rest[1]!, rest[2]!, { runId: f(rest, "--run-id") });
       console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
       return;
     }

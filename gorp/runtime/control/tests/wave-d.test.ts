@@ -346,3 +346,77 @@ describe("Wave D inspect: complete read-only audit", () => {
     expect(out.integrity.chain.map((e) => e.event)).toEqual(["worker-result", "gate-record", "run-record"]);
   });
 });
+
+describe("Wave D inspect: deterministic trace (GOS-54)", () => {
+  it("completed run exposes an ordered trace from persisted audit state", async () => {
+    const run = await reviewedRun("g-trace");
+    executeApprove(cfg, approveArgs("g-trace", run.sandbox!.headCommit), clock);
+    executePromote(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-trace", actorId: "op" }, clock);
+
+    const out = inspectRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-trace" });
+    expect(out.readOnly).toBe(true);
+    expect(out.trace.length).toBeGreaterThan(0);
+
+    // steps sequential
+    out.trace.forEach((e, i) => expect(e.step).toBe(i));
+    // every event carries a timestamp
+    out.trace.forEach((e) => expect(e.at).toBe(clock.now()));
+
+    const names = out.trace.map((e) => e.event);
+    const idx = (name: string) => names.indexOf(name);
+
+    // full chronology: run -> dispatch -> invoke -> return -> gate -> review -> promote
+    expect(idx("run-started")).toBeGreaterThanOrEqual(0);
+    expect(idx("worker-dispatched")).toBeGreaterThan(idx("run-started"));
+    expect(idx("worker-invoked")).toBeGreaterThan(idx("worker-dispatched"));
+    expect(idx("worker-returned")).toBeGreaterThan(idx("worker-invoked"));
+    expect(idx("gate-passed")).toBeGreaterThan(idx("worker-returned"));
+    expect(idx("review-approved")).toBeGreaterThan(idx("gate-passed"));
+    expect(idx("promoted")).toBeGreaterThan(idx("review-approved"));
+
+    // sandbox-prepared decision present (control decisions derived)
+    expect(names).toContain("create-sandbox");
+    // fixture node carries no persona → no profile event; no usage written
+    expect(names).not.toContain("worker-profile");
+    expect(names).not.toContain("usage");
+  });
+
+  it("failed run trace stops at failure — no review/promote", async () => {
+    let failed: GorpError | null = null;
+    try {
+      await reviewedRun("g-trace-fail", makeNode({ expectedArtifacts: ["src/evil.ts"] }));
+    } catch (e) {
+      failed = e as GorpError;
+    }
+    expect(failed).not.toBeNull();
+    expect(failed!.code).toBe("GATE_FAILED");
+
+    const out = inspectRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-trace-fail" });
+    const names = out.trace.map((e) => e.event);
+    expect(names).toContain("fail-run");
+    expect(names).toContain("node-failed");
+    expect(names).toContain("graph-failed");
+    expect(names).toContain("destroy-sandbox");
+    expect(names).not.toContain("review-approved");
+    expect(names).not.toContain("promoted");
+
+    // where it stopped: gate evidence precedes failure
+    const idx = (name: string) => names.indexOf(name);
+    expect(idx("persist-gate-record")).toBeGreaterThan(-1);
+    expect(idx("fail-run")).toBeGreaterThan(idx("persist-gate-record"));
+    expect(idx("node-failed")).toBeGreaterThan(idx("fail-run"));
+  });
+
+  it("trace is deterministic and read-only (identical across calls, no mutation)", async () => {
+    const run = await reviewedRun("g-trace-ro");
+    executeApprove(cfg, approveArgs("g-trace-ro", run.sandbox!.headCommit), clock);
+
+    const before = snapshot(stateHome);
+    const a = inspectRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-trace-ro" });
+    const b = inspectRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-trace-ro" });
+
+    expect(a.trace).toEqual(b.trace);
+    expect(snapshot(stateHome)).toBe(before);
+    expect(git(["status", "--porcelain"], repo).trim()).toBe("");
+  });
+});
