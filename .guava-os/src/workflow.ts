@@ -195,3 +195,26 @@ export function promote(projectId: string, graphId: string, nodeId: string, acto
   if (opts.runId) args.push("--run-id", opts.runId);
   return callGorp(args);
 }
+
+/**
+ * reconcile — desired-state reconciliation (GOS-43). Default (no --adopt /
+ * --regenerate) is a READ-ONLY drift report over a compiled graph vs. a
+ * current SprintDocument. Mutation requires an explicit operator decision
+ * (--adopt overwrites the graph id; --regenerate writes a fresh graph) and
+ * is refused on a running graph. Re-planning a fresh graph (sprint generate
+ * -> wf plan) remains the supported baseline reconcile path; this surface
+ * makes drift visible + explicit.
+ */
+export function reconcile(
+  projectId: string,
+  graphId: string,
+  from: string,
+  opts: { adopt?: boolean; regenerate?: boolean; actorId?: string; baseCommit?: string } = {},
+): unknown {
+  const args = ["reconcile", "--project-id", projectId, "--graph-id", graphId, "--from", from];
+  if (opts.adopt) args.push("--adopt");
+  if (opts.regenerate) args.push("--regenerate");
+  if (opts.actorId) args.push("--actor-id", opts.actorId);
+  if (opts.baseCommit) args.push("--base-commit", opts.baseCommit);
+  return callGorp(args);
+}

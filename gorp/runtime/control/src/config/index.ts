@@ -71,6 +71,12 @@ export function orchestratorLogPath(cfg: RuntimeConfig, projectId: string, graph
   return join(orchestratorDir(cfg, projectId), `${graphId}.jsonl`);
 }
 
+/** Graph-level audit chain for operations that act on the graph itself
+ *  (e.g. reconcile). Separate from per-run audit chains. */
+export function graphAuditChainPath(cfg: RuntimeConfig, projectId: string, graphId: string): string {
+  return join(graphsDir(cfg, projectId), `${graphId}-audit-chain.jsonl`);
+}
+
 /** Identity of one node run: every run path is keyed by graph + node + run. */
 export interface RunRef {
   readonly graphId: string;

@@ -264,7 +264,7 @@ describe("next — output formats", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    expect(result.capabilities).toEqual({ dependencyRelationsLoaded: false });
+    expect(result.capabilities).toEqual({ dependencyRelationsLoaded: false, hasExternalBlockerGap: false });
   });
 
   it("human output shows context lines", () => {

@@ -34,6 +34,11 @@ import { git } from "../sandbox/worktree.js";
 import { implementedReviewPolicies, resolveReviewPolicy } from "../orchestrator/review-policy.js";
 import { fileURLToPath } from "node:url";
 import type { ActorType, ExecutionGraph, GraphNode } from "../contracts/types.js";
+import { computeGraphDrift } from "../compiler/drift.js";
+import { appendChainEntry, fileSha256 } from "../audit/chain.js";
+import { graphAuditChainPath } from "../config/index.js";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 interface ParsedArgs {
   readonly positionals: readonly string[];
@@ -434,6 +439,151 @@ function cmdOrchestrateStatus(args: ParsedArgs): CliResult {
   };
 }
 
+
+
+/** Extract projectId from a sprint document with runtime narrowing. */
+function sprintProjectId(doc: unknown): string | undefined {
+  if (doc && typeof doc === "object" && "project" in doc) {
+    const project = doc.project;
+    if (project && typeof project === "object" && "projectId" in project) {
+      const pid = project.projectId;
+      if (typeof pid === "string") return pid;
+    }
+  }
+  return undefined;
+}
+
+
+// --- reconcile (GOS-43): drift diff + explicit-operator-gated mutation ---------
+function cmdReconcile(args: ParsedArgs, clock: Clock): CliResult {
+  const cfg = loadConfig();
+  const store = new GraphStore(cfg);
+  const projectId = requireFlag(args, "project-id");
+  const graphId = requireFlag(args, "graph-id");
+  const fromPath = requireFlag(args, "from");
+
+  const graph = store.load(projectId, graphId);
+  const sprintDoc = readJsonFile(fromPath);
+  const drift = computeGraphDrift(graph, sprintDoc);
+
+  const adopt = args.bools.has("adopt");
+  const regenerate = args.bools.has("regenerate");
+
+  if (adopt && regenerate) {
+    throw new GorpError("INVALID_ARGUMENT", "--adopt and --regenerate are mutually exclusive", {});
+  }
+
+
+  if (adopt) {
+    const spId = sprintProjectId(sprintDoc);
+    if (spId !== undefined && spId !== projectId) {
+      throw new GorpError("INVALID_ARGUMENT", "--adopt requires the sprint's project.projectId to match the graph's projectId", {
+        sprintProjectId: spId ?? null,
+        graphProjectId: projectId,
+      });
+    }
+  }
+
+  // ── Mutation gate: running/locked graph is read-only ──
+  if (adopt || regenerate) {
+    if (graph.status === "running") {
+      throw new GorpError("STATE_CONFLICT", "graph is running — reconcile is read-only. Regenerate a fresh graph instead.", {
+        graphId,
+        projectId,
+        graphStatus: graph.status,
+      });
+    }
+
+    // Mutating reconcile: compile a new graph from sprint and persist with audit.
+    const baseCommit = args.flags["base-commit"] ?? graph.baseCommit;
+    const toGraphId = regenerate
+      ? `${graphId}-regen-${clock.now().replace(/[:.]/g, "-")}`
+      : graphId;
+
+    const newGraph = compileGraph(sprintDoc, { baseCommit, clock });
+
+    // Set the target graphId (for regenerate, override the sprint's sprintId)
+    const targetGraph = regenerate
+      ? { ...newGraph, graphId: toGraphId }
+      : { ...newGraph, graphId };  // adopt: overwrite existing id
+
+    if (regenerate) {
+      store.save(targetGraph, { overwrite: false });
+    } else {
+      store.update(targetGraph);
+    }
+
+    const auditDir = join(cfg.stateHome, "projects", projectId, "graphs");
+    mkdirSync(auditDir, { recursive: true });
+    const auditChainPath = graphAuditChainPath(cfg, projectId, toGraphId);
+    const reconcileRecordPath = join(auditDir, `${toGraphId}-reconcile.json`);
+    const reconcileRecord = {
+      schemaVersion: 1,
+      kind: adopt ? "adopt" : "regenerate",
+      projectId,
+      fromGraphId: graphId,
+      toGraphId,
+      sprintSha256: fileSha256(fromPath),
+      drift: {
+        added: drift.added,
+        removed: drift.removed,
+        tasksChanged: drift.tasksChanged.map((c) => ({
+          taskId: c.taskId,
+          changes: c.changes.map((ch) => ({ field: ch.field, sprint: ch.sprint, graph: ch.graph })),
+        })),
+        dependenciesChanged: drift.dependenciesChanged,
+        nodeStates: drift.nodeStates,
+        hasDrift: drift.hasDrift,
+      },
+      operatedBy: args.flags["actor-id"] ?? "operator",
+      operatedAt: clock.now(),
+      fromSprint: fromPath,
+    };
+    const serialized = JSON.stringify(reconcileRecord, null, 2);
+    writeFileSync(reconcileRecordPath, serialized, "utf8");
+    appendChainEntry(
+      auditChainPath,
+      auditDir,
+      "graph-reconcile",
+      `${toGraphId}-reconcile.json`,
+      reconcileRecordPath,
+      clock,
+    );
+
+    return {
+      success: true,
+      command: "reconcile",
+      ids: { graphId: toGraphId, projectId },
+      data: {
+        action: adopt ? "adopt" : "regenerate",
+        fromGraphId: graphId,
+        toGraphId,
+        path: join(auditDir, `${toGraphId}.json`),
+        drift,
+        auditRecord: reconcileRecordPath,
+        note:
+          "reconciliation applied — the new graph is DRAFT/UNAPPROVED and requires an explicit operator approval transition before any node can run",
+      },
+    };
+  }
+
+  // ── Read-only: drift report ──
+  return {
+    success: true,
+    command: "reconcile",
+    ids: { graphId, projectId },
+    data: {
+      action: "report",
+      graphStatus: graph.status,
+      drift,
+      note:
+        graph.status === "running"
+          ? "graph is RUNNING — mutation is blocked. Reconcile is read-only. To act on drift, regenerate a fresh graph."
+          : "read-only drift report — pass --adopt or --regenerate to act on drift",
+    },
+  };
+}
+
 // --- promote (Waves C+D) -------------------------------------------------------
 function cmdPromote(args: ParsedArgs, clock: Clock): CliResult {
   const cfg = loadConfig();
@@ -504,12 +654,13 @@ export async function runCli(argvRaw: readonly string[], clock: Clock = systemCl
     if (group === "inspect") return { result: cmdInspect(parseArgs(argv.slice(1))), exitCode: EXIT_CODES.OK };
     if (group === "promote") return { result: cmdPromote(parseArgs(argv.slice(1)), clock), exitCode: EXIT_CODES.OK };
     if (group === "compile-graph") return { result: cmdCompileGraph(parseArgs(argv.slice(1)), clock), exitCode: EXIT_CODES.OK };
+    if (group === "reconcile") return { result: cmdReconcile(parseArgs(argv.slice(1)), clock), exitCode: EXIT_CODES.OK };
     if (group === "orchestrate") return { result: cmdOrchestrate(parseArgs(argv.slice(1)), clock), exitCode: EXIT_CODES.OK };
     if (group === "orchestrate-status") return { result: cmdOrchestrateStatus(parseArgs(argv.slice(1))), exitCode: EXIT_CODES.OK };
-
+ 
     throw new GorpError("INVALID_ARGUMENT", `unknown command: ${group ?? "(none)"}`, {
       command: group ?? null,
-      known: ["graph", "compile-graph", "run", "review", "approve", "reject", "retry", "promote", "inspect", "orchestrate", "orchestrate-status"],
+      known: ["graph", "compile-graph", "run", "review", "approve", "reject", "retry", "promote", "inspect", "reconcile", "orchestrate", "orchestrate-status"],
     });
   } catch (e) {
     if (isGorpError(e)) {

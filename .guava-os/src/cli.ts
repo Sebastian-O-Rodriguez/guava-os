@@ -374,6 +374,7 @@ Subcommands:
   reject <project> <graph> <node> --actor <a> --reason <r>
   retry <project> <graph> <node> --actor <a> --reason <r>
   promote <project> <graph> <node> --actor <a>
+  reconcile <project> <graph> --from <sprint.json> [--adopt | --regenerate] [--actor <a>]
 
 All wf commands call gorp CLI primitives — guava-os decides; gorp enforces.`);
     return;
@@ -425,6 +426,16 @@ All wf commands call gorp CLI primitives — guava-os decides; gorp enforces.`);
     }
     case "promote": {
       const result = wf.promote(rest[0]!, rest[1]!, rest[2]!, f(rest, "--actor")!, { runId: f(rest, "--run-id") });
+      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
+      return;
+    }
+    case "reconcile": {
+      const result = wf.reconcile(rest[0]!, rest[1]!, f(rest, "--from")!, {
+        adopt: rest.includes("--adopt"),
+        regenerate: rest.includes("--regenerate"),
+        actorId: f(rest, "--actor"),
+        baseCommit: f(rest, "--base-commit"),
+      });
       console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
       return;
     }
