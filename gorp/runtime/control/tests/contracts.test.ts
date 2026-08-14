@@ -174,3 +174,36 @@ describe("contracts: optional persona/profile fields validate (GUA-123)", () => 
     expect(r.issues.some((i) => i.keyword === "additionalProperties")).toBe(true);
   });
 });
+
+describe("contracts: usage fields validate (GOS-55)", () => {
+  it("run-record: usage absent is valid", () => {
+    const record = readFixture("run-record/positive.minimal.json") as Record<string, unknown>;
+    const r = validateAgainst("run-record", record);
+    expect(r.valid).toBe(true);
+    expect(r.issues).toEqual([]);
+  });
+
+  it("run-record: usage with valid fields validates", () => {
+    const record = readFixture("run-record/positive.minimal.json") as Record<string, unknown>;
+    record["usage"] = { tokensIn: 1200, tokensOut: 300, tokensTotal: 1500, costUsd: 0.0042, durationMs: 1628 };
+    const r = validateAgainst("run-record", record);
+    expect(r.valid).toBe(true);
+    expect(r.issues).toEqual([]);
+  });
+
+  it("run-record: usage with extra field is rejected (additionalProperties)", () => {
+    const record = readFixture("run-record/positive.minimal.json") as Record<string, unknown>;
+    record["usage"] = { tokensIn: 100, extra: "nope" };
+    const r = validateAgainst("run-record", record);
+    expect(r.valid).toBe(false);
+    expect(r.issues.some((i) => i.keyword === "additionalProperties")).toBe(true);
+  });
+
+  it("worker-result: usage with valid fields validates", () => {
+    const result = readFixture("worker-result/positive.succeeded.json") as Record<string, unknown>;
+    result["usage"] = { tokensIn: 500, tokensOut: 100, tokensTotal: 600, costUsd: 0.001, durationMs: 800 };
+    const r = validateAgainst("worker-result", result);
+    expect(r.valid).toBe(true);
+    expect(r.issues).toEqual([]);
+  });
+});

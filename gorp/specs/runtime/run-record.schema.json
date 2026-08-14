@@ -88,7 +88,19 @@
         }
       }
     },
-    "endedAt": { "type": "string", "format": "date-time" }
+    "endedAt": { "type": "string", "format": "date-time" },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-run worker usage (GOS-55): tokens and cost are stamped only when the worker reports them (never estimated); durationMs is always present when usage is present.",
+      "properties": {
+        "tokensIn": { "type": "integer", "minimum": 0 },
+        "tokensOut": { "type": "integer", "minimum": 0 },
+        "tokensTotal": { "type": "integer", "minimum": 0 },
+        "costUsd": { "type": "number", "minimum": 0 },
+        "durationMs": { "type": "number", "minimum": 0 }
+      }
+    }
   },
   "$defs": {
     "stableId": {

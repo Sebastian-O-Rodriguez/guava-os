@@ -47,6 +47,7 @@ import type {
   GateRecord,
   RunRecord,
   WorkerResult,
+  WorkerUsage,
 } from "../contracts/types.js";
 import { applyGraphTransition, applyNodeTransition, systemClock, type Clock } from "../graph/graph.js";
 import {
@@ -177,6 +178,18 @@ function resolveWorkerProfile(persona: string | undefined): RunRecord["profile"]
   };
 }
 
+/**
+ * Stamp per-run usage into the run record (GOS-55). The worker adapter reports
+ * tokens + cost when the runtime provides them; the control plane adds the
+ * wall-clock duration it can always measure (endedAt - startedAt) only when
+ * the worker reports nothing, so `durationMs` is always present.
+ */
+function resolveRunUsage(workerUsage: WorkerUsage | undefined, startedAt: string, endedAt: string): WorkerUsage {
+  if (workerUsage) return workerUsage;
+  const durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
+  return { durationMs };
+}
+
 export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clock = systemClock): Promise<RunOutput> {
   const store = new GraphStore(cfg);
   let graph: ExecutionGraph = store.load(input.projectId, input.graphId);
@@ -293,6 +306,8 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
     store.update(failed);
     destroySandbox(sandbox);
     decide("destroy-sandbox", "FAIL_CLOSED", "sandbox destroyed on failure");
+    const endedAt = clock.now();
+    const usage = resolveRunUsage(workerResult?.usage, startedAt, endedAt);
     const record: RunRecord = {
       schemaVersion: 1,
       runId: ref.runId,
@@ -309,7 +324,8 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
       controlDecisions: decisions,
       finalStatus: "failed",
       startedAt,
-      endedAt: clock.now(),
+      endedAt,
+      usage,
     };
     persistChained("run-record", paths.runRecord, record);
     throw new GorpError(cause.code, cause.message, {
@@ -383,6 +399,8 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
   );
   store.update(graph);
   decide("await-review", "GATE_PASSED", "sandbox kept for review; decision and promotion are separate commands");
+  const endedAt = clock.now();
+  const usage = resolveRunUsage(workerResult.usage, startedAt, endedAt);
 
   const record: RunRecord = {
     schemaVersion: 1,
@@ -400,7 +418,8 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
     controlDecisions: decisions,
     finalStatus: "succeeded",
     startedAt,
-    endedAt: clock.now(),
+    endedAt,
+    usage,
   };
   persistChained("run-record", paths.runRecord, record);
 
