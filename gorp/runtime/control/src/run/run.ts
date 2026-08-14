@@ -65,6 +65,7 @@ import { buildGateRecord, matchesAny, scopeChecks } from "../gate/scope.js";
 import { runCommandChecks } from "../gate/commands.js";
 import { resolveProjectRepoPath } from "../registry/projects.js";
 import { assertNodeRunnable, selectNode } from "./policy.js";
+import { captureGitBaseline } from "./baseline.js";
 
 const ORCHESTRATOR = "orchestrator" as const;
 
@@ -249,10 +250,12 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
   }
   mkdirSync(rDir, { recursive: true });
 
-  // Repository path comes from the registry, never from persisted state.
   const repositoryPath = resolveProjectRepoPath(graph.project.projectId);
-  // Per-node-run base: the target repository HEAD at run start.
-  const baseCommit = git(["rev-parse", "HEAD"], repositoryPath).stdout.trim();
+  // Immutable baseline (GOS-33): capture branch/tag refs + HEAD + tree hash at
+  // run start. The HEAD becomes the per-node-run base commit. Fail closed on
+  // any git error (SANDBOX_FAILURE).
+  const baseline = captureGitBaseline(repositoryPath, clock);
+  const baseCommit = baseline.head;
 
   const startedAt = clock.now();
   const decisions: ControlDecision[] = [];
@@ -377,6 +380,7 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
       projectId: input.projectId,
       governanceVersion: governanceVersion(),
       baseCommit,
+      baseline,
       workerAdapter: node.workerAdapter,
       sandboxIdentity: branch,
       ...(workerResult ? { workerResultRef: "worker-result.json" } : {}),
@@ -472,11 +476,12 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
     projectId: input.projectId,
     governanceVersion: governanceVersion(),
     baseCommit,
+    baseline,
     workerAdapter: node.workerAdapter,
     sandboxIdentity: branch,
     workerResultRef: "worker-result.json",
     gateRecordRef: "gate-record.json",
-      ...(profile ? { profile } : {}),
+    ...(profile ? { profile } : {}),
     controlDecisions: decisions,
     finalStatus: "succeeded",
     startedAt,

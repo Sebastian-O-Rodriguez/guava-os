@@ -152,6 +152,13 @@ Run semantics (Sprint 2A):
 - **Base commit is recorded per node run**: the target HEAD at run start,
   persisted in the run record — so node 2 bases on the HEAD produced by
   promoting node 1. `graph.baseCommit` is creation-time provenance only.
+- **An immutable baseline is captured at run start** (GOS-33, `src/run/baseline.ts`)
+  and persisted into the run record as structured, machine-verifiable data:
+  for a Git target, `{ kind, head, refs, treeHash, capturedAt }` — the target
+  HEAD, every branch/tag ref → commit sha (gorp's own `gorp/run/…` sandbox
+  branches excluded), and the committed tree hash (`HEAD^{tree}`). For a
+  non-Git target it is a sorted file-hash list (`{ kind, files[], capturedAt }`).
+  Capture fails closed — an unreadable or inconsistent repo aborts the run.
 - Sandbox is a **git worktree** on branch
   `gorp/run/<graph-id>/<node-id>/<run-id>`, created at the node-run base,
   living under the state root — never in the consumer working tree. (Git
@@ -250,7 +257,11 @@ One path only, **no mutation before every check passes**:
    it; the reviewed commit is a direct child of the recorded base;
 5. the target repo HEAD still equals the **node run's recorded base commit**
    (from the run record — per-node, so a later node's base is an earlier
-   node's promotion result) with a clean tree;
+   node's promotion result) with a clean tree; and, when the run record
+   carries a GOS-33 baseline, the **full baseline verifies unchanged** — same
+   HEAD, same branch/tag refs (a repointed tag or branch fails closed), same
+   committed tree hash — blocking as `baseline` before any mutation (older
+   records without a baseline keep the legacy HEAD-only check);
 6. the **full gate is rerun live against the reviewed commit** (Sprint 3D:
    no stale gate — scope checks AND every project command must pass AGAIN;
    the persisted verdict is never trusted alone). A scope failure blocks as

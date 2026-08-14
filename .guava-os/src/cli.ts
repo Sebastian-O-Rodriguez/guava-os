@@ -14,6 +14,7 @@
  *   npx tsx .guava-os/src/cli.ts pm get-project
  *   npx tsx .guava-os/src/cli.ts pm get-issue GUA-45
  *   npx tsx .guava-os/src/cli.ts pm search --status Todo
+ *   npx tsx .guava-os/src/cli.ts register my-proj --repo ~/dev/repos/my-proj --remote https://github.com/owner/my-proj.git
  *   npx tsx .guava-os/src/cli.ts pm create --title "..." --team "Guava AI"
  *   npx tsx .guava-os/src/cli.ts pm update GUA-45 --status Done
  *   npx tsx .guava-os/src/cli.ts pm link GUA-45 --blocked-by GUA-47
@@ -38,6 +39,7 @@ import * as wf from "./workflow.js";
 import { generateSprint, generateSprintMulti, approveSprint } from "./sprint.js";
 import { resolveRegistryProjectId, loadRegistry } from "./registry.js";
 import { runLaunch } from "./launch.js";
+import { runRegister } from "./register.js";
 
 function usage(): never {
   console.log(`guava-os <command> [flags]
@@ -51,6 +53,7 @@ Commands:
   wf        Operator workflow over gorp (see: wf --help)
   sprint    Generate/approve the gorp SprintDocument from Linear (see: sprint --help)
   launch    Start a governed agent with a v1 permission role (see: launch --help)
+  register  Register a project: create repo + record git_remote (see: register --help)
 Flags:
   --json           Output as JSON instead of human-readable text
   --strict         (validate only) Treat warnings as errors
@@ -100,7 +103,7 @@ async function main() {
 
   // Subcommand --help: show usage for any known command
   if (args.includes("--help") || args.includes("-h")) {
-    const known = ["doctor", "status", "validate", "next", "launch"];
+    const known = ["doctor", "status", "validate", "next", "launch", "register"];
     if (known.includes(command)) usage();
   }
 
@@ -108,6 +111,12 @@ async function main() {
   // repo-scoped config (it launches agents for ANY registry project).
   if (command === "launch") {
     runLaunch(args.slice(1), jsonMode);
+    process.exit(0);
+  }
+
+  // register creates the repo + registry entry; no config needed.
+  if (command === "register") {
+    runRegister(args.slice(1), jsonMode);
     process.exit(0);
   }
 

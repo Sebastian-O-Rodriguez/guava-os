@@ -7,7 +7,7 @@ How to read and use `guava-os doctor` output.
 | Check | What It Validates | Requires Stdin |
 |-------|------------------|----------------|
 | config | `.guava-os/config.json` exists and parses | No |
-| agents-md | `AGENTS.md` exists and contains "Authority Hierarchy" section | No |
+| agents-md | `AGENTS.md` exists and contains "Authority Hierarchy" section (advisory) | No |
 | protocol | All process docs referenced in config exist | No |
 | linear | Linear issue data was provided by caller via stdin | Yes |
 | labels | Every configured persona has a matching label in Linear data | Yes |
@@ -40,9 +40,12 @@ Doctor validates that `.guava-os/config.json` exists. It does not validate the J
 
 ## AGENTS.md Requirements
 
-Doctor checks that `AGENTS.md` exists at the repo root and contains the text "Authority Hierarchy". This confirms the repo follows the Guava OS authority model.
-
-## Persona Label Check
+Doctor checks that `AGENTS.md` exists at the repo root and contains the text
+"Authority Hierarchy". This check is **advisory** — AGENTS.md is optional for
+execution. A missing AGENTS.md (or one without an authority reference) produces
+a passing, advisory result; it never hard-fails doctor. Bootstrap completeness
+(including the authority hierarchy) is owned by GOS-34 ordering, not by the
+`doctor` command.
 
 When both `issues` and `labels` are provided in stdin, doctor cross-checks:
 

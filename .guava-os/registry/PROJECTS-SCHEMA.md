@@ -13,6 +13,7 @@ projects:
   - id: <string>          # stable lowercase id (matches ^[A-Za-z0-9][A-Za-z0-9._-]*$)
     name: <string>        # human-readable (informational)
     repo_path: <path>     # path to the consumer repo (~ allowed); must exist
+    git_remote: <url>     # canonical git remote (e.g. https://github.com/<owner>/<repo>.git); optional
     linear_project: <string> # canonical Linear project name (maps to config.linear.project)
     lifecycle: active | paused | retired   # informational
     notes: <string>       # free text (informational)
@@ -20,9 +21,13 @@ projects:
 
 The runtime reads `id` and `repo_path`. The control plane registry loader
 (`.guava-os/src/registry.ts`) also reads `linear_project` to resolve Linear
-project names to canonical registry ids at `sprint generate` time. The parser
-is a conservative line-based reader: one `- id:` line per entry followed by its
-scalar keys; unknown keys are ignored.
+project names to canonical registry ids at `sprint generate` time. `git_remote`
+is the project's canonical upstream URL — recorded at registration so the
+control plane knows where the repo lives without guessing from the local
+directory name. `guava-os doctor` validates it against the local origin and
+reports mismatches as advisory warnings. The parser is a conservative
+line-based reader: one `- id:` line per entry followed by its scalar keys;
+unknown keys are ignored.
 
 Rules:
 

@@ -201,6 +201,46 @@ describe("Wave C+D promote: approved decision -> promote -> done", () => {
     expect(g.nodes[0]!.state).toBe("approved"); // decision stands; promotion blocked
   });
 
+  it("captures a structured immutable baseline (HEAD + refs + tree hash) into the run record", async () => {
+    git(["tag", "v1"], repo);
+    const run = await reviewedRun("g-baseline-record");
+    const record = JSON.parse(readFileSync(run.records.runRecord, "utf8")) as {
+      baseCommit: string;
+      baseline: { kind: string; head: string; refs: Record<string, string>; treeHash: string; capturedAt: string };
+    };
+    expect(record.baseline.kind).toBe("git");
+    expect(record.baseline.head).toBe(record.baseCommit);
+    expect(record.baseline.head).toMatch(/^[0-9a-f]{40}$/);
+    expect(record.baseline.treeHash).toBe(git(["rev-parse", "HEAD^{tree}"], repo).trim());
+    expect(record.baseline.refs["refs/tags/v1"]).toBe(record.baseCommit);
+    expect(record.baseline.capturedAt).toBe(clock.now());
+  });
+
+  it("baseline ref drift: a tag repointed after approval -> blocked before promote, nothing mutated", async () => {
+    // second commit so there is an earlier commit to repoint the tag onto
+    writeFileSync(join(repo, "base.txt"), "base\n");
+    git(["add", "."], repo);
+    git(["commit", "-q", "-m", "second"], repo);
+    const parent = git(["rev-parse", "HEAD^"], repo).trim();
+    git(["tag", "v1"], repo); // v1 -> HEAD (captured in baseline)
+
+    const run = await reviewedRun("g-tag-drift");
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+    approveRun("g-tag-drift", run.sandbox!.headCommit);
+
+    // repoint the tag; HEAD + working tree stay put, so only the baseline
+    // refset check can catch this
+    git(["tag", "-f", "v1", parent], repo);
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(headBefore);
+
+    expectCode(() => executePromote(cfg, promoteArgs("g-tag-drift"), clock), "PROMOTION_BLOCKED", "baseline");
+
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(headBefore); // no mutation
+    expect(git(["status", "--porcelain"], repo).trim()).toBe("");
+    expect(existsSync(run.sandbox!.dir)).toBe(true); // sandbox kept
+    expect(existsSync(promotionRecordPath(cfg, "p1", nodeRef("g-tag-drift")))).toBe(false); // no promotion record
+  });
+
   it("out-of-scope rerun fail: scope narrowed after approval -> blocked, target untouched", async () => {
     const run = await reviewedRun("g-rerun");
     approveRun("g-rerun", run.sandbox!.headCommit);
