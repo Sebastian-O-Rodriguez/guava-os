@@ -51,6 +51,19 @@ The adapter translates these into the OMP prompt:
 - **Scope** → the prompt includes the node's scope (allowed/forbidden paths);
   gorp's scope gate enforces this independently.
 
+## Tool surface
+
+- The persona's `tools` field is the **guava-os-declared minimum** for that
+  persona (`read, edit, write, bash, grep, glob`).
+- OMP workers may ALSO be given **runtime-provided MCP servers**, configured
+  machine-scoped in OMP config (`~/.omp/agent/mcp.json`) — e.g. project data
+  tools like Supabase via MCPM (`supabase-mcpm` stdio server). These are OMP
+  runtime capabilities, NOT guava-os skills/persona tools, and are not listed
+  in this repo (another machine may not have them). Secrets for such servers
+  live in user-level OMP/MCPM config, never in a tracked repo.
+- Regardless of the runtime tool surface, workers never fetch Linear (GOS-18)
+  and never approve or promote (operator-only).
+
 ## Outputs
 
 The adapter returns a `WorkerResult` conforming to

@@ -68,7 +68,7 @@ Worker
 | Prompt | node fields + persona body appended via `--append-system-prompt` (env `GORP_OMP_SYSTEM_PROMPT_APPEND`) | same |
 | Model | persona `model` tier via `GORP_OMP_MODEL`; env override stays | same |
 | Role | persona `maps_to` carried in run-record profile | surfaced in inspect |
-| Tools | persona `tools` documented in persona file; env-driven | allowlist refinement |
+| Tools | persona `tools` documented in persona file (guava-os-declared minimum); runtime OMP MCP servers (e.g. `supabase-mcpm`) are machine-scoped OMP config, not guava-os tools | allowlist refinement |
 | Run record | `profile {persona, model, promptHash}` stamped; visible via `wf review` / `gorp inspect` | same |
 
 ## Boundaries (resolved by GUA-123, merge ed1a6ff)
