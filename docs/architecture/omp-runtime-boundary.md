@@ -119,6 +119,15 @@ named integration — it implements `WorkerAdapter` and passes the same contract
 checks as the fixture adapter. Replacing OMP with another runtime means
 implementing a new adapter; the contract, scheduler, and gates do not change.
 
+## Observability (tracing & errors)
+
+gorp execution is observable via a replay-based exporter that derives
+OpenTelemetry traces and Sentry error events from the persisted audit chain —
+the worker path is never instrumented, and the adapter remains blind. The
+design is in `docs/architecture/tracing-sentry-design.md` (GOS-56). Opt-in,
+off by default, privacy-first: no prompts, no secrets, no diffs without
+explicit operator opt-in.
+
 ## Enforcement points (preserved from `worker/adapter.ts`)
 
 1. **Blind invocation** — the adapter receives only `WorkerInvocation`; no
