@@ -482,3 +482,60 @@ describe("validate read-only guarantee", () => {
     expect(JSON.stringify(issues)).toBe(snapshot);
   });
 });
+
+describe("nested decomposition — wave → container → leaves", () => {
+  // wave (top-level) → container (a parent of leaves, itself a child) → leaves
+  function nestedFixture(): LinearIssue[] {
+    return [
+      makeIssue({ id: "WAVE", title: "Wave", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "CONT", title: "Container", status: "Todo", statusType: "unstarted", parentId: "WAVE" }),
+      makeIssue({ id: "L1", title: "Leaf One", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }),
+      makeIssue({ id: "L2", title: "Leaf Two", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }),
+    ];
+  }
+  function codes(issues: LinearIssue[]): string[] {
+    const graph = buildGraph(issues, TEST_CONFIG);
+    return runValidate(graph, issues, TEST_CONFIG).violations.map((v) => v.code);
+  }
+
+  it("does NOT flag leaves as orphans when their parent is a nested container", () => {
+    const v = codes(nestedFixture());
+    expect(v).not.toContain("V302");
+  });
+
+  it("applies V303 parent-active to a nested container (leaf under a non-active container)", () => {
+    const issues = nestedFixture();
+    const cont = issues.find((i) => i.id === "CONT")!;
+    cont.status = "Done";
+    cont.statusType = "completed";
+    const v = codes(issues);
+    expect(v).toContain("V303");
+    const detail = runValidate(buildGraph(issues, TEST_CONFIG), issues, TEST_CONFIG)
+      .violations.find((x) => x.code === "V303");
+    expect(detail?.issue_id).toBe("L1");
+  });
+
+  it("applies V305 overflow to a NESTED container (not just top-level parents)", () => {
+    const issues = nestedFixture();
+    // give CONT 4 children (cap is 3) — CONT is itself a child of WAVE
+    for (let i = 0; i < 2; i++) {
+      issues.push(makeIssue({ id: `LX${i}`, status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }));
+    }
+    const v = codes(issues);
+    expect(v).toContain("V305");
+    const detail = runValidate(buildGraph(issues, TEST_CONFIG), issues, TEST_CONFIG)
+      .violations.find((x) => x.code === "V305");
+    expect(detail?.issue_id).toBe("CONT");
+  });
+
+  it("flags a persona label on a container (V306 — cleanup support)", () => {
+    const issues = nestedFixture();
+    issues.find((i) => i.id === "CONT")!.labels = ["backend"];
+    const v = codes(issues);
+    expect(v).toContain("V306");
+    const detail = runValidate(buildGraph(issues, TEST_CONFIG), issues, TEST_CONFIG)
+      .violations.find((x) => x.code === "V306");
+    expect(detail?.severity).toBe("warning");
+    expect(detail?.issue_id).toBe("CONT");
+  });
+});

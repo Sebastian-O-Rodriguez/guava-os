@@ -204,6 +204,73 @@ function issueToTask(
 }
 
 
+/** Recursively collect leaf DELIVERABLES under a container root (nested
+ *  decomposition). Container children (issues with non-canceled children of
+ *  their own) are groupings, NEVER tasks — descend into them. Leaves are
+ *  filtered by backlog / persona semantics; blocked handling is governed by
+ *  `excludeBlocked`: true for single-container mode (GOS-28 — a blocked child
+ *  is excluded), false for a multi-parent union (the union decides: a leaf
+ *  whose blocker is scheduled in the same document becomes a dependency). */
+function collectContainerDeliverables(
+  issues: LinearIssue[],
+  rootId: string,
+  blockedBy: Map<string, Set<string>>,
+  byId: Map<string, LinearIssue>,
+  personaLabels: Set<string>,
+  config: Config,
+  excludeBlocked: boolean,
+): {
+  included: LinearIssue[];
+  excludedBlocked: LinearIssue[];
+  excludedInvalid: LinearIssue[];
+  excludedBacklog: LinearIssue[];
+  warnings: string[];
+} {
+  const included: LinearIssue[] = [];
+  const excludedBlocked: LinearIssue[] = [];
+  const excludedInvalid: LinearIssue[] = [];
+  const excludedBacklog: LinearIssue[] = [];
+  const warnings: string[] = [];
+  const hasChildren = (id: string): boolean =>
+    issues.some((i) => i.parentId === id && !i.canceledAt && i.statusType !== "completed");
+
+  const walk = (parentId: string): void => {
+    for (const c of issues.filter((i) => i.parentId === parentId)) {
+      if (c.statusType === "completed" || c.canceledAt) continue;
+      if (hasChildren(c.id)) {
+        walk(c.id); // container grouping — never a task
+        continue;
+      }
+      if (c.status === config.statuses.backlog) {
+        excludedBacklog.push(c);
+        warnings.push(`excluded (backlog): ${c.title}`);
+        continue;
+      }
+      const persona = c.labels.filter((l) => personaLabels.has(l));
+      if (persona.length !== 1) {
+        excludedInvalid.push(c);
+        warnings.push(`excluded (persona label missing or ambiguous): ${c.title}`);
+        continue;
+      }
+      if (excludeBlocked) {
+        const blockers = blockedBy.get(c.id);
+        const unresolved = (blockers ? [...blockers] : [])
+          .map((bid) => byId.get(bid))
+          .filter((b) => b && b.statusType !== "completed" && !b.canceledAt)
+          .map((b) => b!.title);
+        if (unresolved.length > 0) {
+          excludedBlocked.push(c);
+          warnings.push(`excluded (blocked by ${unresolved.join(", ")}): ${c.title}`);
+          continue;
+        }
+      }
+      included.push(c);
+    }
+  };
+  walk(rootId);
+  return { included, excludedBlocked, excludedInvalid, excludedBacklog, warnings };
+}
+
 /** Generate a SprintDocument from a Linear parent subtree. Pure + deterministic.
  *
  * Two shapes, inferred from whether the parent has children:
@@ -226,43 +293,10 @@ export function generateSprint(
   const hasChildren = issues.some((i) => i.parentId === parentId);
 
   if (hasChildren) {
-    // ── Container mode ──────────────────────────────────────────────
-    const children = issues.filter((i) => i.parentId === parentId);
-
-    const excludedBlocked: LinearIssue[] = [];
-    const excludedInvalid: LinearIssue[] = [];
-    const excludedBacklog: LinearIssue[] = [];
-    const included: LinearIssue[] = [];
-
-    for (const c of children) {
-      if (c.statusType === "completed" || c.canceledAt) continue;
-      if (c.status === config.statuses.backlog) {
-        excludedBacklog.push(c);
-        warnings.push(`excluded (backlog): ${c.title}`);
-        continue;
-      }
-      const persona = c.labels.filter((l) => personaLabels.has(l));
-      if (persona.length !== 1) {
-        excludedInvalid.push(c);
-        warnings.push(
-          `excluded (persona label missing or ambiguous): ${c.title}`,
-        );
-        continue;
-      }
-      const blockers = blockedBy.get(c.id);
-      const unresolved = (blockers ? [...blockers] : [])
-        .map((bid) => byId.get(bid))
-        .filter((b) => b && b.statusType !== "completed" && !b.canceledAt)
-        .map((b) => b!.title);
-      if (unresolved.length > 0) {
-        excludedBlocked.push(c);
-        warnings.push(
-          `excluded (blocked by ${unresolved.join(", ")}): ${c.title}`,
-        );
-        continue;
-      }
-      included.push(c);
-    }
+    // ── Container mode (nested containers descend recursively) ─────────
+    const col = collectContainerDeliverables(issues, parentId, blockedBy, byId, personaLabels, config, true);
+    warnings.push(...col.warnings);
+    const { included, excludedBlocked, excludedInvalid, excludedBacklog } = col;
 
     if (included.length === 0) {
       throw new Error("container has no schedulable children");
@@ -403,13 +437,22 @@ export function generateSprintMulti(
   const personaLabels = new Set(config.personas);
 
   const candidates = new Map<string, LinearIssue>();
+  const excludedBlocked: LinearIssue[] = [];
+  const excludedInvalid: LinearIssue[] = [];
+  const excludedBacklog: LinearIssue[] = [];
   for (const pid of parentIds) {
     if (!byId.has(pid)) throw new Error(`parent ${pid} not found in dataset`);
     const parent = byId.get(pid)!;
     const hasChildren = issues.some((i) => i.parentId === pid);
-    let set: LinearIssue[];
     if (hasChildren) {
-      set = issues.filter((i) => i.parentId === pid);
+      // Container parent: nested containers descend recursively (groupings
+      // are never tasks); pre-filtered leaves land in candidates/excluded.
+      const col = collectContainerDeliverables(issues, pid, blockedBy, byId, personaLabels, config, false);
+      warnings.push(...col.warnings);
+      for (const s of col.included) if (!candidates.has(s.id)) candidates.set(s.id, s);
+      for (const x of col.excludedBlocked) if (!excludedBlocked.includes(x)) excludedBlocked.push(x);
+      for (const x of col.excludedInvalid) if (!excludedInvalid.includes(x)) excludedInvalid.push(x);
+      for (const x of col.excludedBacklog) if (!excludedBacklog.includes(x)) excludedBacklog.push(x);
     } else {
       // Chain-head validation mirrors generateSprint chain mode.
       if (parent.statusType === "completed" || parent.canceledAt)
@@ -418,14 +461,11 @@ export function generateSprintMulti(
         throw new Error(`parent ${pid} is backlog — cannot generate`);
       if (parent.labels.filter((l) => personaLabels.has(l)).length !== 1)
         throw new Error(`parent ${pid} has no valid persona label — cannot generate`);
-      set = walkForwardChain(issues, pid);
+      const chain = walkForwardChain(issues, pid);
+      for (const s of chain) if (!candidates.has(s.id)) candidates.set(s.id, s);
     }
-    for (const s of set) if (!candidates.has(s.id)) candidates.set(s.id, s);
   }
 
-  const excludedBlocked: LinearIssue[] = [];
-  const excludedInvalid: LinearIssue[] = [];
-  const excludedBacklog: LinearIssue[] = [];
   const included: LinearIssue[] = [];
 
   for (const c of candidates.values()) {

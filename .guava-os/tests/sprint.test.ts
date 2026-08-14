@@ -435,3 +435,40 @@ describe("generateSprintMulti sprintId determinism (GOS-48)", () => {
     expect(ab.doc.sprintId).not.toBe(abc.doc.sprintId);
   });
 });
+
+describe("nested decomposition — wave → container → leaves", () => {
+  function nestedFixture(): GraphIssue[] {
+    return [
+      issue({ id: "WAVE", title: "Wave", labels: [], statusType: "unstarted" }),
+      issue({ id: "CONT", title: "Container", labels: [], statusType: "unstarted", parentId: "WAVE" }),
+      issue({ id: "L1", title: "Leaf One", labels: ["backend"], parentId: "CONT", description: "## Acceptance criteria\n- one\n" }),
+      issue({ id: "L2", title: "Leaf Two", labels: ["backend"], parentId: "CONT", description: "## Acceptance criteria\n- two\n" }),
+    ];
+  }
+
+  it("container mode descends through nested containers — leaves are the tasks, containers are not", () => {
+    const res = generateSprint(nestedFixture(), "WAVE", "guava-os", config);
+    const ids = res.doc.tasks.map((t) => t.taskId);
+    expect(ids).toEqual(["L1", "L2"]);
+    expect(ids).not.toContain("CONT");
+    expect(res.excludedInvalid).toEqual([]);
+    // leaf persona carried
+    expect(res.doc.tasks.find((t) => t.taskId === "L1")!.persona).toBe("backend");
+  });
+
+  it("multi-parent union descends through a nested container parent too", () => {
+    const issues = nestedFixture();
+    const res = generateSprintMulti(issues, ["WAVE"], "guava-os", config);
+    const ids = res.doc.tasks.map((t) => t.taskId);
+    expect(ids).toEqual(["L1", "L2"]);
+  });
+
+  it("still excludes a leaf that is backlog, deep under a nested container", () => {
+    const issues = nestedFixture();
+    issues.find((i) => i.id === "L2")!.status = "Backlog";
+    issues.find((i) => i.id === "L2")!.statusType = "backlog";
+    const res = generateSprint(issues, "WAVE", "guava-os", config);
+    expect(res.doc.tasks.map((t) => t.taskId)).toEqual(["L1"]);
+    expect(res.excludedBacklog.map((i) => i.id)).toEqual(["L2"]);
+  });
+});
