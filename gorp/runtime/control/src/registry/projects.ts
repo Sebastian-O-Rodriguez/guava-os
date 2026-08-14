@@ -19,11 +19,15 @@
  * nothing more; anything unexpected for the fields it needs fails closed.
  */
 
+
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { GorpError } from "../errors/index.js";
 
+/** Canonical bootstrap order referenced by every fail-closed error. */
+const BOOTSTRAP_ORDER =
+  "bootstrap order: create minimal repo → register (with git_remote) → execute/scaffold";
 export interface RegisteredProject {
   readonly id: string;
   readonly repoPath: string;
@@ -88,7 +92,7 @@ export function parseProjectsRegistry(raw: string): readonly RegisteredProject[]
 export function resolveProjectRepoPath(projectId: string, env: NodeJS.ProcessEnv = process.env): string {
   const path = registryPath(env);
   if (!existsSync(path)) {
-    throw new GorpError("PROJECT_NOT_REGISTERED", "project registry file not found", {
+    throw new GorpError("PROJECT_NOT_REGISTERED", `project registry file not found — ${BOOTSTRAP_ORDER}`, {
       projectId,
       registry: path,
     });
@@ -105,13 +109,13 @@ export function resolveProjectRepoPath(projectId: string, env: NodeJS.ProcessEnv
   }
   const entry = parseProjectsRegistry(raw).find((p) => p.id === projectId);
   if (!entry) {
-    throw new GorpError("PROJECT_NOT_REGISTERED", "project is not registered in the project registry", {
+    throw new GorpError("PROJECT_NOT_REGISTERED", `project is not registered in the project registry — ${BOOTSTRAP_ORDER}`, {
       projectId,
       registry: path,
     });
   }
   if (!entry.repoPath || entry.repoPath.length === 0) {
-    throw new GorpError("PROJECT_NOT_REGISTERED", "registered project has no repo_path", {
+    throw new GorpError("PROJECT_NOT_REGISTERED", `registered project has no repo_path — ${BOOTSTRAP_ORDER}`, {
       projectId,
       registry: path,
     });
@@ -119,7 +123,7 @@ export function resolveProjectRepoPath(projectId: string, env: NodeJS.ProcessEnv
   const expanded = expandHome(entry.repoPath);
   const abs = isAbsolute(expanded) ? expanded : resolve(expanded);
   if (!existsSync(abs)) {
-    throw new GorpError("PROJECT_NOT_REGISTERED", "registered repo_path does not exist on this machine", {
+    throw new GorpError("PROJECT_NOT_REGISTERED", `registered repo_path does not exist on this machine — ${BOOTSTRAP_ORDER}`, {
       projectId,
       registry: path,
       repoPath: abs,

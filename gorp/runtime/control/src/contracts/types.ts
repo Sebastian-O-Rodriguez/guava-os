@@ -96,6 +96,24 @@ export interface ExecutionGraph {
   readonly transitions: readonly TransitionRecord[];
 }
 
+// --- GOS-33 immutable baseline -----------------------------------------------
+/** Immutable repository baseline captured at run start. */
+export type Baseline = GitBaseline | FilesBaseline;
+
+export interface GitBaseline {
+  readonly kind: "git";
+  readonly head: string;
+  readonly refs: Readonly<Record<string, string>>;
+  readonly treeHash: string;
+  readonly capturedAt: string;
+}
+
+export interface FilesBaseline {
+  readonly kind: "files";
+  readonly files: ReadonlyArray<{ readonly path: string; readonly sha256: string }>;
+  readonly capturedAt: string;
+}
+
 // --- Wave B result/record contracts (mirror specs/runtime/*.schema.json) ----
 
 export type WorkerOutcome = "succeeded" | "failed" | "blocked";
@@ -201,6 +219,10 @@ export interface RunRecord {
   readonly projectId: string;
   readonly governanceVersion: string;
   readonly baseCommit: string;
+  /** Immutable repo baseline captured at run start (GOS-33): git HEAD + refs +
+   *  tree hash (or a file-hash list for non-git targets). Verified unchanged
+   *  before promotion. */
+  readonly baseline?: Baseline;
   readonly workerAdapter: string;
   readonly sandboxIdentity?: string;
   readonly workerResultRef?: string;

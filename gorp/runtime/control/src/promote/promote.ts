@@ -51,6 +51,7 @@ import { destroySandbox, git, sandboxChangedFiles, sandboxHead, sandboxIsClean, 
 import { buildGateRecord, scopeChecks } from "../gate/scope.js";
 import { runCommandChecks } from "../gate/commands.js";
 import { currentRunId, sandboxBranchFor } from "../run/run.js";
+import { baselineDiffs } from "../run/baseline.js";
 import { resolveProjectRepoPath } from "../registry/projects.js";
 import { selectNode } from "../run/policy.js";
 import { readValidatedRecord } from "../run/records.js";
@@ -268,11 +269,21 @@ export function executePromote(cfg: RuntimeConfig, input: PromoteInput, clock: C
       nodeRunBase,
     });
   }
+  // verify the full immutable baseline (GOS-33): same HEAD + branch/tag refs +
+  // committed tree hash as captured at run start. Extends the base-commit check
+  // to the whole refset, so a repointed tag/branch or a changed tree fails
+  // closed even when HEAD itself is unchanged. Old records without a baseline
+  // keep the legacy HEAD-only check.
+  if (runRecord.baseline) {
+    const diffs = baselineDiffs(repositoryPath, runRecord.baseline);
+    if (diffs.length > 0) {
+      blocked("baseline", "target repository diverged from its run-start baseline", { diffs });
+    }
+  }
   const targetStatus = git(["status", "--porcelain"], repositoryPath).stdout.trim();
   if (targetStatus !== "") {
     blocked("target-dirty", "target working tree is not clean", {});
   }
-
   // rerun the FULL gate live against the reviewed commit — scope checks AND
   // every project command (Sprint 3D: no stale gate; the persisted verdict is
   // never trusted alone). Any failure stops promotion before the cherry-pick

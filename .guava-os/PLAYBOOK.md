@@ -10,6 +10,47 @@ this playbook → skills (`.omp/skills/`) → tools (`.guava-os/src/`).
 Layout & operating model (where checkouts live, dev isolation rules):
 `docs/architecture/repo-layout.md`.
 
+## Bootstrap Order
+
+Every governed project MUST complete the bootstrap before any gorp-facing
+issue (execute / scaffold) is picked:
+
+1. **Create a minimal repo** — a real git repository on this machine.
+   `guava-os register` creates it if missing (`git init`), but the
+   operator may also clone it by hand. A bare path or a registry entry with
+   no corresponding directory is NOT sufficient.
+2. **Register with canonical git remote** — `guava-os register <id> --repo
+   <path> --remote <url>`. This records `git_remote` (GOS-31) in
+   `.guava-os/registry/projects.yml` and sets the local `origin`
+   remote. `guava-os doctor` verifies the registry remote matches the local
+   origin.
+3. **Execute / scaffold** — NOW a gorp-facing issue is ready. gorp fails
+   closed with a canonical error naming the bootstrap order when a project
+   is not registered, has no `repo_path`, or the repo directory does not
+   exist.
+
+> **Planning may precede registration, but NO gorp-facing execute/scaffold
+> issue is ready until register + repo (with remote) hold.**
+
+### Worked Example: RDI-style onboarding
+
+```bash
+# 1. Plan in Linear (issues created, dependencies linked) — can happen before step 2.
+
+# 2. Create the repo and register it in one command:
+guava-os register reusable-diagnostic-engine \
+  --repo ~/dev/repos/reusable-diagnostic-engine \
+  --remote https://github.com/Sebastian-O-Rodriguez/reusable-diagnostic-engine.git
+#  => repo dir created (git init), registry entry appended, origin set
+
+# 3. Verify:
+guava-os doctor
+#  => git-remote check should list the new project as "ok"
+
+# 4. Now gorp execution / scaffold issues can be dispatched for this project.
+```
+
+
 ## Loop
 
 1. **Understand** — operator intent + live state: Linear board, project

@@ -308,9 +308,13 @@ describe("read-only guarantee", () => {
     // It completes without error on a non-existent path (no writes attempted).
     const results = runDoctor("/nonexistent/path", TEST_CONFIG, false);
     expect(results.length).toBeGreaterThan(0);
-    // Filesystem checks (config, agents-md, gitignore) must fail for nonexistent root
-    const fsChecks = results.filter(r => ["config", "agents-md", "gitignore"].includes(r.name));
-    expect(fsChecks.every(r => !r.passed)).toBe(true);
+    // Config and gitignore must fail for nonexistent root.
+    // agents-md is advisory: passes even when absent (GUA-136).
+    const hardFsChecks = results.filter(r => ["config", "gitignore"].includes(r.name));
+    expect(hardFsChecks.every(r => !r.passed)).toBe(true);
+    const agentsMd = results.find(r => r.name === "agents-md")!;
+    expect(agentsMd.passed).toBe(true);
+    expect(agentsMd.advisory).toBe(true);
   });
 });
 

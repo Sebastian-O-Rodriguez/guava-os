@@ -14,13 +14,16 @@ export interface RegistryProject {
   name?: string;
   linearProject?: string;
   repoPath?: string;
+  /** Canonical git remote URL (https://github.com/<owner>/<repo>.git). */
+  gitRemote?: string;
+  lifecycle?: string;
 }
 
 /**
  * Resolve the registry path from GORP_PROJECT_REGISTRY env var, or derive it
  * from this module's location (works regardless of cwd).
  */
-function resolveRegistryPath(registryPath?: string): string {
+export function resolveRegistryPath(registryPath?: string): string {
   if (registryPath) return registryPath;
   const envPath = process.env["GORP_PROJECT_REGISTRY"];
   if (envPath) return resolve(envPath);
@@ -30,8 +33,9 @@ function resolveRegistryPath(registryPath?: string): string {
 
 /**
  * Conservative line-based YAML subset parser.
- * Reads exactly `- id:` blocks with `name:`, `linear_project:`, `repo_path:` scalar keys.
- * Unknown keys are ignored. Throws if the file is missing or parses to zero projects.
+ * Reads exactly `- id:` blocks with `name:`, `linear_project:`, `repo_path:`,
+ * `git_remote:`, `lifecycle:` scalar keys. Unknown keys are ignored.
+ * Throws if the file is missing or parses to zero projects.
  */
 export function loadRegistry(registryPath?: string): RegistryProject[] {
   const path = resolveRegistryPath(registryPath);
@@ -57,16 +61,19 @@ export function loadRegistry(registryPath?: string): RegistryProject[] {
       // Skip comment-only and empty lines inside a block
       if (line === "" || line.startsWith("#")) continue;
 
-      const nameMatch = line.match(/^\s+name:\s*(.+?)\s*$/);
-      if (nameMatch) { current.name = nameMatch[1]; continue; }
-
       const lpMatch = line.match(/^\s+linear_project:\s*(.+?)\s*$/);
       if (lpMatch) { current.linearProject = lpMatch[1]; continue; }
 
       const rpMatch = line.match(/^\s+repo_path:\s*(.+?)\s*$/);
       if (rpMatch) { current.repoPath = rpMatch[1]; continue; }
 
-      // Unknown keys (lifecycle, notes, etc.) intentionally ignored
+      const grMatch = line.match(/^\s+git_remote:\s*(.+?)\s*$/);
+      if (grMatch) { current.gitRemote = grMatch[1]; continue; }
+
+      const lcMatch = line.match(/^\s+lifecycle:\s*(.+?)\s*$/);
+      if (lcMatch) { current.lifecycle = lcMatch[1]; continue; }
+
+      // Unknown keys (notes, etc.) intentionally ignored
     }
   }
 

@@ -69,6 +69,14 @@ echo '{"issues": [], "labels": ["architect", "backend", "frontend", "qa"]}' | .g
 
 **When**: Before any other command. If doctor fails, stop and fix the repo setup before proceeding.
 
+**AGENTS.md is optional/advisory.** The `agents-md` doctor check reports as
+`[advisory]` and never hard-fails a registered, executable project. AGENTS.md
+carries the repo's operating context and authority hierarchy for agents; its
+completeness is a bootstrap concern owned by GOS-34 ordering, not an execution
+prerequisite that `doctor` blocks on. A missing AGENTS.md produces a passing,
+advisory result with a detail noting it is absent.
+
+
 ### `status` — Run to Inspect Queue
 
 Run to see what agents can execute right now.
@@ -118,6 +126,44 @@ cat issues.json | .guava-os/bin/guava-os status
 
 Do not skip `validate`. Running `status` on a graph with errors gives misleading results — INVALID sub-issues are excluded from the queue silently.
 
+## Target-Repo Runtime Bootstrap Prerequisites (GUA-133)
+
+Before a gated worker can execute in a target repo, the target repo's own
+runtime must be bootstrapped. These were rediscovered at execution time during
+the Guavabi live run (2026-08-09) and blocked gated work; classify them P1 and
+pre-flight them BEFORE scheduling execution — never defer to run moment.
+
+1. **Dependency install with an approved build-script policy.** Run
+   `pnpm install` in the target repo with the repo's `verify-deps-before-run`
+   step. If the target repo uses ignored/blocked `prepare`/`postinstall` build
+   scripts, the install must use the documented allowlist/policy for that repo
+   so `verify-deps-before-run` does not block on those scripts.
+2. **Browser binaries where E2E gates exist.** If the target repo has
+   Playwright tests (e.g. `@playwright/test` in `apps/web/package.json`,
+   `test:e2e: playwright test`), the machine must have the Chromium binary
+   installed: `npx playwright install chromium`. Missing binaries fail E2E
+   gates at run time.
+3. **Execution-ordering prerequisite:** per GOS-34 (bootstrap ordering), the
+   canonical bootstrap order is **create minimal repo → register (with
+   canonical git_remote, GOS-31) → execute/scaffold**. A target repo must be
+   created and registered before any execution-facing issue is picked.
+   Planning issues may precede registration, but no gorp-facing issue
+   (execute/scaffold) is ready until the repo exists AND the canonical
+   remote is recorded. See `.guava-os/PLAYBOOK.md#bootstrap-order` for the
+   worked example.
+
+   ```bash
+   # Register a new project (creates repo + records remote + appends registry):
+   guava-os register <id> --repo ~/dev/repos/<id> --remote https://github.com/<owner>/<id>.git
+   # Verify:
+   guava-os doctor  # git-remote check should list the new project as "ok"
+   ```
+
+
+Product-side blockers (e.g. Guavabi's frontend/E2E runtime, Clerk middleware
+500 on all routes — tracked under GUA-75) are owned by the target-repo product
+owner, not gorp/guava-os. Record target-repo-specific prerequisites in the
+project's `RUNTIME_STATE.md` / notes as they are discovered.
 
 ## Exit Code Reference
 
@@ -162,6 +208,7 @@ Agents should NOT be dispatched if:
 - **BLOCKED category empty** — the classifier doesn't load dependency data;
   use `sprint generate` for dependency-aware execution.
 - **`doctor` label check failing** — only fails if Linear data wasn't piped in. Run with `{"issues":[], "labels":[...]}` for full check.
+- **`doctor` agents-md advisory** — AGENTS.md is optional/advisory; its absence (or missing authority reference) does not block execution. Bootstrap completeness is owned by GOS-34 ordering.
 
 ## Fixing Violations
 

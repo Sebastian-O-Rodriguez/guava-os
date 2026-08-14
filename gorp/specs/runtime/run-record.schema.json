@@ -29,6 +29,13 @@
       "description": "Resolved Gorp governance/doctrine version in force for this run."
     },
     "baseCommit": { "type": "string", "minLength": 7 },
+    "baseline": {
+      "description": "Immutable repository baseline captured at run start (GOS-33): git HEAD + branch/tag refs + committed tree hash, or a file-hash list for non-git targets. Verified unchanged before promotion.",
+      "oneOf": [
+        { "$ref": "#/$defs/gitBaseline" },
+        { "$ref": "#/$defs/filesBaseline" }
+      ]
+    },
     "workerAdapter": { "type": "string", "minLength": 1 },
     "sandboxIdentity": {
       "type": "string",
@@ -111,6 +118,43 @@
     "stableId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "gitBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "head", "refs", "treeHash", "capturedAt"],
+      "properties": {
+        "kind": { "const": "git" },
+        "head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "refs": {
+          "type": "object",
+          "description": "Resolved branch/tag ref name -> commit sha (gorp-managed sandbox refs excluded).",
+          "additionalProperties": { "type": "string" }
+        },
+        "treeHash": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "filesBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "files", "capturedAt"],
+      "properties": {
+        "kind": { "const": "files" },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string" },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
     }
   }
 }
