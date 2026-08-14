@@ -190,6 +190,28 @@ function resolveRunUsage(workerUsage: WorkerUsage | undefined, startedAt: string
   return { durationMs };
 }
 
+/**
+ * Extract worker-spawn diagnostics from a failed invocation's error details
+ * (GOS-57). The omp adapter stamps cmd/cwd/model/persona/promptLen/args (plus
+ * the startup/run timeout windows) into the WORKER_FAILED GorpError when a
+ * spawn stalls or dies before producing a result. Persist those keys onto the
+ * run record so a start-up hang is debuggable from the record alone. The full
+ * prompt is never included (only its length); the persona body is redacted to
+ * a length marker in `args`.
+ */
+function resolveSpawnDiagnostics(details: Readonly<Record<string, unknown>>): Record<string, unknown> | undefined {
+  const keys = ["cmd", "cwd", "model", "persona", "promptLen", "args", "mcpDisable", "startupTimeoutMs", "timeoutMs", "startupTimedOut", "firstOutputMs"] as const;
+  const out: Record<string, unknown> = {};
+  let found = false;
+  for (const k of keys) {
+    if (k in details) {
+      out[k] = details[k];
+      found = true;
+    }
+  }
+  return found ? out : undefined;
+}
+
 export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clock = systemClock): Promise<RunOutput> {
   const store = new GraphStore(cfg);
   let graph: ExecutionGraph = store.load(input.projectId, input.graphId);
@@ -308,6 +330,7 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
     decide("destroy-sandbox", "FAIL_CLOSED", "sandbox destroyed on failure");
     const endedAt = clock.now();
     const usage = resolveRunUsage(workerResult?.usage, startedAt, endedAt);
+    const diagnostics = resolveSpawnDiagnostics(cause.details);
     const record: RunRecord = {
       schemaVersion: 1,
       runId: ref.runId,
@@ -321,6 +344,7 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
       ...(workerResult ? { workerResultRef: "worker-result.json" } : {}),
       ...(gateRecord ? { gateRecordRef: "gate-record.json" } : {}),
       ...(profile ? { profile } : {}),
+      ...(diagnostics ? { diagnostics } : {}),
       controlDecisions: decisions,
       finalStatus: "failed",
       startedAt,

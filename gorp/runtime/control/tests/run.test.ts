@@ -452,4 +452,66 @@ describe("GOS-55 run-record usage", () => {
       rmSync(fakeOmpDir, { recursive: true, force: true });
     }
   });
+
+  it("worker start-up stall persists spawn diagnostics on the run record (GOS-57)", async () => {
+    const fakeOmpDir = mkdtempSync(join(tmpdir(), "gorp-run-omp-stall-"));
+    const ompScript = join(fakeOmpDir, "fake-omp-hang.sh");
+    // Fake OMP that drains stdin then sleeps WITHOUT emitting anything — the
+    // start-up hang the fix guards against.
+    writeFileSync(ompScript, [
+      "#!/usr/bin/env bash",
+      "cat > /dev/null 2>&1 || true",
+      "sleep 30",
+    ].join("\n") + "\n", "utf8");
+    chmodSync(ompScript, 0o755);
+
+    const prevCmd = process.env["GORP_OMP_CMD"];
+    const prevModel = process.env["GORP_OMP_MODEL"];
+    const prevAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    const prevStartup = process.env["GORP_OMP_STARTUP_TIMEOUT"];
+    process.env["GORP_OMP_CMD"] = ompScript;
+    process.env["GORP_OMP_MODEL"] = "slow";
+    process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are a backend architect.";
+    process.env["GORP_OMP_STARTUP_TIMEOUT"] = "500";
+
+    try {
+      approvedGraph("g-omp-stall", makeNode({ workerAdapter: "omp", persona: "backend" }));
+      let err: GorpError | null = null;
+      try {
+        await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-omp-stall", actorId: "orch" }, clock);
+      } catch (e) {
+        err = e as GorpError;
+      }
+      expect(err).not.toBeNull();
+      expect(err!.code).toBe("WORKER_FAILED");
+      expect(err!.message).toContain("start-up timed out");
+
+      // The failed run record persisted the spawn diagnostics (no full prompt).
+      const review = reviewRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-omp-stall" });
+      expect(review.runRecord.finalStatus).toBe("failed");
+      expect(review.runRecord.diagnostics).toBeDefined();
+      expect(review.runRecord.diagnostics!.cmd).toBe(ompScript);
+      expect(review.runRecord.diagnostics!.cwd).toContain("sandbox");
+      expect(review.runRecord.diagnostics!.model).toBe("slow");
+      expect(review.runRecord.diagnostics!.persona).toBe("backend");
+      expect(typeof review.runRecord.diagnostics!.promptLen).toBe("number");
+      expect((review.runRecord.diagnostics!.promptLen as number)).toBeGreaterThan(0);
+      const args = review.runRecord.diagnostics!.args as string[];
+      expect(Array.isArray(args)).toBe(true);
+      expect(args).toContain("--model");
+      expect(args.some((a) => a.startsWith("<system-prompt:"))).toBe(true);
+      // The full prompt never leaks into the record.
+      expect(JSON.stringify(review.runRecord.diagnostics)).not.toContain("write a probe artifact");
+    } finally {
+      if (prevCmd !== undefined) process.env["GORP_OMP_CMD"] = prevCmd;
+      else delete process.env["GORP_OMP_CMD"];
+      if (prevModel !== undefined) process.env["GORP_OMP_MODEL"] = prevModel;
+      else delete process.env["GORP_OMP_MODEL"];
+      if (prevAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevAppend;
+      else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+      if (prevStartup !== undefined) process.env["GORP_OMP_STARTUP_TIMEOUT"] = prevStartup;
+      else delete process.env["GORP_OMP_STARTUP_TIMEOUT"];
+      rmSync(fakeOmpDir, { recursive: true, force: true });
+    }
+  });
 });
