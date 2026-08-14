@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { registerProjects } from "./helpers.js";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -345,5 +345,111 @@ describe("Wave B run: approved graph -> sandbox -> worker -> result -> gate -> r
         "",
       ].join("\n"),
     );
+  });
+});
+
+describe("GOS-55 run-record usage", () => {
+  it("stamps durationMs when the worker provides no usage (fixture fallback)", async () => {
+    approvedGraph("g-usage-fix", makeNode());
+    const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-usage-fix", actorId: "orch" }, clock);
+    const rr = JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
+    expect(rr.finalStatus).toBe("succeeded");
+    expect(rr.usage).toBeDefined();
+    expect(rr.usage!.durationMs).toBe(0); // fixed clock → delta 0
+    expect(rr.usage!.tokensIn).toBeUndefined();
+    expect(rr.usage!.tokensOut).toBeUndefined();
+    expect(rr.usage!.tokensTotal).toBeUndefined();
+    expect(rr.usage!.costUsd).toBeUndefined();
+  });
+
+  it("successful OMP run stamps tokens + cost + durationMs when OMP reports usage", async () => {
+    const fakeOmpDir = mkdtempSync(join(tmpdir(), "gorp-run-omp-usage-"));
+    const ompScript = join(fakeOmpDir, "fake-omp.sh");
+    writeFileSync(ompScript, [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "mkdir -p docs",
+      "printf 'GOS-55 usage probe\\n' > docs/note.md",
+      "cat > /dev/null 2>&1 || true",
+      "printf '%s\\n' '{\"type\":\"turn_end\",\"message\":{\"role\":\"assistant\",\"usage\":{\"input\":1200,\"output\":300,\"totalTokens\":1500,\"cost\":{\"total\":0.0042}}}}'",
+      "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Wrote docs/note.md\"}]}]}'",
+    ].join("\n") + "\n", "utf8");
+    chmodSync(ompScript, 0o755);
+
+    const prevCmd = process.env["GORP_OMP_CMD"];
+    const prevModel = process.env["GORP_OMP_MODEL"];
+    const prevAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    process.env["GORP_OMP_CMD"] = ompScript;
+    process.env["GORP_OMP_MODEL"] = "default";
+    process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are a backend architect.";
+
+    try {
+      approvedGraph("g-omp-usage", makeNode({ workerAdapter: "omp", persona: "backend" }));
+      const out = await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-omp-usage", actorId: "orch" }, clock);
+      expect(out.finalStatus).toBe("succeeded");
+      const rr = JSON.parse(readFileSync(out.records.runRecord, "utf8")) as RunRecord;
+      expect(rr.usage).toBeDefined();
+      expect(rr.usage!.tokensIn).toBe(1200);
+      expect(rr.usage!.tokensOut).toBe(300);
+      expect(rr.usage!.tokensTotal).toBe(1500);
+      expect(rr.usage!.costUsd).toBe(0.0042);
+      expect(rr.usage!.durationMs).toBe(0);
+    } finally {
+      if (prevCmd !== undefined) process.env["GORP_OMP_CMD"] = prevCmd;
+      else delete process.env["GORP_OMP_CMD"];
+      if (prevModel !== undefined) process.env["GORP_OMP_MODEL"] = prevModel;
+      else delete process.env["GORP_OMP_MODEL"];
+      if (prevAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevAppend;
+      else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+      rmSync(fakeOmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("worker-failure path persists usage (durationMs) when worker threw", async () => {
+    const fakeOmpDir = mkdtempSync(join(tmpdir(), "gorp-run-omp-fail-"));
+    const ompScript = join(fakeOmpDir, "fake-omp.sh");
+    // Fake OMP that writes nothing (triggers "no files changed" → fail)
+    writeFileSync(ompScript, [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "cat > /dev/null 2>&1 || true",
+      "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Nothing to do\"}]}]}'",
+    ].join("\n") + "\n", "utf8");
+    chmodSync(ompScript, 0o755);
+
+    const prevCmd = process.env["GORP_OMP_CMD"];
+    const prevModel = process.env["GORP_OMP_MODEL"];
+    const prevAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+    process.env["GORP_OMP_CMD"] = ompScript;
+    process.env["GORP_OMP_MODEL"] = "default";
+    process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are a backend architect.";
+
+    try {
+      approvedGraph("g-omp-fail", makeNode({ workerAdapter: "omp", persona: "backend" }));
+      let err: GorpError | null = null;
+      try {
+        await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-omp-fail", actorId: "orch" }, clock);
+      } catch (e) {
+        err = e as GorpError;
+      }
+      expect(err).not.toBeNull();
+      expect(err!.code).toBe("WORKER_FAILED");
+
+      // The failed run record should be persisted with usage (durationMs)
+      const review = reviewRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-omp-fail" });
+      expect(review.runRecord.finalStatus).toBe("failed");
+      expect(review.runRecord.usage).toBeDefined();
+      expect(review.runRecord.usage!.durationMs).toBe(0);
+      expect(review.runRecord.usage!.tokensIn).toBeUndefined();
+      expect(review.runRecord.usage!.tokensOut).toBeUndefined();
+    } finally {
+      if (prevCmd !== undefined) process.env["GORP_OMP_CMD"] = prevCmd;
+      else delete process.env["GORP_OMP_CMD"];
+      if (prevModel !== undefined) process.env["GORP_OMP_MODEL"] = prevModel;
+      else delete process.env["GORP_OMP_MODEL"];
+      if (prevAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevAppend;
+      else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+      rmSync(fakeOmpDir, { recursive: true, force: true });
+    }
   });
 });

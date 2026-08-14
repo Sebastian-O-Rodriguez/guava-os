@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { ompAdapter, extractOmpSummary } from "../src/worker/omp.js";
+import { ompAdapter, extractOmpSummary, extractOmpUsage } from "../src/worker/omp.js";
 import { createSandbox, sandboxHead, type Sandbox } from "../src/sandbox/worktree.js";
 import { GorpError } from "../src/errors/index.js";
 import type { GraphNode, WorkerResult } from "../src/contracts/types.js";
@@ -380,5 +380,131 @@ describe("OMP adapter empty-turn retry (GOS-46 follow-on)", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.message).toContain("even after an empty-turn retry");
     expect(err.message).toContain("no files changed");
+  });
+});
+
+describe("extractOmpUsage (GOS-55)", () => {
+  it("reads tokens + cost from a turn_end event", () => {
+    const stdout = [
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":1200,"output":300,"totalTokens":1500,"cost":{"total":0.0042}}}}',
+    ].join("\n");
+    const usage = extractOmpUsage(stdout);
+    expect(usage).toBeDefined();
+    expect(usage!.tokensIn).toBe(1200);
+    expect(usage!.tokensOut).toBe(300);
+    expect(usage!.tokensTotal).toBe(1500);
+    expect(usage!.costUsd).toBe(0.0042);
+  });
+
+  it("reads usage from an agent_end event (assistant message)", () => {
+    const stdout = [
+      '{"type":"agent_end","messages":[{"role":"user","content":[]},{"role":"assistant","content":[],"usage":{"input":800,"output":200,"totalTokens":1000,"cost":{"total":0.01}}}]}',
+    ].join("\n");
+    const usage = extractOmpUsage(stdout);
+    expect(usage).toBeDefined();
+    expect(usage!.tokensIn).toBe(800);
+    expect(usage!.tokensTotal).toBe(1000);
+    expect(usage!.costUsd).toBe(0.01);
+  });
+
+  it("returns undefined when no usage is present", () => {
+    const stdout = [
+      '{"type":"session","id":"s1"}',
+      '{"type":"agent_end","messages":[{"role":"assistant","content":[{"type":"text","text":"done"}]}]}',
+    ].join("\n");
+    expect(extractOmpUsage(stdout)).toBeUndefined();
+  });
+
+  it("reads costUsd defensively when at top level instead of cost.total", () => {
+    const stdout = [
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":50,"output":10,"totalTokens":60,"costUsd":0.005}}}',
+    ].join("\n");
+    const usage = extractOmpUsage(stdout);
+    expect(usage).toBeDefined();
+    expect(usage!.costUsd).toBe(0.005);
+  });
+
+  it("ignores non-finite and non-numeric values", () => {
+    const stdout = [
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":"abc","output":null,"totalTokens":Infinity,"cost":{"total":"x"}}}}',
+    ].join("\n");
+    const usage = extractOmpUsage(stdout);
+    expect(usage).toBeUndefined();
+  });
+
+  it("returns the last usage when multiple events carry usage", () => {
+    const stdout = [
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":100,"output":50,"totalTokens":150,"cost":{"total":0.001}}}}',
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":200,"output":100,"totalTokens":300,"cost":{"total":0.002}}}}',
+    ].join("\n");
+    const usage = extractOmpUsage(stdout);
+    expect(usage).toBeDefined();
+    expect(usage!.tokensIn).toBe(200);
+    expect(usage!.tokensTotal).toBe(300);
+  });
+});
+
+describe("OMP adapter returns usage (GOS-55)", () => {
+  function writeFakeOmpWithUsage(emitsUsage: boolean): string {
+    const path = join(fakeOmpDir, "fake-omp-usage.sh");
+    const usageLine = emitsUsage
+      ? `printf '%s\\n' '{"type":"turn_end","message":{"role":"assistant","content":[{"type":"text","text":"done"}],"usage":{"input":600,"output":150,"totalTokens":750,"cost":{"total":0.003}}}}'`
+      : "";
+    const body = [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "mkdir -p docs",
+      "printf 'GOS-55 probe\\n' > docs/probe.md",
+      "cat > /dev/null 2>&1 || true",
+      usageLine,
+      "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Wrote docs/probe.md\"}]}]}'",
+    ].filter(Boolean).join("\n");
+    writeFileSync(path, body + "\n", "utf8");
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  it("stamps tokens + cost + durationMs when OMP reports usage", async () => {
+    process.env["GORP_OMP_CMD"] = writeFakeOmpWithUsage(true);
+    try {
+      const sandbox = createSandbox(
+        repo,
+        git(["rev-parse", "HEAD"], repo).trim(),
+        join(sandboxRoot, "sb-usage"),
+        "gorp/run/omp-usage-test/node-1/run-1",
+      );
+      const result = await ompAdapter.invoke({ sandbox, graphId: "g-usage", runId: "run-1", node: makeNode(), clock });
+      expect(result.outcome).toBe("succeeded");
+      expect(result.usage).toBeDefined();
+      expect(result.usage!.tokensIn).toBe(600);
+      expect(result.usage!.tokensOut).toBe(150);
+      expect(result.usage!.tokensTotal).toBe(750);
+      expect(result.usage!.costUsd).toBe(0.003);
+      expect(result.usage!.durationMs).toBe(0); // fixed clock → 0 ms
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
+  });
+
+  it("persists durationMs only when OMP reports no usage", async () => {
+    process.env["GORP_OMP_CMD"] = writeFakeOmpWithUsage(false);
+    try {
+      const sandbox = createSandbox(
+        repo,
+        git(["rev-parse", "HEAD"], repo).trim(),
+        join(sandboxRoot, "sb-no-usage"),
+        "gorp/run/omp-no-usage-test/node-1/run-1",
+      );
+      const result = await ompAdapter.invoke({ sandbox, graphId: "g-no-usage", runId: "run-1", node: makeNode(), clock });
+      expect(result.outcome).toBe("succeeded");
+      expect(result.usage).toBeDefined();
+      expect(result.usage!.durationMs).toBe(0);
+      expect(result.usage!.tokensIn).toBeUndefined();
+      expect(result.usage!.tokensOut).toBeUndefined();
+      expect(result.usage!.tokensTotal).toBeUndefined();
+      expect(result.usage!.costUsd).toBeUndefined();
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
   });
 });

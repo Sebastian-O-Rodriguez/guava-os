@@ -100,6 +100,19 @@ export interface ExecutionGraph {
 
 export type WorkerOutcome = "succeeded" | "failed" | "blocked";
 
+export interface WorkerUsage {
+  /** Input/prompt tokens consumed. */
+  tokensIn?: number;
+  /** Output/completion tokens produced. */
+  tokensOut?: number;
+  /** Total tokens, provider-reported. */
+  tokensTotal?: number;
+  /** Cost in USD, provider-reported (never estimated/invented). */
+  costUsd?: number;
+  /** Wall-clock duration of the worker invocation, in milliseconds. */
+  durationMs?: number;
+}
+
 export interface WorkerResult {
   readonly schemaVersion: 1;
   readonly graphId: string;
@@ -121,6 +134,7 @@ export interface WorkerResult {
   readonly blocker?: { readonly code: string; readonly detail: string; readonly irreducible?: boolean };
   readonly startedAt: string;
   readonly endedAt: string;
+  readonly usage?: WorkerUsage;
 }
 
 export type CheckStatus = "passed" | "failed";
@@ -212,4 +226,5 @@ export interface RunRecord {
     readonly promptHash?: string;
   };
   readonly endedAt?: string;
+  readonly usage?: WorkerUsage;
 }

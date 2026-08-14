@@ -77,7 +77,19 @@
       "description": "Structured blocker detail; kept here to avoid a separate blocker schema in Sprint 1."
     },
     "startedAt": { "type": "string", "format": "date-time" },
-    "endedAt": { "type": "string", "format": "date-time" }
+    "endedAt": { "type": "string", "format": "date-time" },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional per-run usage capture (GOS-55): tokens and cost are stamped only when the worker reports them (never estimated); durationMs is always present when usage is present.",
+      "properties": {
+        "tokensIn": { "type": "integer", "minimum": 0 },
+        "tokensOut": { "type": "integer", "minimum": 0 },
+        "tokensTotal": { "type": "integer", "minimum": 0 },
+        "costUsd": { "type": "number", "minimum": 0 },
+        "durationMs": { "type": "number", "minimum": 0 }
+      }
+    }
   },
   "$defs": {
     "stableId": {
