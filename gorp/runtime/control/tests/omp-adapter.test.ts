@@ -19,7 +19,8 @@ let prevOmpCmd: string | undefined;
 let prevOmpTimeout: string | undefined;
 let prevOmpModel: string | undefined;
 let prevOmpAppend: string | undefined;
-
+let prevOmpStartupTimeout: string | undefined;
+let prevOmpMcpDisable: string | undefined;
 function git(args: string[], cwd: string): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -97,6 +98,8 @@ beforeEach(() => {
   prevOmpTimeout = process.env["GORP_OMP_TIMEOUT"];
   prevOmpModel = process.env["GORP_OMP_MODEL"];
   prevOmpAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+  prevOmpStartupTimeout = process.env["GORP_OMP_STARTUP_TIMEOUT"];
+  prevOmpMcpDisable = process.env["GORP_OMP_MCP_DISABLE"];
   // Resolved worker profile (GOS-46): the adapter requires both to be set
   // whenever a node carries a persona.
   process.env["GORP_OMP_MODEL"] = "default";
@@ -118,6 +121,10 @@ afterEach(() => {
   else delete process.env["GORP_OMP_MODEL"];
   if (prevOmpAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevOmpAppend;
   else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
+  if (prevOmpStartupTimeout !== undefined) process.env["GORP_OMP_STARTUP_TIMEOUT"] = prevOmpStartupTimeout;
+  else delete process.env["GORP_OMP_STARTUP_TIMEOUT"];
+  if (prevOmpMcpDisable !== undefined) process.env["GORP_OMP_MCP_DISABLE"] = prevOmpMcpDisable;
+  else delete process.env["GORP_OMP_MCP_DISABLE"];
   rmSync(sandboxRoot, { recursive: true, force: true });
   rmSync(repo, { recursive: true, force: true });
   rmSync(fakeOmpDir, { recursive: true, force: true });
@@ -503,6 +510,134 @@ describe("OMP adapter returns usage (GOS-55)", () => {
       expect(result.usage!.tokensOut).toBeUndefined();
       expect(result.usage!.tokensTotal).toBeUndefined();
       expect(result.usage!.costUsd).toBeUndefined();
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
+  });
+});
+
+describe("OMP adapter start-up timeout (GOS-57)", () => {
+  // A fake omp that drains stdin then sleeps WITHOUT emitting anything on
+  // stdout/stderr — the stall the fix guards against (e.g. MCP servers
+  // blocking on init before the first byte of output).
+  function writeHangingFakeOmp(): string {
+    const path = join(fakeOmpDir, "fake-omp-hang.sh");
+    writeFileSync(
+      path,
+      [
+        "#!/usr/bin/env bash",
+        "cat > /dev/null 2>&1 || true   # drain the prompt",
+        "sleep 30",
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  it("fails fast with a classified start-up error when the worker emits no output", async () => {
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sandbox-hang"),
+      "gorp/run/omp-startup-test/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeHangingFakeOmp();
+    process.env["GORP_OMP_STARTUP_TIMEOUT"] = "500";
+    const startedAt = Date.now();
+    let err: GorpError | null = null;
+    try {
+      await ompAdapter.invoke({ sandbox, graphId: "g-hang", runId: "run-1", node: makeNode(), clock });
+    } catch (e) {
+      if (e instanceof GorpError) err = e;
+      else throw e;
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+      delete process.env["GORP_OMP_STARTUP_TIMEOUT"];
+    }
+    // Killed well before the full 600s run window (and before the 30s sleep).
+    expect(Date.now() - startedAt).toBeLessThan(10_000);
+    expect(err).not.toBeNull();
+    expect(err!.code).toBe("WORKER_FAILED");
+    expect(err!.message).toContain("start-up timed out");
+    expect(err!.details["startupTimedOut"]).toBe(true);
+    // Spawn diagnostics persisted on the error (no full prompt; persona body redacted).
+    expect(typeof err!.details["cmd"]).toBe("string");
+    expect(err!.details["persona"]).toBe("backend");
+    expect(err!.details["model"]).toBe("default");
+    expect(typeof err!.details["promptLen"]).toBe("number");
+    expect(err!.details["cwd"]).toBe(sandbox.dir);
+    const args = err!.details["args"] as string[];
+    expect(Array.isArray(args)).toBe(true);
+    expect(args).toContain("--model");
+    expect(args.some((a) => a.startsWith("<system-prompt:"))).toBe(true);
+  });
+});
+
+describe("OMP adapter MCP-disable env (GOS-57)", () => {
+  let envTracePath: string;
+
+  // Fake omp that records OMP_MCP_DISABLE from its environment into a trace
+  // file, then produces an artifact + agent_end so the run succeeds.
+  function writeEnvTraceFakeOmp(): string {
+    const tmp = mkdtempSync(join(tmpdir(), "gorp-omp-envtrace-"));
+    envTracePath = join(tmp, "mcp-disable.env");
+    const path = join(fakeOmpDir, "fake-omp-env.sh");
+    writeFileSync(
+      path,
+      [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "cat > /dev/null 2>&1 || true",
+        "mkdir -p docs",
+        "printf 'probe\\n' > docs/probe.md",
+        `printf '%s\\n' "\${OMP_MCP_DISABLE:-unset}" > "${envTracePath}"`,
+        "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}]}'",
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  afterEach(() => {
+    if (envTracePath && existsSync(dirname(envTracePath))) {
+      rmSync(dirname(envTracePath), { recursive: true, force: true });
+    }
+  });
+
+  it("forwards OMP_MCP_DISABLE=1 to the child when GORP_OMP_MCP_DISABLE is set", async () => {
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sandbox-mcp"),
+      "gorp/run/omp-mcp-test/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeEnvTraceFakeOmp();
+    process.env["GORP_OMP_MCP_DISABLE"] = "1";
+    try {
+      const result = await ompAdapter.invoke({ sandbox, graphId: "g-mcp", runId: "run-1", node: makeNode(), clock });
+      expect(result.outcome).toBe("succeeded");
+      expect(readFileSync(envTracePath, "utf8").trim()).toBe("1");
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+      delete process.env["GORP_OMP_MCP_DISABLE"];
+    }
+  });
+
+  it("does not forward OMP_MCP_DISABLE when GORP_OMP_MCP_DISABLE is unset", async () => {
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sandbox-mcp-off"),
+      "gorp/run/omp-mcp-off-test/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeEnvTraceFakeOmp();
+    delete process.env["GORP_OMP_MCP_DISABLE"];
+    try {
+      const result = await ompAdapter.invoke({ sandbox, graphId: "g-mcp-off", runId: "run-1", node: makeNode(), clock });
+      expect(result.outcome).toBe("succeeded");
+      expect(readFileSync(envTracePath, "utf8").trim()).toBe("unset");
     } finally {
       delete process.env["GORP_OMP_CMD"];
     }

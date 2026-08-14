@@ -88,6 +88,11 @@
         }
       }
     },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Worker-spawn diagnostics (GOS-57): persisted when a worker fails before producing a result (e.g. a start-up hang) — cmd, cwd, model, persona, promptLen, args (persona body redacted), and the startup/run timeout windows. No full prompt."
+    },
     "endedAt": { "type": "string", "format": "date-time" },
     "usage": {
       "type": "object",

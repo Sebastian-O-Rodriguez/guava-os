@@ -225,6 +225,10 @@ export interface RunRecord {
     /** sha256 of the resolved worker profile (persona body + model), GOS-46. */
     readonly promptHash?: string;
   };
+  /** Worker-spawn diagnostics (GOS-57): persisted when a worker fails before
+   *  producing a result — cmd, cwd, model, persona, promptLen, args (persona
+   *  body redacted), and the startup/run timeout windows. No full prompt. */
+  readonly diagnostics?: Readonly<Record<string, unknown>>;
   readonly endedAt?: string;
   readonly usage?: WorkerUsage;
 }

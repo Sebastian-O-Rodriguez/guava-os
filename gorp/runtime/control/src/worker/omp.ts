@@ -15,8 +15,24 @@
  *   - workers never fetch Linear.
  *
  * Configuration:
- *   GORP_OMP_CMD      — path to the omp binary (default: "omp" from PATH)
- *   GORP_OMP_TIMEOUT  — timeout in ms (default: 600000)
+ *   GORP_OMP_CMD             — path to the omp binary (default: "omp" from PATH)
+ *   GORP_OMP_TIMEOUT         — total run timeout in ms (default: 600000)
+ *   GORP_OMP_STARTUP_TIMEOUT — max ms to wait for the FIRST output byte from
+ *                              stdout/stderr (default: 120000). A worker that
+ *                              hangs before producing any output (e.g. MCP
+ *                              servers blocking on init) is killed here and
+ *                              fails fast instead of burning the whole run
+ *                              window at 0% CPU.
+ *   GORP_OMP_MCP_DISABLE     — set to a truthy value to ask OMP to skip MCP
+ *                              servers for this worker run. NOTE (GOS-57
+ *                              discovery): OMP v17.3.2 has NO native flag or
+ *                              env var for this — it loads user MCP servers
+ *                              from ~/.omp/agent/mcp.json and rejects
+ *                              --no-mcp. The adapter forwards OMP_MCP_DISABLE=1
+ *                              to the child for forward compatibility (a no-op
+ *                              today); the practical workaround is to move
+ *                              mcp.json aside, and GORP_OMP_STARTUP_TIMEOUT is
+ *                              the real fail-fast guard for the hang.
  *
  * Worker profile (GOS-46, fail closed): a node MUST carry a persona, and the
  * guava-os wf layer MUST have resolved it into the environment before
@@ -36,6 +52,7 @@ export const OMP_ADAPTER = "omp";
 const WORKER_NAME = "gorp-omp-worker";
 const WORKER_EMAIL = "omp-worker@gorp.local";
 const DEFAULT_TIMEOUT_MS = 600_000;
+const DEFAULT_STARTUP_TIMEOUT_MS = 120_000;
 const CAPTURE_LIMIT = 4000;
 
 /**
@@ -156,6 +173,12 @@ function truncate(s: string): string {
   return s.length > CAPTURE_LIMIT ? s.slice(0, CAPTURE_LIMIT) + "\n... (truncated)" : s;
 }
 
+/** Worker-spawn diagnostics go to stderr: stdout is reserved for the OMP
+ *  NDJSON stream and, at the CLI, the structured result envelope. */
+function logOmp(msg: string): void {
+  process.stderr.write(`[omp] ${msg}\n`);
+}
+
 /**
  * Instruction appended on the empty-turn retry (GOS-46 follow-on): a worker
  * that ended a clean turn without editing anything is asked once, explicitly,
@@ -185,6 +208,8 @@ interface OmpProcessResult {
   stdout: string;
   stderr: string;
   timedOut: boolean;
+  startupTimedOut: boolean;
+  firstOutputMs: number | null;
 }
 
 function runOmp(
@@ -193,26 +218,56 @@ function runOmp(
   cwd: string,
   prompt: string,
   timeoutMs: number,
+  startupTimeoutMs: number,
+  env?: NodeJS.ProcessEnv,
 ): Promise<OmpProcessResult> {
   return new Promise((resolve) => {
-    const proc = spawn(cmd, args, { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    const proc = spawn(cmd, args, { cwd, stdio: ["pipe", "pipe", "pipe"], detached: true, ...(env ? { env } : {}) });
+    const spawnedAt = Date.now();
+    logOmp(`spawned pid=${proc.pid ?? "?"}`);
     let stdout = "";
     let stderr = "";
     let timedOut = false;
-    const timer = setTimeout(() => {
+    let startupTimedOut = false;
+    let firstOutputMs: number | null = null;
+    // Total run window (GORP_OMP_TIMEOUT) — unchanged.
+    const runTimer = setTimeout(() => {
       timedOut = true;
-      proc.kill("SIGKILL");
+      try { process.kill(-proc.pid!, "SIGKILL"); } catch { proc.kill("SIGKILL"); }
     }, timeoutMs);
+    // Startup window (GORP_OMP_STARTUP_TIMEOUT): fail fast when the worker
+    // produces NO output at all — e.g. MCP servers blocking on init. Cleared
+    // on the first data byte, so a silent 0%-CPU hang never burns the whole
+    // run window.
+    const startupTimer = setTimeout(() => {
+      startupTimedOut = true;
+      try { process.kill(-proc.pid!, "SIGKILL"); } catch { proc.kill("SIGKILL"); }
+    }, startupTimeoutMs);
 
-    proc.stdout.on("data", (d) => { stdout += d; });
-    proc.stderr.on("data", (d) => { stderr += d; });
+    const onFirstData = (stream: "stdout" | "stderr"): void => {
+      if (firstOutputMs !== null) return;
+      firstOutputMs = Date.now() - spawnedAt;
+      clearTimeout(startupTimer);
+      logOmp(`first ${stream} data after ${firstOutputMs}ms (pid=${proc.pid ?? "?"})`);
+    };
+
+    proc.stdout.on("data", (d) => {
+      onFirstData("stdout");
+      stdout += d;
+    });
+    proc.stderr.on("data", (d) => {
+      onFirstData("stderr");
+      stderr += d;
+    });
     proc.on("error", (err) => {
-      clearTimeout(timer);
-      resolve({ exitCode: null, signal: null, stdout, stderr: stderr + String(err), timedOut: false });
+      clearTimeout(runTimer);
+      clearTimeout(startupTimer);
+      resolve({ exitCode: null, signal: null, stdout, stderr: stderr + String(err), timedOut: false, startupTimedOut: false, firstOutputMs });
     });
     proc.on("close", (code, signal) => {
-      clearTimeout(timer);
-      resolve({ exitCode: code, signal, stdout, stderr, timedOut });
+      clearTimeout(runTimer);
+      clearTimeout(startupTimer);
+      resolve({ exitCode: code, signal, stdout, stderr, timedOut, startupTimedOut, firstOutputMs });
     });
     proc.stdin.write(prompt);
     proc.stdin.end();
@@ -254,6 +309,14 @@ export const ompAdapter: WorkerAdapter = {
 
     const cmd = (process.env["GORP_OMP_CMD"] ?? "omp").trim();
     const timeoutMs = Number.parseInt(process.env["GORP_OMP_TIMEOUT"] ?? "", 10) || DEFAULT_TIMEOUT_MS;
+    const startupTimeoutMs = Number.parseInt(process.env["GORP_OMP_STARTUP_TIMEOUT"] ?? "", 10) || DEFAULT_STARTUP_TIMEOUT_MS;
+    const mcpDisableRaw = (process.env["GORP_OMP_MCP_DISABLE"] ?? "").trim();
+    const mcpDisable = mcpDisableRaw !== "" && mcpDisableRaw !== "0" && mcpDisableRaw.toLowerCase() !== "false";
+    // Forward the MCP-bypass intent to the child. OMP v17.3.2 does not yet
+    // honor OMP_MCP_DISABLE (see header note); it is passed for forward
+    // compatibility and recorded in spawn diagnostics so a future OMP that
+    // honors it turns the bypass on without a gorp change.
+    const childEnv = mcpDisable ? { ...process.env, OMP_MCP_DISABLE: "1" } : undefined;
 
     const headBefore = sandboxHead(sandbox);
 
@@ -289,33 +352,63 @@ export const ompAdapter: WorkerAdapter = {
       ``,
       `When done, output a JSON summary of what you did.`,
     ].filter(Boolean).join("\n");
-
     // Invoke OMP in print mode with auto-approve. The persona body arrives via
     // GORP_OMP_SYSTEM_PROMPT_APPEND — set by the guava-os wf layer, never
     // resolved from guava-os paths here (adapter stays source-neutral).
     const args = ["-p", "--auto-approve", "--mode", "json", "--model", model, "--append-system-prompt", appendSystemPrompt];
 
+    // Spawn diagnostics for failure records (no secrets: no full prompt).
+    // args-redacted replaces the persona body with a length-only marker.
+    const argsRedacted = args.map((a) =>
+      a === appendSystemPrompt ? `<system-prompt:${appendSystemPrompt.length}>` : a,
+    );
+    const spawnCtx = {
+      cmd,
+      cwd: sandbox.dir,
+      model,
+      persona,
+      promptLen: prompt.length,
+      args: argsRedacted,
+      mcpDisable,
+      startupTimeoutMs,
+      timeoutMs,
+    };
+    logOmp(`spawning: cmd=${cmd} persona=${persona} model=${model} cwd=${sandbox.dir} promptLen=${prompt.length} args=${JSON.stringify(argsRedacted)}`);
+
     // One invocation; fails hard on timeout / signal / nonzero exit. A clean
     // exit (code 0) is the only outcome that may be retried below.
     const invokeOmp = async (promptText: string): Promise<OmpProcessResult> => {
-      const r = await runOmp(cmd, [...args, promptText], sandbox.dir, "", timeoutMs);
+      const r = await runOmp(cmd, [...args, promptText], sandbox.dir, "", timeoutMs, startupTimeoutMs, childEnv);
+      if (r.startupTimedOut) {
+        fail(`start-up timed out after ${startupTimeoutMs}ms with no output (SIGKILL)`, {
+          ...spawnCtx,
+          startupTimedOut: true,
+          stdout: truncate(r.stdout),
+          stderr: truncate(r.stderr),
+        });
+      }
       if (r.timedOut) {
         fail(`timed out after ${timeoutMs}ms (SIGKILL)`, {
-          timeoutMs,
+          ...spawnCtx,
+          firstOutputMs: r.firstOutputMs,
           stdout: truncate(r.stdout),
           stderr: truncate(r.stderr),
         });
       }
       if (r.signal) {
         fail(`process was cancelled/killed (signal ${r.signal})`, {
+          ...spawnCtx,
           signal: r.signal,
+          firstOutputMs: r.firstOutputMs,
           stdout: truncate(r.stdout),
           stderr: truncate(r.stderr),
         });
       }
       if (r.exitCode !== 0) {
         fail(`process exited non-zero (${r.exitCode})`, {
+          ...spawnCtx,
           exitCode: r.exitCode,
+          firstOutputMs: r.firstOutputMs,
           stdout: truncate(r.stdout),
           stderr: truncate(r.stderr),
         });
