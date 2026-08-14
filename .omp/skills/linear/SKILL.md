@@ -123,6 +123,12 @@ Linear project name; GUA-135). Standalone deliverables (no parent, persona +
 Todo + unblocked) are valid executable work (GUA-111) — do not force them
 into a container to satisfy tooling.
 
+MCP-assisted research + issue scoping (library decisions as version + license
++ role, persona deliverables, containers with a QA-gate terminal deliverable,
+forward dependency DAG, legacy reconciliation) lives in the `planning` skill —
+read its "MCP-assisted planning + issue scoping" section before scoping
+dependency-heavy sprints.
+
 #### dependencies: add, fix, and remove edges (GOS-41 / GOS-44)
 
 - `pm link <id> --blocks/--blocked-by` creates a native `blocks` relation.

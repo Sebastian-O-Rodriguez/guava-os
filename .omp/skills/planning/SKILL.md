@@ -102,6 +102,39 @@ Rules:
   smaller ones is a guava-os planning act (this skill), done before `sprint
   generate`. gorp never decomposes (ADR_001).
 
+## MCP-assisted planning + issue scoping
+
+For dependency-heavy sprints, research decisions through MCP tools **before**
+scoping issues, so the plan rests on evidence rather than the agent's head
+(the guava-site v2 rework pattern). This tightens the granular-scoping rules
+above — never a substitute for them.
+
+1. **Research first via MCP.** Use MCP tools (web search, package registries,
+   docs) to settle library / provider decisions before creating issues.
+   Capture each decision as **version + license + role** — what it is, why it
+   is there, its exact pinned version and license — in the container or
+   deliverable description (as the v2 plan did for Lenis, GSAP, and peers). A
+   deliverable that introduces a dependency cites the researched version +
+   license, or it is not ready to scope.
+2. **Granular persona deliverables.** Every issue = one observable outcome,
+   sized for a single worker turn under its persona's model tier, with exactly
+   one persona label, measurable (pass/fail) acceptance, and an explicit
+   priority. Reuse the granular-scoping rules; do not soften them for
+   research-heavy work.
+3. **Containers cap.** Group related deliverables under containers
+   (Motion / Rapier / Content style), each ≤ `max_subtasks_per_parent`; split
+   across containers rather than overloading one. End the dependency set with
+   a **QA gate issue** as the terminal deliverable — the observable outcome
+   that proves the sprint, not a fake container.
+4. **Forward dependency DAG.** Wire `blocks` edges so work flows forward to
+   the QA gate: the gate blocks on the final deliverables, which block on
+   their inputs. Every edge is a hard result-dependency (GOS-44); never
+   serialize independent work with "roughly before" edges — 0-indegree tasks
+   run in parallel.
+5. **Legacy reconciliation.** While scoping, reconcile the existing board:
+   cancel issues subsumed by new work, re-link dependencies that moved, and
+   keep the board ruthless — no stale or duplicate issues left standing.
+
 ## Hard dependency vs preferred order (GOS-44)
 
 A `blocks` edge means **"downstream work consumes the upstream result"** — a
