@@ -376,9 +376,10 @@ describe("Wave D inspect: deterministic trace (GOS-54)", () => {
 
     // sandbox-prepared decision present (control decisions derived)
     expect(names).toContain("create-sandbox");
-    // fixture node carries no persona → no profile event; no usage written
+    // fixture node carries no persona → NO profile event; a usage event IS
+    // present (GOS-55 stamps durationMs on every run, persona or not).
     expect(names).not.toContain("worker-profile");
-    expect(names).not.toContain("usage");
+    expect(names).toContain("usage");
   });
 
   it("failed run trace stops at failure — no review/promote", async () => {
