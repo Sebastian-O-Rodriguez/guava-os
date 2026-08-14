@@ -47,6 +47,10 @@ export function formatStatus(graph: IssueGraph): string {
     lines.push("");
     lines.push("BLOCKED (dependency relations not loaded — blocker detection unavailable)");
   }
+  if (capabilities.hasExternalBlockerGap && summary.totalExecutable > 0) {
+    lines.push("");
+    lines.push("NOTE: External blockers may exist outside the snapshot — executable items may be blocked by issues not in this dataset.");
+  }
 
   // INVALID
   if (graph.invalid.length > 0) {

@@ -78,6 +78,9 @@ function buildContext(
   } else if (graph.blocked.length > 0) {
     ctx.push(`${graph.blocked.length} blocked by unresolved dependencies`);
   }
+  if (graph.capabilities.hasExternalBlockerGap) {
+    ctx.push("external blockers may exist outside snapshot");
+  }
 
   // Queue depth
   if (queue.length > 1) {
@@ -166,9 +169,12 @@ export function formatNext(result: NextResult): string {
       }
     }
   }
-
   lines.push("");
   lines.push(`SUMMARY: ${result.summary.personas_with_work} personas with work, ${result.summary.total_executable} executable total`);
+
+  if (result.capabilities.hasExternalBlockerGap && result.directives.length > 0) {
+    lines.push("NOTE: External blockers may exist outside the snapshot — directives may target issues blocked by out-of-dataset work.");
+  }
 
   return lines.join("\n");
 }

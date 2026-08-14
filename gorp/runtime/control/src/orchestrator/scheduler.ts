@@ -27,6 +27,13 @@
 import { execFileSync } from "node:child_process";
 
 import { fixtureReviewPolicy, type ReviewPolicy } from "./review-policy.js";
+
+/** Max stdout buffer for CLI subprocesses spawned by the scheduler loop.
+ *  (Node's default is 1 MiB). Large review envelopes containing multi-MB
+ *  worker diffs used to overflow this; the diff is now bounded separately
+ *  in review.ts, but the envelope itself can still be large. 10 MiB is the
+ *  same cap guava-os's callGorp applies (`.guava-os/src/workflow.ts`). */
+export const CLI_MAX_BUFFER = 10 * 1024 * 1024;
 /**
  * Return the value of the `--import` flag from the current process's execArgv,
  * or undefined when absent. The scheduler reuses this to spawn its own CLI
@@ -174,6 +181,7 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
       const stdout = execFileSync(process.execPath, execArgs, {
         env: { ...process.env, ...(opts.env ?? {}), ...(env ?? {}) },
         encoding: "utf8",
+        maxBuffer: CLI_MAX_BUFFER,
         stdio: ["ignore", "pipe", "pipe"],
       });
       const parsed = JSON.parse(stdout) as Omit<CliEnvelope, "exitCode">;

@@ -41,7 +41,8 @@ export type ChainEvent =
   | "gate-record"
   | "run-record"
   | "review-decision"
-  | "promotion-record";
+  | "promotion-record"
+  | "graph-reconcile";
 
 export interface ChainEntry {
   readonly seq: number;

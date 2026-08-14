@@ -101,6 +101,19 @@ export interface GraphCapabilities {
    * relations from issues outside the snapshot).
    */
   dependencyRelationsLoaded: boolean;
+  /**
+   * True when blocker data was loaded from a partial snapshot and
+   * external blockers (issues outside the dataset) may exist undetected.
+   * Executable classification may include false-ready work when this
+   * flag is true: a blocked-by relation from an out-of-snapshot issue
+   * is invisible to buildGraph. Consumers MUST surface a warning.
+   *
+   * This flag is always true when `dependencyRelationsLoaded` is true
+   * under current snapshot-fetch semantics. It can become false only
+   * when a future caller guarantees complete blocker data (full
+   * workspace fetch with transitive closure).
+   */
+  hasExternalBlockerGap: boolean;
 }
 
 export interface IssueGraph {
@@ -321,7 +334,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
 
   return {
     parents, executable, notPromoted, blocked, invalid,
-    summary, capabilities: { dependencyRelationsLoaded },
+    summary, capabilities: { dependencyRelationsLoaded, hasExternalBlockerGap: dependencyRelationsLoaded },
   };
 }
 

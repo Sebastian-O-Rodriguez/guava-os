@@ -5,7 +5,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { loadConfig, sandboxDir, type RuntimeConfig } from "../src/config/index.js";
+import { loadConfig, runDir, sandboxDir, type RuntimeConfig } from "../src/config/index.js";
 import { GraphStore } from "../src/storage/graph-store.js";
 import { applyGraphTransition, buildDraftGraph, type Clock } from "../src/graph/graph.js";
 import { DEFAULT_RUN_ID, executeRun } from "../src/run/run.js";
@@ -513,5 +513,104 @@ describe("GOS-55 run-record usage", () => {
       else delete process.env["GORP_OMP_STARTUP_TIMEOUT"];
       rmSync(fakeOmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("GOS-51 partial artifact preservation on failure", () => {
+  it("gate failure preserves in-scope changed files + partial manifest with promotable=false", async () => {
+    // Fixture worker writes docs/note.md (in-scope), commits, returns succeeded.
+    // requiredCommand `false` exits non-zero → gate fails → failRun.
+    approvedGraph("g-partial-1", makeNode({ requiredCommands: [{ executable: "false", args: [] }] }));
+    let err: GorpError | null = null;
+    try {
+      await executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-partial-1", actorId: "orch" }, clock);
+    } catch (e) {
+      err = e as GorpError;
+    }
+    expect(err).not.toBeNull();
+    expect(err!.code).toBe("GATE_FAILED");
+
+    // sandbox destroyed (fail-closed)
+    const sb = sandboxDir(cfg, "p1", { graphId: "g-partial-1", nodeId: "node-1", runId: DEFAULT_RUN_ID });
+    expect(existsSync(sb)).toBe(false);
+
+    // partial/ preserved under run dir
+    const rDir = runDir(cfg, "p1", { graphId: "g-partial-1", nodeId: "node-1", runId: DEFAULT_RUN_ID });
+    const partialDir = join(rDir, "partial");
+    expect(existsSync(partialDir)).toBe(true);
+
+    // in-scope file preserved
+    const notePath = join(partialDir, "docs/note.md");
+    expect(existsSync(notePath)).toBe(true);
+    const content = readFileSync(notePath, "utf8");
+    expect(content).toContain("# add a governed note");
+    expect(content).toContain("graph: g-partial-1");
+
+    // partial.json manifest
+    const manifestPath = join(partialDir, "partial.json");
+    expect(existsSync(manifestPath)).toBe(true);
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    expect(manifest.preservedFiles).toEqual(["docs/note.md"]);
+    expect(manifest.graphId).toBe("g-partial-1");
+    expect(manifest.nodeId).toBe("node-1");
+    expect(manifest.runId).toBe(DEFAULT_RUN_ID);
+    expect(manifest.promotable).toBe(false);
+    expect(typeof manifest.baseCommit).toBe("string");
+    expect(typeof manifest.preservedAt).toBe("string");
+
+    // consumer untouched
+    expect(git(["status", "--porcelain"], repo).trim()).toBe("");
+  });
+
+  it("failed run partial cannot be promoted: manifest says promotable=false, sandbox destroyed, node is failed", async () => {
+    approvedGraph("g-partial-nopromo", makeNode({ requiredCommands: [{ executable: "false", args: [] }] }));
+    await expect(
+      executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-partial-nopromo", actorId: "orch" }, clock),
+    ).rejects.toThrowError(/gate failed/);
+
+    // Partial manifest explicitly non-promotable
+    const rDir = runDir(cfg, "p1", { graphId: "g-partial-nopromo", nodeId: "node-1", runId: DEFAULT_RUN_ID });
+    const manifest = JSON.parse(readFileSync(join(rDir, "partial", "partial.json"), "utf8"));
+    expect(manifest.promotable).toBe(false);
+
+    // sandbox destroyed — nothing to promote
+    const review = reviewRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-partial-nopromo" });
+    expect(review.sandbox).toBeNull();
+    expect(review.runRecord.finalStatus).toBe("failed");
+    expect(review.nodeState).toBe("failed");
+
+    // Graph is failed — promotion of a failed node is impossible
+    const g = new GraphStore(cfg).load("p1", "g-partial-nopromo");
+    expect(g.status).toBe("failed");
+  });
+
+  it("out-of-scope changed files are NOT preserved in partial/", async () => {
+    // Fixture writes src/evil.ts (out of scope → gate fails). No in-scope files
+    // were changed, so partial/ should contain nothing in-scope.
+    approvedGraph("g-partial-oos", makeNode({ expectedArtifacts: ["src/evil.ts"], acceptanceCriteria: ["n/a"] }));
+    await expect(
+      executeRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-partial-oos", actorId: "orch" }, clock),
+    ).rejects.toThrowError(/gate failed/);
+
+    const rDir = runDir(cfg, "p1", { graphId: "g-partial-oos", nodeId: "node-1", runId: DEFAULT_RUN_ID });
+    const partialDir = join(rDir, "partial");
+
+    // If the partial dir exists at all, it must NOT contain the out-of-scope file
+    if (existsSync(partialDir)) {
+      const outOfScopePath = join(partialDir, "src/evil.ts");
+      expect(existsSync(outOfScopePath)).toBe(false);
+      // manifest should list src/evil.ts NOT in preservedFiles
+      const manifestPath = join(partialDir, "partial.json");
+      if (existsSync(manifestPath)) {
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+        expect(manifest.preservedFiles).not.toContain("src/evil.ts");
+      }
+    }
+    // else: partial/ doesn't exist (no in-scope files → nothing preserved) — also correct
+
+    // evidence still exists: gate failed, run record persisted
+    const review = reviewRun(cfg, { projectId: "p1", nodeId: "node-1", graphId: "g-partial-oos" });
+    expect(review.runRecord.finalStatus).toBe("failed");
+    expect(review.gateRecord!.validation.status).toBe("failed");
   });
 });

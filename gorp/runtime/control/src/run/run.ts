@@ -24,9 +24,9 @@
  * a distinct code. On success the sandbox is kept for review.
  */
 
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { GorpError } from "../errors/index.js";
 import {
   auditChainPath,
@@ -54,13 +54,14 @@ import {
   createSandbox,
   destroySandbox,
   git,
+  sandboxAllChangedFiles,
   sandboxChangedFiles,
   sandboxHead,
   sandboxIsClean,
   type Sandbox,
 } from "../sandbox/worktree.js";
 import { invokeAdapter, resolveWorkerAdapter } from "../worker/adapter.js";
-import { buildGateRecord, scopeChecks } from "../gate/scope.js";
+import { buildGateRecord, matchesAny, scopeChecks } from "../gate/scope.js";
 import { runCommandChecks } from "../gate/commands.js";
 import { resolveProjectRepoPath } from "../registry/projects.js";
 import { assertNodeRunnable, selectNode } from "./policy.js";
@@ -326,6 +327,43 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
       clock,
     );
     store.update(failed);
+    // GOS-51: snapshot partial in-scope artifacts BEFORE destroying the sandbox
+    // so the operator can inspect what the worker changed before it failed.
+    // This is best-effort evidence — never blocks the fail-closed path.
+    let partialPreserved: string[] | undefined;
+    try {
+      const allChanged = sandboxAllChangedFiles(sandbox);
+      const inScope = allChanged.filter((f) => matchesAny(f, node.allowedPaths));
+      if (inScope.length > 0) {
+        const partialDir = join(rDir, "partial");
+        mkdirSync(partialDir, { recursive: true });
+        const preserved: string[] = [];
+        for (const file of inScope) {
+          const src = join(sandbox.dir, file);
+          if (existsSync(src) && !statSync(src).isDirectory()) {
+            const dest = join(partialDir, file);
+            mkdirSync(dirname(dest), { recursive: true });
+            copyFileSync(src, dest);
+            preserved.push(file);
+          }
+        }
+        if (preserved.length > 0) {
+          atomicWriteJson(join(partialDir, "partial.json"), {
+            preservedFiles: preserved.sort(),
+            baseCommit,
+            graphId: graph.graphId,
+            nodeId: node.nodeId,
+            runId: ref.runId,
+            preservedAt: clock.now(),
+            promotable: false,
+          });
+          partialPreserved = preserved;
+          decide("preserve-partial", "PARTIAL_PRESERVED", `preserved ${preserved.length} in-scope file(s) to partial/`);
+        }
+      }
+    } catch {
+      // Best-effort: partial preservation MUST NOT block failRun.
+    }
     destroySandbox(sandbox);
     decide("destroy-sandbox", "FAIL_CLOSED", "sandbox destroyed on failure");
     const endedAt = clock.now();

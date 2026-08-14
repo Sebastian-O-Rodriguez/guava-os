@@ -241,6 +241,19 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
       });
     }
   }
+  // ── V307: external_blocker_gap ──
+  // Fires when blocker relations were loaded from a partial snapshot and
+  // executable candidates exist — external blockers (issues outside the
+  // dataset) may be blocking these candidates undetected.
+  if (graph.capabilities.hasExternalBlockerGap && graph.summary.totalExecutable > 0) {
+    violations.push({
+      code: "V307",
+      name: "external_blocker_gap",
+      severity: "warning",
+      issue_id: "(executable)",
+      detail: `${graph.summary.totalExecutable} executable candidate(s) may be blocked by issues outside this dataset — snapshot cannot enumerate incoming relations from out-of-snapshot issues`,
+    });
+  }
 
   // Sort: severity (error first), then code, then issue_id
   violations.sort((a, b) => {

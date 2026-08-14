@@ -14,7 +14,7 @@ import { registerProjects, writeProjectRegistry } from "./helpers.js";
 import { loadConfig, type RuntimeConfig } from "../src/config/index.js";
 import { GraphStore } from "../src/storage/graph-store.js";
 import { applyGraphTransition, applyNodeTransition, buildDraftGraph, type Clock } from "../src/graph/graph.js";
-import { currentLoader, runSchedulerLoop, schedulerSpawnArgs, type SchedulerResult, type StepRecord } from "../src/orchestrator/scheduler.js";
+import { CLI_MAX_BUFFER, currentLoader, runSchedulerLoop, schedulerSpawnArgs, type SchedulerResult, type StepRecord } from "../src/orchestrator/scheduler.js";
 import { executeRun } from "../src/run/run.js";
 import { executeReject } from "../src/review/decision.js";
 import type { GraphNode } from "../src/contracts/types.js";
@@ -447,4 +447,15 @@ describe("GOS multi-persona: per-node worker-profile env in the scheduler", () =
     // nothing spawned, no run directory/record created
     expect(loadRunRecords(stateHome)).toHaveLength(0);
   }, 60_000);
+});
+
+describe("GOS-52 scheduler subprocess buffer cap", () => {
+  it("CLI_MAX_BUFFER is large enough to avoid default 1 MiB overflow", () => {
+    // The scheduler spawns review/approve subprocesses via execFileSync.
+    // Node's default maxBuffer is 1 MiB; a large review envelope (multi-MB
+    // worker diff, even bounded, plus gate/records) could still overflow.
+    // 10 MiB matches guava-os callGorp.
+    expect(CLI_MAX_BUFFER).toBe(10 * 1024 * 1024);
+    expect(CLI_MAX_BUFFER).toBeGreaterThan(1024 * 1024); // > 1 MiB default
+  });
 });

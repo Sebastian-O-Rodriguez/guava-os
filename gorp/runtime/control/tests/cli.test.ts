@@ -145,7 +145,7 @@ describe("CLI: every command group is implemented", () => {
     if (!result.success) {
       expect(result.error.code).toBe("INVALID_ARGUMENT");
       expect(result.error.details["known"]).toEqual([
-        "graph", "compile-graph", "run", "review", "approve", "reject", "retry", "promote", "inspect", "orchestrate", "orchestrate-status",
+        "graph", "compile-graph", "run", "review", "approve", "reject", "retry", "promote", "inspect", "reconcile", "orchestrate", "orchestrate-status",
       ]);
     }
     expect(exitCode).toBe(EXIT_CODES.INVALID_ARGUMENT);
