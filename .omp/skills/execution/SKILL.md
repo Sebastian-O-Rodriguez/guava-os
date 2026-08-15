@@ -18,6 +18,28 @@ transition table, hash-bound decisions, the hash-chained audit trail.
 > claim of proven concurrent OMP-worker execution. Concurrent/parallel worker
 > execution is a separate, unbuilt capability (GOS reconcile).
 
+## Worker runtime CWD (GOS-60)
+
+The OMP worker process is spawned with CWD = the **registered repo root**
+(the repo where deps/configs live), NOT the sandbox. The worker's EDITS land
+in the sandbox worktree (the path is given in the prompt); the adapter stages
+and commits them there. Fail-closed integrity: after every invocation gorp
+verifies the repo root working tree and HEAD are unchanged — a worker that
+touches the target repo outside the sandbox fails closed.
+
+## Observability (GOS-59, opt-in)
+
+The audit chain stays the single source of truth; OTel/Sentry are exported
+projections, never runtime dependencies.
+
+- `gorp inspect --export-trace` (and `wf inspect`) replays a run's persisted
+  records into OTel spans (Jaeger via OTLP/HTTP) and is a **no-op** unless
+  `GORP_OTEL_ENABLED=1` (endpoint: `GORP_OTEL_ENDPOINT`, default
+  `http://localhost:4318`; redaction default `GORP_TRACE_REDACT=true`).
+- Fail-closed outcomes fire Sentry events when `GORP_SENTRY_DSN` is set
+  (worker failure / gate failure / review rejection, structured fingerprints).
+- Neither set → zero overhead; telemetry errors never block execution.
+
 ## Worker profile (GUA-123, landed)
 
 Dispatch composes a worker profile: persona (`.guava-os/personas/<name>/persona.md`)
@@ -41,8 +63,11 @@ touch Linear and never make governance decisions.
 
 - `wf plan`, `wf orchestrate`, `wf orchestrate-status`, `wf review`,
   `wf promote` — guava-os wrappers over the gorp CLI
+- `wf reconcile` — drift report + explicit gated adopt/regenerate (GOS-43)
+- `wf inspect --export-trace` — replay OTel trace from persisted run records (GOS-59)
 - gorp CLI: `compile-graph`, `graph create|validate|show|transition`, `run`,
-  `review`, `approve|reject|retry`, `promote`, `inspect`, `orchestrate`
+  `review`, `approve|reject|retry`, `promote` [`--override-baseline` (GUA-242)],
+  `inspect` [`--export-trace`], `reconcile`, `orchestrate`
 - Contracts: `gorp/specs/runtime/*.schema.json`
 - Registry input: `GORP_PROJECT_REGISTRY` — guava-os-owned file; gorp has no
   internal default
