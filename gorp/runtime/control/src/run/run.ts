@@ -54,6 +54,7 @@ import {
   createSandbox,
   destroySandbox,
   git,
+  provisionSandbox,
   sandboxAllChangedFiles,
   sandboxChangedFiles,
   sandboxHead,
@@ -294,6 +295,11 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
   const sbDir = sandboxDir(cfg, input.projectId, ref);
   const sandbox: Sandbox = createSandbox(repositoryPath, baseCommit, sbDir, branch);
   decide("create-sandbox", "SANDBOX_ISOLATION", `worktree ${branch} at base ${baseCommit}`);
+
+  const provisioned = provisionSandbox(sandbox);
+  if (provisioned.length > 0) {
+    decide("provision-sandbox", "DEPS_PROVISIONED", `symlinked ${provisioned.length} dep dir(s) from repo root`);
+  }
 
   const paths = {
     runRecord: runRecordPath(cfg, input.projectId, ref),

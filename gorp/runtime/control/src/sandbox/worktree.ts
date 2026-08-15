@@ -15,7 +15,9 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
+import type { Dirent } from "node:fs";
+import { join } from "node:path";
 import { GorpError } from "../errors/index.js";
 
 export interface GitResult {
@@ -87,6 +89,82 @@ export function createSandbox(
   }
   git(["worktree", "add", "-b", branch, dir, baseCommit], repositoryPath);
   return { dir, branch, repositoryPath, baseCommit };
+}
+
+/**
+ * Provision the sandbox with symlinks to gitignored dependency directories
+ * from the registered repo root (GOS-61).
+ *
+ * The sandbox worktree only contains files git tracks; gitignored dirs like
+ * node_modules/ or .venv/ live in the repo root but are absent from a fresh
+ * worktree. Symlinking them makes the sandbox self-contained — the worker
+ * runs with cwd = sandbox and resolves deps/configs — without copying or
+ * overwriting any tracked file.
+ *
+ * Returns the sandbox-relative paths that were provisioned.
+ *
+ * Edge cases:
+ *  - Tracked directories: skipped (they already exist in the sandbox).
+ *  - Missing repo root dirs: silently skipped (the worktree has no deps to link).
+ *  - Symlink-to-dir entries: followed; if they resolve to a directory and are
+ *    gitignored, they are provisioned.
+ */
+export function provisionSandbox(sandbox: Sandbox): string[] {
+  const repoRoot = sandbox.repositoryPath;
+  const sandboxDir = sandbox.dir;
+  const provisioned: string[] = [];
+
+  const entries: Dirent[] = (() => {
+    try {
+      return readdirSync(repoRoot, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+  })();
+
+  for (const entry of entries) {
+    // Never touch git internals.
+    if (entry.name === ".git") continue;
+
+    const repoPath = join(repoRoot, entry.name);
+    const sandboxPath = join(sandboxDir, entry.name);
+
+    // Never overwrite anything the worktree already checked out.
+    if (existsSync(sandboxPath)) continue;
+
+    // Provision only directories (including symlinks that resolve to directories).
+    let isDir = entry.isDirectory();
+    if (!isDir) {
+      try {
+        isDir = statSync(repoPath).isDirectory();
+      } catch {
+        continue;
+      }
+    }
+    if (!isDir) continue;
+
+    // git check-ignore: exit 0 = ignored, 1 = not ignored, 128 = error.
+    let ignored = false;
+    try {
+      execFileSync("git", ["check-ignore", "--quiet", repoPath], {
+        cwd: repoRoot,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      ignored = true;
+    } catch {
+      // Exit 1 = not ignored (expected); 128 = git error (skip).
+    }
+    if (!ignored) continue;
+
+    try {
+      symlinkSync(repoPath, sandboxPath, "dir");
+      provisioned.push(entry.name);
+    } catch {
+      // Best-effort: a failed symlink never blocks sandbox creation.
+    }
+  }
+
+  return provisioned;
 }
 
 /** Destroy the sandbox: remove the worktree and its branch. Best-effort but loud on git errors we can detect. */
