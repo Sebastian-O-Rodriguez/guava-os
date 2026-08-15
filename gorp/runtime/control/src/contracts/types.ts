@@ -116,7 +116,7 @@ export interface FilesBaseline {
 
 // --- Wave B result/record contracts (mirror specs/runtime/*.schema.json) ----
 
-export type WorkerOutcome = "succeeded" | "failed" | "blocked";
+export type WorkerOutcome = "succeeded" | "failed" | "blocked" | "cost-limit";
 
 export interface WorkerUsage {
   /** Input/prompt tokens consumed. */

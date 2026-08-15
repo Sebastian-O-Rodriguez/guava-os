@@ -34,6 +34,19 @@
  *                              today); the practical workaround is to move
  *                              mcp.json aside, and GORP_OMP_STARTUP_TIMEOUT is
  *                              the real fail-fast guard for the hang.
+ *   GORP_OMP_MAX_COST_USD    — cumulative cost ceiling in USD, enforced per
+ *                              attempt (default: 0.01 = $0.01). A safety
+ *                              ceiling, NOT a working budget: operators raise
+ *                              it for real work. Set to 0 to disable the cost
+ *                              check. When the OMP worker's turn_end usage
+ *                              events cumulatively exceed this, the child is
+ *                              SIGKILLed and the attempt records a cost-limit
+ *                              outcome (never the generic 10-min timeout).
+ *   GORP_OMP_MAX_TOKENS      — cumulative token ceiling, enforced per attempt
+ *                              (default: 50000). Set to 0 to disable the token
+ *                              check. Cost/tokens are accumulated ONLY from
+ *                              turn_end usage events on the NDJSON stream;
+ *                              whichever limit crosses first wins.
  *
  * Worker profile (GOS-46, fail closed): a node MUST carry a persona, and the
  * guava-os wf layer MUST have resolved it into the environment before
@@ -52,6 +65,10 @@ import type { WorkerAdapter, WorkerInvocation } from "./adapter.js";
 export const OMP_ADAPTER = "omp";
 const WORKER_NAME = "gorp-omp-worker";
 const WORKER_EMAIL = "omp-worker@gorp.local";
+
+const DEFAULT_MAX_COST_USD = 0.01;
+const DEFAULT_MAX_TOKENS = 50_000;
+
 const DEFAULT_TIMEOUT_MS = 600_000;
 const DEFAULT_STARTUP_TIMEOUT_MS = 120_000;
 const CAPTURE_LIMIT = 4000;
@@ -211,6 +228,8 @@ interface OmpProcessResult {
   timedOut: boolean;
   startupTimedOut: boolean;
   firstOutputMs: number | null;
+  costLimited: boolean;
+  costLimitedDetail?: string;
 }
 
 function runOmp(
@@ -220,6 +239,8 @@ function runOmp(
   prompt: string,
   timeoutMs: number,
   startupTimeoutMs: number,
+  maxCostUsd?: number,
+  maxTokens?: number,
   env?: NodeJS.ProcessEnv,
 ): Promise<OmpProcessResult> {
   return new Promise((resolve) => {
@@ -231,10 +252,28 @@ function runOmp(
     let timedOut = false;
     let startupTimedOut = false;
     let firstOutputMs: number | null = null;
+    let costLimited = false;
+    let costLimitedDetail: string | undefined;
+    // Budget tracking (GOS-62): accumulate across turn_end usage events.
+    let cumulativeTokens = 0;
+    let cumulativeCostUsd = 0;
+    let settled = false;
+
+    const killGroup = (): void => {
+      try { process.kill(-proc.pid!, "SIGKILL"); } catch { proc.kill("SIGKILL"); }
+    };
+    const finish = (result: OmpProcessResult): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(runTimer);
+      clearTimeout(startupTimer);
+      resolve(result);
+    };
+
     // Total run window (GORP_OMP_TIMEOUT) — unchanged.
     const runTimer = setTimeout(() => {
       timedOut = true;
-      try { process.kill(-proc.pid!, "SIGKILL"); } catch { proc.kill("SIGKILL"); }
+      killGroup();
     }, timeoutMs);
     // Startup window (GORP_OMP_STARTUP_TIMEOUT): fail fast when the worker
     // produces NO output at all — e.g. MCP servers blocking on init. Cleared
@@ -242,7 +281,7 @@ function runOmp(
     // run window.
     const startupTimer = setTimeout(() => {
       startupTimedOut = true;
-      try { process.kill(-proc.pid!, "SIGKILL"); } catch { proc.kill("SIGKILL"); }
+      killGroup();
     }, startupTimeoutMs);
 
     const onFirstData = (stream: "stdout" | "stderr"): void => {
@@ -252,23 +291,60 @@ function runOmp(
       logOmp(`first ${stream} data after ${firstOutputMs}ms (pid=${proc.pid ?? "?"})`);
     };
 
+    // GOS-62: per-line NDJSON budget enforcement. We buffer partial lines and
+    // check cumulative usage against configured limits on every turn_end event.
+    let lineBuffer = "";
+    const budgetActive = maxCostUsd !== undefined && maxCostUsd > 0
+      || maxTokens !== undefined && maxTokens > 0;
+
     proc.stdout.on("data", (d) => {
       onFirstData("stdout");
-      stdout += d;
+      const chunk = d.toString();
+      stdout += chunk;
+      if (!costLimited && budgetActive) {
+        lineBuffer += chunk;
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop() ?? ""; // keep incomplete last line
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t) continue;
+          let ev: unknown;
+          try { ev = JSON.parse(t); } catch { continue; }
+          if (typeof ev !== "object" || ev === null || Array.isArray(ev)) continue;
+          const rec = ev as Record<string, unknown>;
+          if (rec["type"] !== "turn_end") continue;
+          const u = findUsage(rec);
+          if (!u) continue;
+          const report = readUsage(u);
+          if (!report) continue;
+          if (report.tokensTotal !== undefined) cumulativeTokens += report.tokensTotal;
+          if (report.costUsd !== undefined) cumulativeCostUsd += report.costUsd;
+          // Check both limits; either crossing fires.
+          const costHit = maxCostUsd !== undefined && maxCostUsd > 0 && cumulativeCostUsd > maxCostUsd;
+          const tokenHit = maxTokens !== undefined && maxTokens > 0 && cumulativeTokens > maxTokens;
+          if (costHit || tokenHit) {
+            costLimited = true;
+            costLimitedDetail = `Budget exceeded: ${cumulativeCostUsd.toFixed(4)} USD / ${cumulativeTokens} tokens > limit ${maxCostUsd ?? "none"} USD / ${maxTokens ?? "none"} tokens`;
+            logOmp(`cost limit hit: ${costLimitedDetail}`);
+            killGroup();
+            // Resolve immediately: the over-budget usage is already captured and
+            // we must not wait on `close`, which an orphaned grandchild (e.g. a
+            // lingering sleep) could delay by holding the stdout pipe open.
+            finish({ exitCode: null, signal: "SIGKILL", stdout, stderr, timedOut, startupTimedOut, firstOutputMs, costLimited, costLimitedDetail });
+            return;
+          }
+        }
+      }
     });
     proc.stderr.on("data", (d) => {
       onFirstData("stderr");
       stderr += d;
     });
     proc.on("error", (err) => {
-      clearTimeout(runTimer);
-      clearTimeout(startupTimer);
-      resolve({ exitCode: null, signal: null, stdout, stderr: stderr + String(err), timedOut: false, startupTimedOut: false, firstOutputMs });
+      finish({ exitCode: null, signal: null, stdout, stderr: stderr + String(err), timedOut: false, startupTimedOut: false, firstOutputMs, costLimited, ...(costLimitedDetail ? { costLimitedDetail } : {}) });
     });
     proc.on("close", (code, signal) => {
-      clearTimeout(runTimer);
-      clearTimeout(startupTimer);
-      resolve({ exitCode: code, signal, stdout, stderr, timedOut, startupTimedOut, firstOutputMs });
+      finish({ exitCode: code, signal, stdout, stderr, timedOut, startupTimedOut, firstOutputMs, costLimited, ...(costLimitedDetail ? { costLimitedDetail } : {}) });
     });
     proc.stdin.write(prompt);
     proc.stdin.end();
@@ -307,6 +383,17 @@ export const ompAdapter: WorkerAdapter = {
         nodeId: node.nodeId,
       });
     }
+    const maxCostUsdEnv = (process.env["GORP_OMP_MAX_COST_USD"] ?? "").trim();
+    const maxTokensEnv = (process.env["GORP_OMP_MAX_TOKENS"] ?? "").trim();
+    // Parse defensively: empty -> default, "0" -> disable that dimension,
+    // garbage/negative -> default (never silently disable the safety ceiling).
+    const parseBudget = (raw: string, dflt: number): number => {
+      if (raw === "") return dflt;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0 ? n : dflt;
+    };
+    const maxCostUsd = parseBudget(maxCostUsdEnv, DEFAULT_MAX_COST_USD);
+    const maxTokens = parseBudget(maxTokensEnv, DEFAULT_MAX_TOKENS);
 
     const cmd = (process.env["GORP_OMP_CMD"] ?? "omp").trim();
     const timeoutMs = Number.parseInt(process.env["GORP_OMP_TIMEOUT"] ?? "", 10) || DEFAULT_TIMEOUT_MS;
@@ -370,15 +457,18 @@ export const ompAdapter: WorkerAdapter = {
       promptLen: prompt.length,
       args: argsRedacted,
       mcpDisable,
-      startupTimeoutMs,
+      maxCostUsd,
+      maxTokens,
       timeoutMs,
     };
     logOmp(`spawning: cmd=${cmd} persona=${persona} model=${model} cwd=${sandbox.dir} promptLen=${prompt.length} args=${JSON.stringify(argsRedacted)}`);
 
-    // One invocation; fails hard on timeout / signal / nonzero exit. A clean
-    // exit (code 0) is the only outcome that may be retried below.
+    // One invocation; cost-limited runs return without throwing so the adapter
+    // can record a cost-limit outcome. Timeout / signal / nonzero exit still
+    // throw. A clean exit (code 0) is the only outcome that may be retried below.
     const invokeOmp = async (promptText: string): Promise<OmpProcessResult> => {
-      const r = await runOmp(cmd, [...args, promptText], sandbox.dir, "", timeoutMs, startupTimeoutMs, childEnv);
+      const r = await runOmp(cmd, [...args, promptText], sandbox.dir, "", timeoutMs, startupTimeoutMs, maxCostUsd, maxTokens, childEnv);
+      if (r.costLimited) return r;
       if (r.startupTimedOut) {
         fail(`start-up timed out after ${startupTimeoutMs}ms with no output (SIGKILL)`, {
           ...spawnCtx,
@@ -426,8 +516,32 @@ export const ompAdapter: WorkerAdapter = {
       }
     };
 
+    // GOS-62: cost-limit short-circuits — no retry, no commit, no gate.
+    // Return a WorkerResult with outcome cost-limit so the run layer persists
+    // the evidence and fails the run with a distinct classification.
+    const buildCostLimitResult = (p: OmpProcessResult): WorkerResult => {
+      const endedAt = clock.now();
+      const durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
+      const usage = { ...(extractOmpUsage(p.stdout) ?? {}), durationMs };
+      return {
+        schemaVersion: 1,
+        graphId,
+        nodeId: node.nodeId,
+        runId,
+        workerAdapter: OMP_ADAPTER,
+        outcome: "cost-limit",
+        summary: truncate(p.costLimitedDetail ?? "Budget exceeded"),
+        ...(p.stderr.length > 0 ? { reviewerNotes: truncate(p.stderr) } : {}),
+        artifactRefs: [],
+        startedAt,
+        endedAt,
+        usage,
+      };
+    };
+
     // Attempt 1.
     let proc = await invokeOmp(prompt);
+    if (proc.costLimited) return buildCostLimitResult(proc);
     assertHeadPinned();
 
     // Bounded empty-turn retry: a clean exit that changed NOTHING (e.g. the
@@ -438,9 +552,11 @@ export const ompAdapter: WorkerAdapter = {
     let stagedFiles = stageAndList(sandbox.dir);
     if (stagedFiles.length === 0) {
       proc = await invokeOmp(prompt + RETRY_APPEND);
+      if (proc.costLimited) return buildCostLimitResult(proc);
       assertHeadPinned();
       stagedFiles = stageAndList(sandbox.dir);
     }
+
     if (stagedFiles.length === 0) {
       fail("no files changed — the worker produced no artifacts even after an empty-turn retry", {
         stdout: truncate(proc.stdout),

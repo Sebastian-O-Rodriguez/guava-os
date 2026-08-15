@@ -28,6 +28,9 @@
 
 import { execFileSync } from "node:child_process";
 
+import * as Sentry from "@sentry/node";
+
+import type { TransitionRecord } from "../contracts/types.js";
 import { fixtureReviewPolicy, type ReviewPolicy } from "./review-policy.js";
 import { loadConfig, type RuntimeConfig } from "../config/index.js";
 import { maybeInitTelemetry, reportFailClosed } from "../telemetry/index.js";
@@ -91,6 +94,15 @@ export interface SchedulerOptions {
   readonly personaProfiles?: Readonly<Record<string, PersonaProfile>>;
   /** Safety cap; also enables crash simulation (run N steps, then restart). */
   readonly maxSteps?: number;
+
+  /**
+   * Graph-level duration circuit breaker (GOS-63 / GUA-284). When > 0, the
+   * scheduler fails the graph once it has been `running` longer than this
+   * many milliseconds, independent of per-node progress. 0 (default) =
+   * unlimited, preserving the previous behavior. Belt-and-suspenders: the
+   * per-node run subprocess timeout is unchanged.
+   */
+  readonly maxGraphDurationMs?: number;
   /**
    * Review policy (Sprint 3C). There is NO auto-approve: every approval goes
    * through the policy; a `stop` decision halts the scheduler with machine
@@ -129,6 +141,7 @@ export interface StepRecord {
 
 export type StopReason =
   | "graph-cancelled"
+  | "graph-duration-exceeded"
   | "graph-failed"
   | "graph-not-runnable"
   | "interrupted-run"
@@ -160,6 +173,9 @@ interface NodeView {
 interface GraphView {
   readonly status: string;
   readonly nodes: readonly NodeView[];
+  /** Full transition history from the persisted graph (graph.show returns the
+   *  whole ExecutionGraph; this field surfaces the transitions array). */
+  readonly transitions?: readonly TransitionRecord[];
 }
 
 /** A resolved worker profile (model + persona body) keyed by persona label. */
@@ -174,9 +190,27 @@ function nodeStatesOf(g: GraphView): Record<string, string> {
   return out;
 }
 
+/** Most recent wall-clock millis the graph transitioned to `running`, or null
+ *  when there is no such transition (e.g. graph still `approved`). Iterates
+ *  the full transition history; the last matching entry wins (handles
+ *  blocked→running resumptions). */
+function graphRunningSinceMs(g: GraphView): number | null {
+  let ms: number | null = null;
+  for (const t of g.transitions ?? []) {
+    if (t.entityType === "graph" && t.toState === "running") {
+      const parsed = Date.parse(t.timestamp);
+      if (!Number.isNaN(parsed)) ms = parsed;
+    }
+  }
+  return ms;
+}
+
 export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
   const actorId = opts.actorId ?? "orchestrator:sched";
   const maxSteps = opts.maxSteps ?? 100;
+
+  /** Graph-level duration cap; 0 = unlimited (backward-compatible default). */
+  const maxGraphDurationMs = opts.maxGraphDurationMs ?? 0;
   const reviewPolicy = opts.reviewPolicy ?? fixtureReviewPolicy;
   const steps: StepRecord[] = [];
   // GOS-59: opt-in observability (Sentry) — no-op unless a DSN is set.
@@ -185,6 +219,30 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
   const reportFailClosedFor = (nodeId: string, runId: string): void => {
     try {
       reportFailClosed(cfg, opts.projectId, { graphId: opts.graphId, nodeId, runId });
+    } catch { /* fail-open: telemetry never affects execution */ }
+  };
+
+  /** GOS-63: graph-level duration-exceeded Sentry event (fail-open). */
+  const reportGraphDurationExceeded = (elapsedMs: number): void => {
+    try {
+      if (!Sentry.isInitialized()) return;
+      Sentry.captureEvent({
+        message: "gorp graph duration exceeded",
+        level: "error",
+        fingerprint: ["gorp", "graph-duration-exceeded"],
+        tags: {
+          "gorp.project.id": opts.projectId,
+          "gorp.graph.id": opts.graphId,
+        },
+        contexts: {
+          gorp: {
+            graph_id: opts.graphId,
+            project_id: opts.projectId,
+            max_graph_duration_ms: maxGraphDurationMs,
+            elapsed_ms: elapsedMs,
+          },
+        },
+      });
     } catch { /* fail-open: telemetry never affects execution */ }
   };
   const cli = (argv: string[], env?: Readonly<Record<string, string>>): CliEnvelope => {
@@ -260,6 +318,38 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
     }
     if (g.status !== "approved" && g.status !== "running") {
       return stopped("graph-not-runnable", g, { status: g.status });
+    }
+
+    // GOS-63 / GUA-284: graph-level duration circuit breaker. Fires while the
+    // graph is `running` and the current running window exceeds the cap.
+    // Placed BEFORE the in-flight (interrupted-run) check so a stuck
+    // running/ready node fails closed (graph -> failed) rather than stopping
+    // for human recovery. See GOS-63 for the fail-closed rationale.
+    if (g.status === "running" && maxGraphDurationMs > 0) {
+      const runningSinceMs = graphRunningSinceMs(g);
+      if (runningSinceMs !== null) {
+        const elapsedMs = Date.now() - runningSinceMs;
+        if (elapsedMs > maxGraphDurationMs) {
+          reportGraphDurationExceeded(elapsedMs);
+          // Fail closed: transition the graph to failed. In-flight nodes
+          // (running/ready) are handled by the graph failing — no retry,
+          // no interrupted-run recovery.
+          const transitioned = cli([
+            "graph", "transition", "--project-id", opts.projectId, "--graph-id", opts.graphId,
+            "--to", "failed", "--actor-type", "orchestrator", "--actor-id", actorId,
+            "--reason-code", "GRAPH_DURATION_EXCEEDED",
+            "--reason", `graph exceeded maxGraphDurationMs (${maxGraphDurationMs}ms) after ${elapsedMs}ms running`,
+          ]);
+          const after = show();
+          const afterGraph = "nodes" in after ? after : null;
+          return stopped("graph-duration-exceeded", afterGraph ?? g, {
+            maxGraphDurationMs,
+            elapsedMs,
+            runningSince: new Date(runningSinceMs).toISOString(),
+            ...(transitioned.success ? {} : { transitionError: transitioned.error ?? null }),
+          });
+        }
+      }
     }
 
     // in-flight node at rest == interrupted run: expose recovery, stop

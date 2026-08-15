@@ -47,6 +47,7 @@ import type {
   WorkerResult,
 } from "../contracts/types.js";
 import { applyNodeTransition, systemClock, type Clock } from "../graph/graph.js";
+import { reportFailClosed } from "../telemetry/index.js";
 import { destroySandbox, git, sandboxChangedFiles, sandboxHead, sandboxIsClean, type Sandbox } from "../sandbox/worktree.js";
 import { buildGateRecord, scopeChecks } from "../gate/scope.js";
 import { runCommandChecks } from "../gate/commands.js";
@@ -114,7 +115,11 @@ export interface PromoteInput {
    * conflict-overlap check (GUA-242). Drift touching the worker's files
    * still blocks.
    */
+
   readonly overrideBaseline?: boolean;
+  /** Push the resulting commit to origin after a successful cherry-pick.
+   * Default (undefined / falsy) keeps the existing behaviour: no push. */
+  readonly push?: boolean;
 }
 
 export interface PromoteOutput {
@@ -129,6 +134,8 @@ export interface PromoteOutput {
   readonly sandboxCleaned: boolean;
   /** True when this promotion was performed under --override-baseline. */
   readonly overrideBaseline: boolean;
+  /** True when push was requested but failed (commit exists locally). */
+  readonly pushFailed: boolean | undefined;
   readonly records: {
     readonly runRecord: string;
     readonly gateRecord: string;
@@ -359,6 +366,22 @@ export function executePromote(cfg: RuntimeConfig, input: PromoteInput, clock: C
   // 1. apply exactly the reviewed commit (conflict -> abort, fail closed)
   const resultCommit = cherryPickCommit(repositoryPath, artifactHash, clock);
 
+  // 1a. optional push to origin (GOS-64 / GUA-285)
+  let pushFailed: boolean | undefined;
+  if (input.push) {
+    try {
+      const branch = git(["rev-parse", "--abbrev-ref", "HEAD"], repositoryPath).stdout.trim();
+      git(["push", "origin", `HEAD:${branch}`], repositoryPath);
+    } catch (e) {
+      pushFailed = true;
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`gorp promote: push to origin failed — cherry-pick exists locally as ${resultCommit}: ${message}`);
+      try {
+        reportFailClosed(cfg, input.projectId, ref);
+      } catch { /* fail-open: telemetry never affects execution */ }
+    }
+  }
+
   // 2. write the single immutable promotion record and chain it
   const promotionRecord: PromotionRecord = {
     schemaVersion: 1,
@@ -405,6 +428,7 @@ export function executePromote(cfg: RuntimeConfig, input: PromoteInput, clock: C
     promotionRecord,
     sandboxCleaned: !existsSync(sbDir),
     overrideBaseline: input.overrideBaseline === true,
+    pushFailed,
     records: paths,
   };
 }

@@ -78,7 +78,7 @@ function approvedGraph(graphId: string, nodes: GraphNode[], repoDir = repo, home
   );
 }
 
-function schedule(graphId: string, opts: { maxSteps?: number; home?: string; registry?: string } = {}): SchedulerResult {
+function schedule(graphId: string, opts: { maxSteps?: number; maxGraphDurationMs?: number; home?: string; registry?: string } = {}): SchedulerResult {
   return runSchedulerLoop({
     cli: CLI,
     projectId: "p1",
@@ -88,6 +88,7 @@ function schedule(graphId: string, opts: { maxSteps?: number; home?: string; reg
       ...(opts.registry !== undefined ? { GORP_PROJECT_REGISTRY: opts.registry } : {}),
     },
     ...(opts.maxSteps !== undefined ? { maxSteps: opts.maxSteps } : {}),
+    ...(opts.maxGraphDurationMs !== undefined ? { maxGraphDurationMs: opts.maxGraphDurationMs } : {}),
   });
 }
 
@@ -458,4 +459,67 @@ describe("GOS-52 scheduler subprocess buffer cap", () => {
     expect(CLI_MAX_BUFFER).toBe(10 * 1024 * 1024);
     expect(CLI_MAX_BUFFER).toBeGreaterThan(1024 * 1024); // > 1 MiB default
   });
+});
+
+describe("GOS-63 graph-level duration circuit breaker", () => {
+  const ancientClock: Clock = { now: () => "2000-01-01T00:00:00.000Z" };
+
+  /** Create an approved graph, then fake the running transition with
+   *  an ancient timestamp so the running window appears "expired". */
+  function runningGraph(graphId: string, nodes: GraphNode[]): void {
+    const store = new GraphStore(loadConfig({ GORP_STATE_HOME: stateHome } as NodeJS.ProcessEnv));
+    const draft = buildDraftGraph(
+      {
+        graphId,
+        project: { projectId: "p1" },
+        baseCommit: git(["rev-parse", "HEAD"], repo).trim(),
+        nodes,
+        createdBy: "op",
+        createdByType: "operator",
+      },
+      clock,
+    );
+    store.save(draft);
+    let g = applyGraphTransition(
+      draft,
+      { to: "approved", actorType: "operator", actorId: "op", reasonCode: "OPERATOR_APPROVAL", reasonText: "approved" },
+      clock,
+    );
+    g = applyGraphTransition(
+      g,
+      { to: "running", actorType: "orchestrator", actorId: "orch", reasonCode: "RUN_START", reasonText: "test" },
+      ancientClock,
+    );
+    store.update(g);
+  }
+
+  it("fails graph-duration-exceeded when running window exceeds maxGraphDurationMs", async () => {
+    runningGraph("sch-dur", CHAIN_2());
+    // 1ms cap — the ancient running timestamp makes elapsed effectively
+    // infinite, so the circuit breaker fires on the first loop iteration.
+    const result = schedule("sch-dur", { maxGraphDurationMs: 1 });
+
+    expect(result.outcome).toBe("stopped");
+    expect(result.reason).toBe("graph-duration-exceeded");
+    expect(result.graphStatus).toBe("failed");
+    const ss = result.stopState as { maxGraphDurationMs: number; elapsedMs: number; runningSince: string; transitionError?: unknown };
+    expect(ss.maxGraphDurationMs).toBe(1);
+    expect(ss.elapsedMs).toBeGreaterThan(0);
+    expect(ss.runningSince).toBe("2000-01-01T00:00:00.000Z");
+    // Nothing ran — the duration guard stopped the scheduler before any action.
+    expect(result.steps).toEqual([]);
+  }, 60_000);
+
+  it("default maxGraphDurationMs (0) runs to completion — backward compatible", async () => {
+    // Same setup as the previous test, but no maxGraphDurationMs means
+    // the circuit breaker is skipped regardless of the ancient timestamp.
+    runningGraph("sch-dur-default", CHAIN_2());
+    const result = schedule("sch-dur-default");
+
+    expect(result.outcome).toBe("completed");
+    expect(result.reason).toBeNull();
+    expect(result.graphStatus).toBe("completed");
+    expect(result.nodeStates).toEqual({ n1: "promoted", n2: "promoted" });
+    expect(actionsOf(result.steps)).toEqual(CANON_2);
+  }, 120_000);
 });

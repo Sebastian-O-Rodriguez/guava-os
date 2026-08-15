@@ -20,7 +20,10 @@ let prevOmpTimeout: string | undefined;
 let prevOmpModel: string | undefined;
 let prevOmpAppend: string | undefined;
 let prevOmpStartupTimeout: string | undefined;
+let prevOmpMaxCostUsd: string | undefined;
 let prevOmpMcpDisable: string | undefined;
+let prevOmpMaxTokens: string | undefined;
+
 function git(args: string[], cwd: string): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -100,6 +103,8 @@ beforeEach(() => {
   prevOmpAppend = process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
   prevOmpStartupTimeout = process.env["GORP_OMP_STARTUP_TIMEOUT"];
   prevOmpMcpDisable = process.env["GORP_OMP_MCP_DISABLE"];
+  prevOmpMaxCostUsd = process.env["GORP_OMP_MAX_COST_USD"];
+  prevOmpMaxTokens = process.env["GORP_OMP_MAX_TOKENS"];
   // Resolved worker profile (GOS-46): the adapter requires both to be set
   // whenever a node carries a persona.
   process.env["GORP_OMP_MODEL"] = "default";
@@ -121,10 +126,12 @@ afterEach(() => {
   else delete process.env["GORP_OMP_MODEL"];
   if (prevOmpAppend !== undefined) process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = prevOmpAppend;
   else delete process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"];
-  if (prevOmpStartupTimeout !== undefined) process.env["GORP_OMP_STARTUP_TIMEOUT"] = prevOmpStartupTimeout;
-  else delete process.env["GORP_OMP_STARTUP_TIMEOUT"];
   if (prevOmpMcpDisable !== undefined) process.env["GORP_OMP_MCP_DISABLE"] = prevOmpMcpDisable;
   else delete process.env["GORP_OMP_MCP_DISABLE"];
+  if (prevOmpMaxCostUsd !== undefined) process.env["GORP_OMP_MAX_COST_USD"] = prevOmpMaxCostUsd;
+  else delete process.env["GORP_OMP_MAX_COST_USD"];
+  if (prevOmpMaxTokens !== undefined) process.env["GORP_OMP_MAX_TOKENS"] = prevOmpMaxTokens;
+  else delete process.env["GORP_OMP_MAX_TOKENS"];
   rmSync(sandboxRoot, { recursive: true, force: true });
   rmSync(repo, { recursive: true, force: true });
   rmSync(fakeOmpDir, { recursive: true, force: true });
@@ -694,3 +701,83 @@ describe("OMP adapter spawn cwd (GOS-61: worker cwd = sandbox)", () => {
     }
   });
 });
+
+describe("OMP adapter token/cost budget enforcement (GOS-62)", () => {
+  // Fake OMP that emits one turn_end usage event (configurable) before either
+  // finishing cleanly (belowBudget) or sleeping forever (overBudget — the
+  // adapter must SIGKILL it instead of waiting for the 10-min timeout).
+  function writeUsageFakeOmp(kind: "below-budget" | "over-budget"): string {
+    const path = join(fakeOmpDir, `fake-omp-budget-${kind}.sh`);
+    const turnEnd = kind === "below-budget"
+      ? `printf '%s\\n' '{"type":"turn_end","message":{"role":"assistant","usage":{"input":100,"output":50,"totalTokens":150,"cost":{"total":0.001}}}}'`
+      : `printf '%s\\n' '{"type":"turn_end","message":{"role":"assistant","usage":{"input":90000,"output":20000,"totalTokens":110000,"cost":{"total":0.05}}}}'`;
+    const finish = kind === "below-budget"
+      ? [
+          "mkdir -p docs",
+          "printf 'GOS-62 probe\\n' > docs/probe.md",
+          "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Wrote docs/probe.md\"}]}]}'",
+        ].join("\n")
+      : "sleep 30   # would hang without budget enforcement";
+    const body = [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "cat > /dev/null 2>&1 || true   # drain the prompt the adapter pipes in",
+      turnEnd,
+      finish,
+    ].join("\n");
+    writeFileSync(path, body + "\n", "utf8");
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  it("completes normally when usage stays below the budget", async () => {
+    const sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sb-budget-ok"),
+      "gorp/run/omp-budget-ok/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeUsageFakeOmp("below-budget");
+    try {
+      const result = await ompAdapter.invoke({ sandbox, graphId: "g-budget", runId: "run-1", node: makeNode(), clock });
+      expect(result.outcome).toBe("succeeded");
+      expect(result.changedFiles).toContain("docs/probe.md");
+      // Usage from the turn_end event is still stamped.
+      expect(result.usage?.tokensTotal).toBe(150);
+      expect(result.usage?.costUsd).toBe(0.001);
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
+  });
+
+  it("kills the worker and records cost-limit when usage exceeds the budget", async () => {
+    const sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sb-budget-over"),
+      "gorp/run/omp-budget-over/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeUsageFakeOmp("over-budget");
+    // A low token ceiling so the default is never what fires; the over-budget
+    // worker emits 110000 tokens, well above this ceiling.
+    process.env["GORP_OMP_MAX_TOKENS"] = "1000";
+    process.env["GORP_OMP_MAX_COST_USD"] = "0"; // disable the cost dimension
+    const startedAt = Date.now();
+    let result: WorkerResult;
+    try {
+      result = await ompAdapter.invoke({ sandbox, graphId: "g-budget", runId: "run-1", node: makeNode(), clock });
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+      delete process.env["GORP_OMP_MAX_TOKENS"];
+      delete process.env["GORP_OMP_MAX_COST_USD"];
+    }
+    // Killed on the budget, not the 10-min timeout (or the 30s sleep).
+    expect(Date.now() - startedAt).toBeLessThan(10_000);
+    expect(result.outcome).toBe("cost-limit");
+    expect(result.summary).toContain("Budget exceeded");
+    // The cumulative over-budget usage is surfaced on the result.
+    expect(result.usage?.tokensTotal).toBe(110000);
+    expect(result.usage?.costUsd).toBe(0.05);
+  });
+});
+

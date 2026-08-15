@@ -382,3 +382,52 @@ describe("boundary re-verification", () => {
     expect(entries).toEqual(expected);
   });
 });
+
+describe("GOS-64 push after promote", () => {
+  it("default (no push flag): no push attempted, promotion succeeds as before", async () => {
+    const run = await reviewedRun("g-push-default");
+    approveRun("g-push-default", run.sandbox!.headCommit);
+    const out = executePromote(cfg, { ...promoteArgs("g-push-default"), push: undefined }, clock);
+    expect(out.pushFailed).toBeUndefined();
+    // commit lands locally
+    expect(out.resultCommit).toBe(git(["rev-parse", "HEAD"], repo).trim());
+    expect(git(["status", "--porcelain"], repo).trim()).toBe("");
+  });
+
+  it("push: true with no origin -> push fails, promotion succeeds locally, pushFailed set", async () => {
+    const run = await reviewedRun("g-push-no-origin");
+    approveRun("g-push-no-origin", run.sandbox!.headCommit);
+    // no remote configured in the test repo by default — push will fail
+    const out = executePromote(cfg, { ...promoteArgs("g-push-no-origin"), push: true }, clock);
+    expect(out.pushFailed).toBe(true);
+    // cherry-pick still exists locally
+    expect(out.resultCommit).toBe(git(["rev-parse", "HEAD"], repo).trim());
+    expect(out.nodeState).toBe("promoted");
+    // promotion record still written
+    expect(existsSync(out.records.promotionRecord)).toBe(true);
+  });
+
+  it("push: true with origin -> push succeeds, promotion complete", async () => {
+    // set up a bare repo as origin
+    const bare = mkdtempSync(join(tmpdir(), "gorp-promote-origin-"));
+    execFileSync("git", ["init", "--bare", "-q", bare], { stdio: "ignore" });
+    try {
+      git(["remote", "add", "origin", bare], repo);
+      const run = await reviewedRun("g-push-origin");
+      approveRun("g-push-origin", run.sandbox!.headCommit);
+      const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+      const out = executePromote(cfg, { ...promoteArgs("g-push-origin"), push: true }, clock);
+      expect(out.pushFailed).toBeUndefined();
+      // local HEAD advanced
+      expect(out.resultCommit).toBe(git(["rev-parse", "HEAD"], repo).trim());
+      // origin got the commit
+      const originHead = execFileSync("git", ["rev-parse", "HEAD"], { cwd: bare, encoding: "utf8" }).trim();
+      expect(originHead).toBe(out.resultCommit);
+      // origin has the cherry-pick commit AND its parent
+      const parent = execFileSync("git", ["rev-parse", `${originHead}^`], { cwd: bare, encoding: "utf8" }).trim();
+      expect(parent).toBe(headBefore);
+    } finally {
+      rmSync(bare, { recursive: true, force: true });
+    }
+  });
+});
