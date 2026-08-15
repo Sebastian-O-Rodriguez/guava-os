@@ -40,6 +40,7 @@ import { resolveProjectRepoPath } from "../registry/projects.js";
 import { selectNode } from "../run/policy.js";
 import { readValidatedRecord } from "../run/records.js";
 import { verifyChain, type ChainEntry, type ChainProblem } from "../audit/chain.js";
+import { exportTraceFromRun, type TraceExportResult } from "../telemetry/index.js";
 import type { SchemaName } from "../contracts/validator.js";
 
 /** A single ordered trace event in the deterministic audit timeline. */
@@ -242,6 +243,8 @@ export interface InspectInput {
   readonly runId?: string;
   /** Include the full sandbox diff (can be large). */
   readonly includeDiff?: boolean;
+  /** Export an OTel trace of the run (GOS-59). Opt-in via GORP_OTEL_ENABLED. */
+  readonly includeTrace?: boolean;
 }
 
 interface RecordView<T> {
@@ -318,6 +321,8 @@ export interface InspectOutput {
     readonly requiredAction: string | null;
   };
   readonly paths: Readonly<Record<string, string>>;
+  /** OTel trace export result (GOS-59); null when trace export not requested. */
+  readonly traceExport: TraceExportResult | null;
 }
 
 /** Node states that only ever exist WHILE `gorp run` is executing. */
@@ -509,5 +514,15 @@ export function inspectRun(cfg: RuntimeConfig, input: InspectInput): InspectOutp
     },
     recovery,
     paths,
+    traceExport: input.includeTrace === true ? safeTraceExport(cfg, input, ref) : null,
   };
+}
+
+/** Export the OTel trace best-effort; a telemetry failure never fails inspect. */
+function safeTraceExport(cfg: RuntimeConfig, input: InspectInput, ref: RunRef): TraceExportResult {
+  try {
+    return exportTraceFromRun(cfg, input.projectId, ref);
+  } catch (e) {
+    return { status: "errored", error: e instanceof Error ? e.message : String(e) };
+  }
 }

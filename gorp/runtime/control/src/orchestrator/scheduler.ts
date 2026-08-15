@@ -6,7 +6,9 @@
  *   when all nodes terminal -> complete graph.
  *
  * DESIGN CONSTRAINT — public surface only: this module imports NOTHING from
- * the runtime (only node builtins). Every action is a `node <cli> …`
+ * the runtime (only node builtins) EXCEPT the GOS-59 telemetry hooks
+ * (loadConfig + maybeInitTelemetry + reportFailClosed), which attach at the
+ * observability layer and are fail-open. Every action is a `node <cli> …`
  * subprocess; every decision is derived from re-discovered state (`graph
  * show`, `review`, `inspect`). The scheduler keeps NO memory between steps
  * beyond its own step log: each iteration is equivalent to a crash + restart,
@@ -27,7 +29,8 @@
 import { execFileSync } from "node:child_process";
 
 import { fixtureReviewPolicy, type ReviewPolicy } from "./review-policy.js";
-
+import { loadConfig, type RuntimeConfig } from "../config/index.js";
+import { maybeInitTelemetry, reportFailClosed } from "../telemetry/index.js";
 /** Max stdout buffer for CLI subprocesses spawned by the scheduler loop.
  *  (Node's default is 1 MiB). Large review envelopes containing multi-MB
  *  worker diffs used to overflow this; the diff is now bounded separately
@@ -95,6 +98,8 @@ export interface SchedulerOptions {
    * deterministic fixture output with a passed gate).
    */
   readonly reviewPolicy?: ReviewPolicy;
+  /** Runtime config for telemetry (GOS-59). Falls back to loadConfig(). */
+  readonly cfg?: RuntimeConfig;
 }
 
 export interface CliEnvelope {
@@ -174,7 +179,14 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
   const maxSteps = opts.maxSteps ?? 100;
   const reviewPolicy = opts.reviewPolicy ?? fixtureReviewPolicy;
   const steps: StepRecord[] = [];
-
+  // GOS-59: opt-in observability (Sentry) — no-op unless a DSN is set.
+  const cfg = opts.cfg ?? loadConfig();
+  maybeInitTelemetry();
+  const reportFailClosedFor = (nodeId: string, runId: string): void => {
+    try {
+      reportFailClosed(cfg, opts.projectId, { graphId: opts.graphId, nodeId, runId });
+    } catch { /* fail-open: telemetry never affects execution */ }
+  };
   const cli = (argv: string[], env?: Readonly<Record<string, string>>): CliEnvelope => {
     const execArgs = schedulerSpawnArgs(opts.cli, argv, currentLoader());
     try {
@@ -234,10 +246,16 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
     }
     if (g.status === "cancelled") {
       const rejected = g.nodes.filter((n) => n.state === "rejected").map((n) => n.nodeId);
+      for (const nodeId of rejected) {
+        reportFailClosedFor(nodeId, `run-${Math.max(g.nodes.find((n) => n.nodeId === nodeId)?.attempt ?? 1, 1)}`);
+      }
       return stopped(rejected.length > 0 ? "node-rejected" : "graph-cancelled", g, { rejectedNodes: rejected });
     }
     if (g.status === "failed") {
       const failed = g.nodes.filter((n) => n.state === "failed").map((n) => n.nodeId);
+      for (const nodeId of failed) {
+        reportFailClosedFor(nodeId, `run-${Math.max(g.nodes.find((n) => n.nodeId === nodeId)?.attempt ?? 1, 1)}`);
+      }
       return stopped("graph-failed", g, { failedNodes: failed });
     }
     if (g.status !== "approved" && g.status !== "running") {
@@ -257,6 +275,7 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
 
     const blocked = g.nodes.find((n) => n.state === "blocked");
     if (blocked) {
+      reportFailClosedFor(blocked.nodeId, `run-${Math.max(blocked.attempt ?? 1, 1)}`);
       return stopped("node-blocked", g, { nodeId: blocked.nodeId });
     }
 
@@ -380,6 +399,12 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
     });
 
     if (!result.success) {
+      // GOS-59: fail-closed step — report worker/gate failure (run step) and
+      // any command failure with a node target to Sentry.
+      if (action.kind === "run") {
+        const runId = `run-${(byId.get(action.nodeId)?.attempt ?? 0) + 1}`;
+        reportFailClosedFor(action.nodeId, runId);
+      }
       return stopped("command-failed", afterGraph, {
         failedCommand: action.kind,
         ...("nodeId" in action ? { nodeId: action.nodeId } : {}),

@@ -66,6 +66,7 @@ import { runCommandChecks } from "../gate/commands.js";
 import { resolveProjectRepoPath } from "../registry/projects.js";
 import { assertNodeRunnable, selectNode } from "./policy.js";
 import { captureGitBaseline } from "./baseline.js";
+import { reportFailClosed } from "../telemetry/index.js";
 
 const ORCHESTRATOR = "orchestrator" as const;
 
@@ -394,6 +395,11 @@ export async function executeRun(cfg: RuntimeConfig, input: RunInput, clock: Clo
       usage,
     };
     persistChained("run-record", paths.runRecord, record);
+    // GOS-59: report the fail-closed outcome to Sentry AFTER the run record is
+    // durably persisted, BEFORE throwing. Best-effort — never blocks the throw.
+    try {
+      reportFailClosed(cfg, input.projectId, ref);
+    } catch { /* fail-open: telemetry never affects execution */ }
     throw new GorpError(cause.code, cause.message, {
       ...cause.details,
       ...ref,

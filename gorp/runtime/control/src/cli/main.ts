@@ -323,6 +323,7 @@ function cmdInspect(args: ParsedArgs): CliResult {
     nodeId: requireFlag(args, "node-id"),
     ...(args.flags["run-id"] !== undefined ? { runId: args.flags["run-id"] } : {}),
     includeDiff: args.bools.has("diff"),
+    includeTrace: args.bools.has("export-trace"),
   });
   return {
     success: true,
@@ -402,6 +403,7 @@ function cmdOrchestrate(args: ParsedArgs, clock: Clock): CliResult {
     graphId,
     reviewPolicy,
     actorId,
+    cfg,
     ...(personaProfiles ? { personaProfiles } : {}),
     ...(maxStepsRaw !== undefined ? { maxSteps: Number.parseInt(maxStepsRaw, 10) } : {}),
   });
