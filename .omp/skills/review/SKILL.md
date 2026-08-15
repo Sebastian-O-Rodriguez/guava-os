@@ -35,7 +35,21 @@ guava-os wf approve <project> <graph> <node> --actor <a> --commit <sha> --reason
 guava-os wf reject <project> <graph> <node> --actor <a> --reason <r>
 guava-os wf retry <project> <graph> <node> --actor <a> --reason <r>
 guava-os wf promote <project> <graph> <node> --actor <a>
+guava-os wf promote <project> <graph> <node> --actor <a> --override-baseline  # GUA-242 recovery
 ```
+
+Being blocked on promotion? Check the block reason first: `wf review` shows
+the gate/verdict, `gorp inspect` shows the full run. A promotion blocked on
+target drift (`target-dirty` — working tree moved; `baseline` — refs/tree
+diverged; `base-commit` — HEAD moved) means the target repo changed since the
+run started. Recovery (GUA-242): re-approve ONLY after confirming the drift is
+unrelated by running `wf promote --override-baseline` — this relaxes the
+drift gates to a file-conflict check:
+- **Drift touches worker files** → refused (`override-conflict`) — merge manually, never use the flag.
+- **Drift is unrelated** (new commits on HEAD, unrelated uncommitted edits) → the
+  reviewed commit cherry-picks onto the new target; unrelated dirty files are left
+  untouched.
+The flag is an explicit operator acknowledgment, never a looser default gate.
 
 Non-fixture workers always stop for human review (review policy) — resume
 with `wf orchestrate` after a decision; promotion unlocks the next

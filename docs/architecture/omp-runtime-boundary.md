@@ -22,10 +22,14 @@ first, no implementation here.
 - `--skills`: optional comma-separated glob to load specific skills.
 - `--system-prompt` / `--append-system-prompt`: persona content injected here.
 
-**Binary:** `/opt/homebrew/bin/omp` (v17.1.8+). The adapter spawns `omp` as a
-child process inside the sandbox working directory.
+**Binary:** `/opt/homebrew/bin/omp` (v17.1.8+). The adapter spawns `omp` with
+the process CWD = the registered repo root (per GOS-60 — so npm/pnpm/git
+commands resolve against the real repo with full deps); the worker WRITES
+exclusively to the sandbox worktree, whose path is given in the prompt.
 
-**Working directory:** the sandbox worktree path (the worker writes code there).
+**Working directory:** the registered repo root (the real checkout with deps).
+The worker edits only the sandbox worktree at `{sandbox.dir}` (pinned by the
+prompt); gorp stages and commits there.
 
 ## Inputs
 

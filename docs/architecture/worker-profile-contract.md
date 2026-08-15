@@ -42,7 +42,7 @@ Worker
 | **Playbook** | The execution loop the worker operates inside: gates, audit, return-shape expectations. | gorp | `gorp/PLAYBOOK.md` | Implemented (doc) |
 | **OMP Role** | Runtime agent role (`scout` / `designer` / `reviewer` / `librarian` / `task` / `sonic`). | OMP (runtime config); persona `maps_to` selects it | OMP bundled agents | `maps_to` carried in the run-record profile (GUA-123) |
 | **Worker Skills** | Execution behaviors loaded by OMP (backend, frontend, QA, review, docs, migration). | Execution layer (ADR_001 skill taxonomy §3) | `.omp/skills/` (target), persona bodies (today) | Delivered via `--append-system-prompt` (persona body; GUA-123) |
-| **Runtime Config** | Model tier, tool allowlist, flags (`--auto-approve --mode json`), sandbox cwd, env. | gorp (assembles), OMP (provides runtime) | `gorp/runtime/control/src/worker/omp.ts` | Persona-aware: model `GORP_OMP_MODEL`, persona body `GORP_OMP_SYSTEM_PROMPT_APPEND` forwarded by the adapter |
+| **Runtime Config** | Model tier, tool allowlist, flags (`--auto-approve --mode json`), process CWD = repo root (registered checkout, not sandbox — GOS-60), env. | gorp (assembles), OMP (provides runtime) | `gorp/runtime/control/src/worker/omp.ts` | Persona-aware: model `GORP_OMP_MODEL`, persona body `GORP_OMP_SYSTEM_PROMPT_APPEND` forwarded by the adapter |
 | **Worker** | The OMP agent process executing one graph node in a sandbox worktree. | OMP (lifecycle), gorp (dispatch) | spawned by `worker/omp.ts` | Implemented, persona-aware |
 
 ## Rules

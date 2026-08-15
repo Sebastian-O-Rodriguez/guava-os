@@ -165,6 +165,53 @@ Product-side blockers (e.g. Guavabi's frontend/E2E runtime, Clerk middleware
 owner, not gorp/guava-os. Record target-repo-specific prerequisites in the
 project's `RUNTIME_STATE.md` / notes as they are discovered.
 
+## Observability/Telemetry Opt-In (GOS-59)
+
+gorp exports OTel traces and Sentry errors as **OPT-IN projections** of the
+audit chain — never mandatory dependencies. Default (no env) = zero overhead.
+
+### OTel trace export (Jaeger / OTLP endpoint)
+
+```bash
+# Enable: set GORP_OTEL_ENABLED=1 before running the loop.
+# After each node run, export the trace:
+gporp inspect <project-id> <graph-id> <node-id> --export-trace
+
+# Or via wf:
+guava-os wf inspect <project> <graph> <node> --export-trace
+```
+
+| Env | Default | Purpose |
+|---|---|---|
+| `GORP_OTEL_ENABLED` | (unset = off) | `1` or `true` to enable OTel export |
+| `GORP_OTEL_ENDPOINT` | `http://localhost:4318` | OTLP/HTTP endpoint (Jaeger all-in-one on :4318; no collector needed) |
+| `GORP_TRACE_REDACT` | `true` | `false` to export free-text fields (summary, reviewer notes, blocker detail) — default redacts everything; safe for SaaS |
+| `GORP_OTEL_HEADERS` | (none) | JSON-encoded headers for bearer-token endpoints |
+
+### Sentry error alerts
+
+```bash
+# Set the DSN before running the loop. Fail-closed outcomes (gate failure,
+# worker failure, review rejection) fire Sentry events automatically.
+export GORP_SENTRY_DSN=https://<key>@o<org>.ingest.sentry.io/<project>
+```
+
+| Env | Default | Purpose |
+|---|---|---|
+| `GORP_SENTRY_DSN` | (unset = no Sentry) | Sentry DSN or self-hosted URL; `initWithoutDefaultIntegrations` (no global handlers) |
+| `GORP_SENTRY_URL` | (unset) | Alternative DSN variable |
+
+Events carry structured tags (`gorp.project.id`, `gorp.graph.id`,
+`gorp.node.id`, `gorp.run.id`, `gorp.final.status`, persona, model) and
+fingerprints built from structured codes (never message text) — identical
+failures group into one Sentry issue.
+
+### Privacy
+
+The audit chain never exports prompts, code, diffs, or secrets. Traces carry
+`changedFiles` as a count only; free text is redacted by default. The
+default is safe for third-party SaaS Sentry accounts.
+
 ## Exit Code Reference
 
 | Command | Exit 0 | Exit 1 |
