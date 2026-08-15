@@ -27,7 +27,7 @@
     },
     "outcome": {
       "type": "string",
-      "enum": ["succeeded", "failed", "blocked"]
+      "enum": ["succeeded", "failed", "blocked", "cost-limit"]
     },
     "exitCode": { "type": "integer" },
     "summary": {

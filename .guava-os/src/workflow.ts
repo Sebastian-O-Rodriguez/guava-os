@@ -190,10 +190,11 @@ export function retry(projectId: string, graphId: string, nodeId: string, actorI
 }
 
 /** promote — promote an approved, reviewed commit onto the target. */
-export function promote(projectId: string, graphId: string, nodeId: string, actorId: string, opts: { runId?: string; overrideBaseline?: boolean } = {}): unknown {
+export function promote(projectId: string, graphId: string, nodeId: string, actorId: string, opts: { runId?: string; overrideBaseline?: boolean; push?: boolean } = {}): unknown {
   const args = ["promote", "--project-id", projectId, "--graph-id", graphId, "--node-id", nodeId, "--actor-id", actorId];
   if (opts.runId) args.push("--run-id", opts.runId);
   if (opts.overrideBaseline) args.push("--override-baseline");
+  if (opts.push) args.push("--push");
   return callGorp(args);
 }
 

@@ -600,6 +600,7 @@ function cmdPromote(args: ParsedArgs, clock: Clock): CliResult {
       ...(args.flags["run-id"] !== undefined ? { runId: args.flags["run-id"] } : {}),
       actorId: requireFlag(args, "actor-id"),
       overrideBaseline: args.bools.has("override-baseline"),
+      push: args.bools.has("push"),
     },
     clock,
   );
