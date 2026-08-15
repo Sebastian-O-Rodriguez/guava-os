@@ -23,13 +23,12 @@ first, no implementation here.
 - `--system-prompt` / `--append-system-prompt`: persona content injected here.
 
 **Binary:** `/opt/homebrew/bin/omp` (v17.1.8+). The adapter spawns `omp` with
-the process CWD = the registered repo root (per GOS-60 — so npm/pnpm/git
-commands resolve against the real repo with full deps); the worker WRITES
-exclusively to the sandbox worktree, whose path is given in the prompt.
+the process CWD = the sandbox worktree (per GOS-61 — deps are symlinked from the
+repo root after sandbox creation); the worker WRITES exclusively to the sandbox
+worktree, whose path is given in the prompt.
 
-**Working directory:** the registered repo root (the real checkout with deps).
-The worker edits only the sandbox worktree at `{sandbox.dir}` (pinned by the
-prompt); gorp stages and commits there.
+**Working directory:** the sandbox worktree path (worker writes code there;
+deps are symlinked from the repo root via GOS-61).
 
 ## Inputs
 

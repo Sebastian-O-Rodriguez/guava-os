@@ -18,14 +18,13 @@ transition table, hash-bound decisions, the hash-chained audit trail.
 > claim of proven concurrent OMP-worker execution. Concurrent/parallel worker
 > execution is a separate, unbuilt capability (GOS reconcile).
 
-## Worker runtime CWD (GOS-60)
+## Sandbox provisioning (GOS-61)
 
-The OMP worker process is spawned with CWD = the **registered repo root**
-(the repo where deps/configs live), NOT the sandbox. The worker's EDITS land
-in the sandbox worktree (the path is given in the prompt); the adapter stages
-and commits them there. Fail-closed integrity: after every invocation gorp
-verifies the repo root working tree and HEAD are unchanged — a worker that
-touches the target repo outside the sandbox fails closed.
+The sandbox worktree is provisioned with symlinks to gitignored dependency
+directories (e.g. node_modules/) from the registered repo root after creation.
+The worker runs with CWD = sandbox and has everything it needs — deps,
+configs, tools — all available through symlinks. No tracked files are ever
+overwritten.
 
 ## Observability (GOS-59, opt-in)
 
