@@ -52,6 +52,18 @@ describe("wf decision surface argv (GUA-146)", () => {
     expect(args).toContain("op:1");
     expect(args).not.toContain("--actor");
   });
+
+  it("promote passes --override-baseline when requested (GUA-242)", () => {
+    promote("p1", "g1", "n1", "op:1", { overrideBaseline: true });
+    const args = MOCK.mock.calls[0]![1] as string[];
+    expect(args).toContain("--override-baseline");
+  });
+
+  it("promote omits --override-baseline by default", () => {
+    promote("p1", "g1", "n1", "op:1");
+    const args = MOCK.mock.calls[0]![1] as string[];
+    expect(args).not.toContain("--override-baseline");
+  });
 });
 
 describe("wf inspect surface (GOS-54)", () => {

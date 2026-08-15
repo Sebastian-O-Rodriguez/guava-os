@@ -3,11 +3,12 @@
  *
  * Implements the WorkerAdapter interface for OMP (Oh My Pi) — the primary
  * engineering runtime per ADR_001. Invokes `omp -p --auto-approve --mode json`
- * as one external process per node attempt, inside the sandbox worktree.
+ * as one external process per node attempt, spawned with cwd = the registered
+ * repo root (so deps/configs resolve); the worker EDITS the sandbox worktree.
  *
  * Per the GOS-8 OMP runtime boundary contract:
  *   - the adapter receives only WorkerInvocation (blind; no runtime config);
- *   - OMP runs in the sandbox cwd; it writes code there;
+ *   - OMP runs with cwd = the repo root; it WRITES only to the sandbox;
  *   - the adapter makes the single sandbox commit (OMP must not touch git);
  *   - the result must validate against worker-result.schema.json and echo
  *     the invocation identity exactly (enforced by invokeAdapter);
@@ -357,14 +358,14 @@ export const ompAdapter: WorkerAdapter = {
     // resolved from guava-os paths here (adapter stays source-neutral).
     const args = ["-p", "--auto-approve", "--mode", "json", "--model", model, "--append-system-prompt", appendSystemPrompt];
 
-    // Spawn diagnostics for failure records (no secrets: no full prompt).
+    const repoHeadBefore = git(["rev-parse", "HEAD"], sandbox.repositoryPath).stdout.trim();
     // args-redacted replaces the persona body with a length-only marker.
     const argsRedacted = args.map((a) =>
       a === appendSystemPrompt ? `<system-prompt:${appendSystemPrompt.length}>` : a,
     );
     const spawnCtx = {
       cmd,
-      cwd: sandbox.dir,
+      cwd: sandbox.repositoryPath,
       model,
       persona,
       promptLen: prompt.length,
@@ -373,12 +374,12 @@ export const ompAdapter: WorkerAdapter = {
       startupTimeoutMs,
       timeoutMs,
     };
-    logOmp(`spawning: cmd=${cmd} persona=${persona} model=${model} cwd=${sandbox.dir} promptLen=${prompt.length} args=${JSON.stringify(argsRedacted)}`);
+    logOmp(`spawning: cmd=${cmd} persona=${persona} model=${model} cwd=${sandbox.repositoryPath} promptLen=${prompt.length} args=${JSON.stringify(argsRedacted)}`);
 
     // One invocation; fails hard on timeout / signal / nonzero exit. A clean
     // exit (code 0) is the only outcome that may be retried below.
     const invokeOmp = async (promptText: string): Promise<OmpProcessResult> => {
-      const r = await runOmp(cmd, [...args, promptText], sandbox.dir, "", timeoutMs, startupTimeoutMs, childEnv);
+      const r = await runOmp(cmd, [...args, promptText], sandbox.repositoryPath, "", timeoutMs, startupTimeoutMs, childEnv);
       if (r.startupTimedOut) {
         fail(`start-up timed out after ${startupTimeoutMs}ms with no output (SIGKILL)`, {
           ...spawnCtx,
@@ -426,9 +427,34 @@ export const ompAdapter: WorkerAdapter = {
       }
     };
 
+    // GOS-60 / GUA-243: the worker's RUNTIME cwd is the registered repo root
+    // (deps/configs live there), so the sandbox is no longer a bare worktree
+    // with a missing node_modules. But that means the worker CAN reach the
+    // target repo directly — so we fail closed if it dirtied or moved the repo
+    // root outside the sandbox. The target repo must be byte-identical after
+    // a run unless the sandbox commit is what promotes (GOS-33).
+    const assertRepoRootClean = (): void => {
+      const status = git(["status", "--porcelain"], sandbox.repositoryPath).stdout.trim();
+      if (status !== "") {
+        fail("OMP modified the repo root working tree outside the sandbox", {
+          repoPath: sandbox.repositoryPath,
+          dirtyStatus: status.slice(0, 500),
+        });
+      }
+      const repoHeadAfter = git(["rev-parse", "HEAD"], sandbox.repositoryPath).stdout.trim();
+      if (repoHeadAfter !== repoHeadBefore) {
+        fail("OMP moved the repo root HEAD outside the sandbox", {
+          repoPath: sandbox.repositoryPath,
+          repoHeadBefore,
+          repoHeadAfter,
+        });
+      }
+    };
+
     // Attempt 1.
     let proc = await invokeOmp(prompt);
     assertHeadPinned();
+    assertRepoRootClean();
 
     // Bounded empty-turn retry: a clean exit that changed NOTHING (e.g. the
     // worker only ran `pwd && ls`) is re-invoked ONCE with an explicit "you
@@ -439,6 +465,7 @@ export const ompAdapter: WorkerAdapter = {
     if (stagedFiles.length === 0) {
       proc = await invokeOmp(prompt + RETRY_APPEND);
       assertHeadPinned();
+      assertRepoRootClean();
       stagedFiles = stageAndList(sandbox.dir);
     }
     if (stagedFiles.length === 0) {
