@@ -48,3 +48,9 @@ projects:
     linear_project: routineme
     lifecycle: active
     notes: AI evidence host — evals, LLM observability, user-grounded retrieval, and bounded agentic tool loops (Phase 4 evidence upgrades)
+  - id: resume-site
+    name: Resume Site
+    repo_path: ~/dev/repos/resume-site
+    linear_project: resume-site
+    lifecycle: active
+    notes: Personal resume website; Linear project resume-site
