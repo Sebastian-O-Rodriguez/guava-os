@@ -599,6 +599,7 @@ function cmdPromote(args: ParsedArgs, clock: Clock): CliResult {
       nodeId: requireFlag(args, "node-id"),
       ...(args.flags["run-id"] !== undefined ? { runId: args.flags["run-id"] } : {}),
       actorId: requireFlag(args, "actor-id"),
+      overrideBaseline: args.bools.has("override-baseline"),
     },
     clock,
   );

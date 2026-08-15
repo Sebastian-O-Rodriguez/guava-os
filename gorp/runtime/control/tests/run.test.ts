@@ -365,11 +365,12 @@ describe("GOS-55 run-record usage", () => {
   it("successful OMP run stamps tokens + cost + durationMs when OMP reports usage", async () => {
     const fakeOmpDir = mkdtempSync(join(tmpdir(), "gorp-run-omp-usage-"));
     const ompScript = join(fakeOmpDir, "fake-omp.sh");
+    const sandboxDir = join(stateHome, "projects", "p1", "runs", "g-omp-usage", "node-1", "run-1", "sandbox");
     writeFileSync(ompScript, [
       "#!/usr/bin/env bash",
       "set -euo pipefail",
-      "mkdir -p docs",
-      "printf 'GOS-55 usage probe\\n' > docs/note.md",
+      `mkdir -p "${sandboxDir}/docs"`,
+      `printf 'GOS-55 usage probe\\n' > "${sandboxDir}/docs/note.md"`,
       "cat > /dev/null 2>&1 || true",
       "printf '%s\\n' '{\"type\":\"turn_end\",\"message\":{\"role\":\"assistant\",\"usage\":{\"input\":1200,\"output\":300,\"totalTokens\":1500,\"cost\":{\"total\":0.0042}}}}'",
       "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Wrote docs/note.md\"}]}]}'",
@@ -491,7 +492,7 @@ describe("GOS-55 run-record usage", () => {
       expect(review.runRecord.finalStatus).toBe("failed");
       expect(review.runRecord.diagnostics).toBeDefined();
       expect(review.runRecord.diagnostics!.cmd).toBe(ompScript);
-      expect(review.runRecord.diagnostics!.cwd).toContain("sandbox");
+      expect(review.runRecord.diagnostics!.cwd).not.toContain("sandbox");
       expect(review.runRecord.diagnostics!.model).toBe("slow");
       expect(review.runRecord.diagnostics!.persona).toBe("backend");
       expect(typeof review.runRecord.diagnostics!.promptLen).toBe("number");

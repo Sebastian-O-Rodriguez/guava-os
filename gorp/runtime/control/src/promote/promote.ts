@@ -107,6 +107,14 @@ export interface PromoteInput {
   readonly runId?: string;
   /** Operator performing the promotion; recorded in the promotion record. */
   readonly actorId: string;
+  /**
+   * Operator explicitly acknowledges that the target drifted mid-run with
+   * UNRELATED changes. Default (undefined) keeps the strict fail-closed
+   * base/baseline/dirty gates; when true those gates relax to a
+   * conflict-overlap check (GUA-242). Drift touching the worker's files
+   * still blocks.
+   */
+  readonly overrideBaseline?: boolean;
 }
 
 export interface PromoteOutput {
@@ -119,6 +127,8 @@ export interface PromoteOutput {
   readonly reviewDecision: ReviewDecision;
   readonly promotionRecord: PromotionRecord;
   readonly sandboxCleaned: boolean;
+  /** True when this promotion was performed under --override-baseline. */
+  readonly overrideBaseline: boolean;
   readonly records: {
     readonly runRecord: string;
     readonly gateRecord: string;
@@ -127,6 +137,7 @@ export interface PromoteOutput {
     readonly promotionRecord: string;
   };
 }
+
 
 export function executePromote(cfg: RuntimeConfig, input: PromoteInput, clock: Clock = systemClock): PromoteOutput {
   const store = new GraphStore(cfg);
@@ -261,28 +272,62 @@ export function executePromote(cfg: RuntimeConfig, input: PromoteInput, clock: C
     });
   }
 
-  // verify base commit: the target must not have moved since this node's run
+  // --- drift checks (GOS-33 + GUA-242) --------------------------------------
+  // Default: strict fail-closed on any base/baseline/dirty drift.
+  // `--override-baseline` is an EXPLICIT operator acknowledgment that the
+  // target drifted mid-run with UNRELATED changes. It relaxes the gates to a
+  // conflict-overlap check but NEVER loosens safety: drift that touches the
+  // same files as the worker still fails closed (merge manually).
   const targetHead = git(["rev-parse", "HEAD"], repositoryPath).stdout.trim();
-  if (targetHead !== nodeRunBase) {
-    blocked("base-commit", "target HEAD no longer matches this node run's recorded base commit", {
-      targetHead,
-      nodeRunBase,
-    });
-  }
-  // verify the full immutable baseline (GOS-33): same HEAD + branch/tag refs +
-  // committed tree hash as captured at run start. Extends the base-commit check
-  // to the whole refset, so a repointed tag/branch or a changed tree fails
-  // closed even when HEAD itself is unchanged. Old records without a baseline
-  // keep the legacy HEAD-only check.
-  if (runRecord.baseline) {
-    const diffs = baselineDiffs(repositoryPath, runRecord.baseline);
-    if (diffs.length > 0) {
-      blocked("baseline", "target repository diverged from its run-start baseline", { diffs });
+  const targetStatus = git(["status", "--porcelain", "--untracked-files=all"], repositoryPath).stdout.trim();
+  if (input.overrideBaseline) {
+    const workerChanged = new Set(sandboxChangedFiles(sandbox));
+    const driftFiles = new Set<string>();
+    // committed drift since the node-run base (target HEAD moved)
+    for (const line of git(["diff", "--name-only", `${nodeRunBase}..HEAD`], repositoryPath).stdout.split("\n")) {
+      const f = line.trim();
+      if (f.length > 0) driftFiles.add(f);
     }
-  }
-  const targetStatus = git(["status", "--porcelain"], repositoryPath).stdout.trim();
-  if (targetStatus !== "") {
-    blocked("target-dirty", "target working tree is not clean", {});
+    // uncommitted working-tree drift (modified/untracked/deleted), same
+    // porcelain-path extraction as sandboxAllChangedFiles
+    for (const line of targetStatus.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.length < 4) continue;
+      const path = trimmed.slice(3);
+      if (path.length > 0) driftFiles.add(path);
+    }
+    const overlapping = [...driftFiles].filter((p) => workerChanged.has(p)).sort();
+    if (overlapping.length > 0) {
+      blocked("override-conflict", "override refused: external drift touches the same files as the worker — merge manually", {
+        overlapping,
+      });
+    }
+    // non-overlapping drift proceeds: the cherry-pick applies the reviewed
+    // commit onto the (possibly moved) target HEAD; the existing
+    // cherryPickCommit conflict handler remains the final safety net, and
+    // dirty files outside the applied commit are left untouched by git.
+  } else {
+    // verify base commit: the target must not have moved since this node's run
+    if (targetHead !== nodeRunBase) {
+      blocked("base-commit", "target HEAD no longer matches this node run's recorded base commit", {
+        targetHead,
+        nodeRunBase,
+      });
+    }
+    // verify the full immutable baseline (GOS-33): same HEAD + branch/tag refs +
+    // committed tree hash as captured at run start. Extends the base-commit check
+    // to the whole refset, so a repointed tag/branch or a changed tree fails
+    // closed even when HEAD itself is unchanged. Old records without a baseline
+    // keep the legacy HEAD-only check.
+    if (runRecord.baseline) {
+      const diffs = baselineDiffs(repositoryPath, runRecord.baseline);
+      if (diffs.length > 0) {
+        blocked("baseline", "target repository diverged from its run-start baseline", { diffs });
+      }
+    }
+    if (targetStatus !== "") {
+      blocked("target-dirty", "target working tree is not clean", {});
+    }
   }
   // rerun the FULL gate live against the reviewed commit — scope checks AND
   // every project command (Sprint 3D: no stale gate; the persisted verdict is
@@ -359,6 +404,7 @@ export function executePromote(cfg: RuntimeConfig, input: PromoteInput, clock: C
     reviewDecision: decision,
     promotionRecord,
     sandboxCleaned: !existsSync(sbDir),
+    overrideBaseline: input.overrideBaseline === true,
     records: paths,
   };
 }

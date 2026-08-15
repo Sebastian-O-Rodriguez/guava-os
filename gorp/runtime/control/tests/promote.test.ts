@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { registerProjects } from "./helpers.js";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -261,6 +261,78 @@ describe("Wave C+D promote: approved decision -> promote -> done", () => {
     approveRun("g-twice", run.sandbox!.headCommit);
     executePromote(cfg, promoteArgs("g-twice"), clock);
     expectCode(() => executePromote(cfg, promoteArgs("g-twice"), clock), "PROMOTION_BLOCKED", "node-state");
+  });
+});
+
+describe("GUA-242 override-baseline drift recovery", () => {
+  it("no-flag regression: dirty target still blocks (backward compatible)", async () => {
+    const run = await reviewedRun("g-override-default");
+    approveRun("g-override-default", run.sandbox!.headCommit);
+    writeFileSync(join(repo, "SCRATCH.md"), "dirty\n");
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+
+    expectCode(() => executePromote(cfg, promoteArgs("g-override-default"), clock), "PROMOTION_BLOCKED", "target-dirty");
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(headBefore);
+    expect(existsSync(promotionRecordPath(cfg, "p1", nodeRef("g-override-default")))).toBe(false);
+  });
+
+  it("override + unrelated dirty file -> promotes; dirty file left untouched", async () => {
+    const run = await reviewedRun("g-override-dirty");
+    const reviewed = run.sandbox!.headCommit;
+    approveRun("g-override-dirty", reviewed);
+    const baseCommit = git(["rev-parse", "HEAD"], repo).trim();
+    writeFileSync(join(repo, "UNRELATED.md"), "operator scratch\n");
+
+    const out = executePromote(cfg, { ...promoteArgs("g-override-dirty"), overrideBaseline: true }, clock);
+
+    const head = git(["rev-parse", "HEAD"], repo).trim();
+    expect(out.overrideBaseline).toBe(true);
+    expect(out.resultCommit).toBe(head);
+    expect(git(["rev-parse", "HEAD^"], repo).trim()).toBe(baseCommit);
+    expect(readFileSync(join(repo, "docs/note.md"), "utf8")).toContain("add a governed note");
+    // the unrelated dirty file survives, still uncommitted (cherry-pick only rewrote the applied commit's paths)
+    expect(readFileSync(join(repo, "UNRELATED.md"), "utf8")).toBe("operator scratch\n");
+    expect(git(["status", "--porcelain"], repo)).toContain("UNRELATED.md");
+  });
+
+  it("override + overlapping external edit -> refused, nothing mutated", async () => {
+    const run = await reviewedRun("g-override-overlap");
+    const reviewed = run.sandbox!.headCommit;
+    approveRun("g-override-overlap", reviewed);
+    const headBefore = git(["rev-parse", "HEAD"], repo).trim();
+    // external drift touches the SAME path the worker changed
+    mkdirSync(join(repo, "docs"), { recursive: true });
+    writeFileSync(join(repo, "docs/note.md"), "conflicting external edit\n");
+
+    expectCode(
+      () => executePromote(cfg, { ...promoteArgs("g-override-overlap"), overrideBaseline: true }, clock),
+      "PROMOTION_BLOCKED",
+      "override-conflict",
+    );
+    expect(git(["rev-parse", "HEAD"], repo).trim()).toBe(headBefore);
+    expect(readFileSync(join(repo, "docs/note.md"), "utf8")).toBe("conflicting external edit\n");
+    expect(existsSync(promotionRecordPath(cfg, "p1", nodeRef("g-override-overlap")))).toBe(false);
+    expect(existsSync(run.sandbox!.dir)).toBe(true); // sandbox kept for the operator
+  });
+
+  it("override + moved HEAD (non-conflicting) -> promotes onto the new HEAD", async () => {
+    const run = await reviewedRun("g-override-head");
+    const reviewed = run.sandbox!.headCommit;
+    approveRun("g-override-head", reviewed);
+    // target moves after approval: an unrelated commit not touching the worker's files
+    writeFileSync(join(repo, "UNRELATED.md"), "unrelated\n");
+    git(["add", "."], repo);
+    git(["commit", "-q", "-m", "unrelated target move"], repo);
+    const movedHead = git(["rev-parse", "HEAD"], repo).trim();
+
+    const out = executePromote(cfg, { ...promoteArgs("g-override-head"), overrideBaseline: true }, clock);
+
+    const head = git(["rev-parse", "HEAD"], repo).trim();
+    expect(out.overrideBaseline).toBe(true);
+    expect(out.resultCommit).toBe(head);
+    expect(git(["rev-parse", "HEAD^"], repo).trim()).toBe(movedHead); // cherry-picked ONTO the new HEAD
+    expect(readFileSync(join(repo, "docs/note.md"), "utf8")).toContain("add a governed note");
+    expect(readFileSync(join(repo, "UNRELATED.md"), "utf8")).toBe("unrelated\n");
   });
 });
 

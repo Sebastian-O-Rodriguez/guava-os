@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -50,15 +50,15 @@ function makeNodeNoPersona(): GraphNode {
   return rest;
 }
 
-/** Fake OMP binary: writes an artifact in cwd, then emits an NDJSON agent_end event. */
-function writeFakeOmp(writes: boolean): string {
+/** Fake OMP binary: writes an artifact into the sandbox dir, then emits an NDJSON agent_end event. */
+function writeFakeOmp(writes: boolean, sandboxDir: string): string {
   const path = join(fakeOmpDir, "fake-omp.sh");
   const body = writes
     ? [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
-        "mkdir -p docs",
-        "printf 'GOS-35 probe artifact\\n' > docs/probe.md",
+        `mkdir -p "${sandboxDir}/docs"`,
+        `printf 'GOS-35 probe artifact\\n' > "${sandboxDir}/docs/probe.md"`,
         "cat > /dev/null 2>&1 || true   # drain stdin (the adapter pipes the prompt)",
         "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Done: wrote docs/probe.md\"}]}]}'",
       ].join("\n")
@@ -80,7 +80,7 @@ async function invokeOmp(writes: boolean): Promise<WorkerResult | Error> {
     join(sandboxRoot, "sandbox"),
     "gorp/run/omp-adapter-test/node-1/run-1",
   );
-  process.env["GORP_OMP_CMD"] = writeFakeOmp(writes);
+  process.env["GORP_OMP_CMD"] = writeFakeOmp(writes, sandbox.dir);
   try {
     return await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node: makeNode(), clock });
   } catch (e) {
@@ -176,7 +176,7 @@ describe("OMP adapter resolved-profile passthrough", () => {
   let argTracePath: string;
   let prevAppend: string | undefined;
 
-  function writeArgTraceFakeOmp(): string {
+  function writeArgTraceFakeOmp(sandboxDir: string): string {
     const tmp = mkdtempSync(join(tmpdir(), "gorp-omp-argtrace-"));
     argTracePath = join(tmp, "args.json");
     const path = join(fakeOmpDir, "fake-omp-args.sh");
@@ -187,9 +187,9 @@ describe("OMP adapter resolved-profile passthrough", () => {
         "set -euo pipefail",
         // Drain stdin
         "cat > /dev/null 2>&1 || true",
-        // Produce an expected artifact so the adapter's changed-files check passes
-        "mkdir -p docs",
-        "printf 'GOS-35 probe artifact\\n' > docs/probe.md",
+        // Produce an expected artifact in the sandbox so the changed-files check passes
+        `mkdir -p "${sandboxDir}/docs"`,
+        `printf 'GOS-35 probe artifact\\n' > "${sandboxDir}/docs/probe.md"`,
         // Write all args to the trace file as a JSON array
         `printf '%s\\n' "$(printf '%s\\n' "$@" | jq -R -s -c 'split("\n")[:-1]')" > "${argTracePath}"`,
         // Emit a valid agent_end so the adapter doesn't fail on missing summary
@@ -214,7 +214,6 @@ describe("OMP adapter resolved-profile passthrough", () => {
   });
 
   it("forwards the resolved --model and --append-system-prompt to omp", async () => {
-    process.env["GORP_OMP_CMD"] = writeArgTraceFakeOmp();
     process.env["GORP_OMP_MODEL"] = "slow";
     process.env["GORP_OMP_SYSTEM_PROMPT_APPEND"] = "You are a backend architect.";
     const sandbox: Sandbox = createSandbox(
@@ -223,6 +222,7 @@ describe("OMP adapter resolved-profile passthrough", () => {
       join(sandboxRoot, "sandbox-append"),
       "gorp/run/omp-adapter-append/node-1/run-1",
     );
+    process.env["GORP_OMP_CMD"] = writeArgTraceFakeOmp(sandbox.dir);
     try {
       await ompAdapter.invoke({ sandbox, graphId: "g-omp", runId: "run-1", node: makeNode({ persona: "backend" }), clock });
       expect(existsSync(argTracePath)).toBe(true);
@@ -328,12 +328,12 @@ describe("OMP adapter empty-turn retry (GOS-46 follow-on)", () => {
   //   writes-first  : edit on call 1 (retry never needed)
   //   recovers      : no edits on call 1, edits on call 2 (retry recovers it)
   //   always-empty  : no edits on either call (retry still fails closed)
-  function writeBehaviorFakeOmp(kind: "writes-first" | "recovers" | "always-empty"): string {
+  function writeBehaviorFakeOmp(kind: "writes-first" | "recovers" | "always-empty", sandboxDir: string): string {
     const path = join(fakeOmpDir, `fake-tenant-${kind}.sh`);
     // Counter lives OUTSIDE the sandbox cwd so the shared marker is never
     // staged/committed as if the worker produced an artifact.
     const counter = join(fakeOmpDir, `call-${kind}.marker`);
-    const edit = ["mkdir -p docs", "printf 'GOS retry probe\\n' > docs/probe.md"].join("\n");
+    const edit = [`mkdir -p "${sandboxDir}/docs"`, `printf 'GOS retry probe\\n' > "${sandboxDir}/docs/probe.md"`].join("\n");
     const first = kind === "writes-first" ? edit : ":";
     const second = kind === "always-empty" ? ":" : edit;
     const body = [
@@ -359,7 +359,7 @@ describe("OMP adapter empty-turn retry (GOS-46 follow-on)", () => {
       join(sandboxRoot, "sandbox"),
       "gorp/run/omp-retry/node-1/run-1",
     );
-    process.env["GORP_OMP_CMD"] = writeBehaviorFakeOmp(kind);
+    process.env["GORP_OMP_CMD"] = writeBehaviorFakeOmp(kind, sandbox.dir);
     try {
       return await ompAdapter.invoke({ sandbox, graphId: "g-retry", runId: "run-1", node: makeNode(), clock });
     } catch (e) {
@@ -452,7 +452,7 @@ describe("extractOmpUsage (GOS-55)", () => {
 });
 
 describe("OMP adapter returns usage (GOS-55)", () => {
-  function writeFakeOmpWithUsage(emitsUsage: boolean): string {
+  function writeFakeOmpWithUsage(emitsUsage: boolean, sandboxDir: string): string {
     const path = join(fakeOmpDir, "fake-omp-usage.sh");
     const usageLine = emitsUsage
       ? `printf '%s\\n' '{"type":"turn_end","message":{"role":"assistant","content":[{"type":"text","text":"done"}],"usage":{"input":600,"output":150,"totalTokens":750,"cost":{"total":0.003}}}}'`
@@ -460,8 +460,8 @@ describe("OMP adapter returns usage (GOS-55)", () => {
     const body = [
       "#!/usr/bin/env bash",
       "set -euo pipefail",
-      "mkdir -p docs",
-      "printf 'GOS-55 probe\\n' > docs/probe.md",
+      `mkdir -p "${sandboxDir}/docs"`,
+      `printf 'GOS-55 probe\\n' > "${sandboxDir}/docs/probe.md"`,
       "cat > /dev/null 2>&1 || true",
       usageLine,
       "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Wrote docs/probe.md\"}]}]}'",
@@ -472,14 +472,14 @@ describe("OMP adapter returns usage (GOS-55)", () => {
   }
 
   it("stamps tokens + cost + durationMs when OMP reports usage", async () => {
-    process.env["GORP_OMP_CMD"] = writeFakeOmpWithUsage(true);
+    const sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sb-usage"),
+      "gorp/run/omp-usage-test/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeFakeOmpWithUsage(true, sandbox.dir);
     try {
-      const sandbox = createSandbox(
-        repo,
-        git(["rev-parse", "HEAD"], repo).trim(),
-        join(sandboxRoot, "sb-usage"),
-        "gorp/run/omp-usage-test/node-1/run-1",
-      );
       const result = await ompAdapter.invoke({ sandbox, graphId: "g-usage", runId: "run-1", node: makeNode(), clock });
       expect(result.outcome).toBe("succeeded");
       expect(result.usage).toBeDefined();
@@ -494,14 +494,14 @@ describe("OMP adapter returns usage (GOS-55)", () => {
   });
 
   it("persists durationMs only when OMP reports no usage", async () => {
-    process.env["GORP_OMP_CMD"] = writeFakeOmpWithUsage(false);
+    const sandbox = createSandbox(
+      repo,
+      git(["rev-parse", "HEAD"], repo).trim(),
+      join(sandboxRoot, "sb-no-usage"),
+      "gorp/run/omp-no-usage-test/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeFakeOmpWithUsage(false, sandbox.dir);
     try {
-      const sandbox = createSandbox(
-        repo,
-        git(["rev-parse", "HEAD"], repo).trim(),
-        join(sandboxRoot, "sb-no-usage"),
-        "gorp/run/omp-no-usage-test/node-1/run-1",
-      );
       const result = await ompAdapter.invoke({ sandbox, graphId: "g-no-usage", runId: "run-1", node: makeNode(), clock });
       expect(result.outcome).toBe("succeeded");
       expect(result.usage).toBeDefined();
@@ -566,7 +566,7 @@ describe("OMP adapter start-up timeout (GOS-57)", () => {
     expect(err!.details["persona"]).toBe("backend");
     expect(err!.details["model"]).toBe("default");
     expect(typeof err!.details["promptLen"]).toBe("number");
-    expect(err!.details["cwd"]).toBe(sandbox.dir);
+    expect(err!.details["cwd"]).toBe(sandbox.repositoryPath);
     const args = err!.details["args"] as string[];
     expect(Array.isArray(args)).toBe(true);
     expect(args).toContain("--model");
@@ -579,7 +579,7 @@ describe("OMP adapter MCP-disable env (GOS-57)", () => {
 
   // Fake omp that records OMP_MCP_DISABLE from its environment into a trace
   // file, then produces an artifact + agent_end so the run succeeds.
-  function writeEnvTraceFakeOmp(): string {
+  function writeEnvTraceFakeOmp(sandboxDir: string): string {
     const tmp = mkdtempSync(join(tmpdir(), "gorp-omp-envtrace-"));
     envTracePath = join(tmp, "mcp-disable.env");
     const path = join(fakeOmpDir, "fake-omp-env.sh");
@@ -589,8 +589,8 @@ describe("OMP adapter MCP-disable env (GOS-57)", () => {
         "#!/usr/bin/env bash",
         "set -euo pipefail",
         "cat > /dev/null 2>&1 || true",
-        "mkdir -p docs",
-        "printf 'probe\\n' > docs/probe.md",
+        `mkdir -p "${sandboxDir}/docs"`,
+        `printf 'probe\\n' > "${sandboxDir}/docs/probe.md"`,
         `printf '%s\\n' "\${OMP_MCP_DISABLE:-unset}" > "${envTracePath}"`,
         "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}]}'",
       ].join("\n") + "\n",
@@ -613,7 +613,7 @@ describe("OMP adapter MCP-disable env (GOS-57)", () => {
       join(sandboxRoot, "sandbox-mcp"),
       "gorp/run/omp-mcp-test/node-1/run-1",
     );
-    process.env["GORP_OMP_CMD"] = writeEnvTraceFakeOmp();
+    process.env["GORP_OMP_CMD"] = writeEnvTraceFakeOmp(sandbox.dir);
     process.env["GORP_OMP_MCP_DISABLE"] = "1";
     try {
       const result = await ompAdapter.invoke({ sandbox, graphId: "g-mcp", runId: "run-1", node: makeNode(), clock });
@@ -632,7 +632,7 @@ describe("OMP adapter MCP-disable env (GOS-57)", () => {
       join(sandboxRoot, "sandbox-mcp-off"),
       "gorp/run/omp-mcp-off-test/node-1/run-1",
     );
-    process.env["GORP_OMP_CMD"] = writeEnvTraceFakeOmp();
+    process.env["GORP_OMP_CMD"] = writeEnvTraceFakeOmp(sandbox.dir);
     delete process.env["GORP_OMP_MCP_DISABLE"];
     try {
       const result = await ompAdapter.invoke({ sandbox, graphId: "g-mcp-off", runId: "run-1", node: makeNode(), clock });
@@ -641,5 +641,102 @@ describe("OMP adapter MCP-disable env (GOS-57)", () => {
     } finally {
       delete process.env["GORP_OMP_CMD"];
     }
+  });
+});
+
+describe("OMP adapter spawn cwd + repo-root isolation (GOS-60 / GUA-243)", () => {
+  let cwdTracePath: string;
+
+  // Fake omp that records its process cwd (pwd -P) and edits the sandbox.
+  function writeCwdTraceFakeOmp(sandboxDir: string): string {
+    const tmp = mkdtempSync(join(tmpdir(), "gorp-omp-cwdtrace-"));
+    cwdTracePath = join(tmp, "cwd.txt");
+    const path = join(fakeOmpDir, "fake-omp-cwd.sh");
+    writeFileSync(
+      path,
+      [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "cat > /dev/null 2>&1 || true",
+        `mkdir -p "${sandboxDir}/docs"`,
+        `printf 'probe\\n' > "${sandboxDir}/docs/probe.md"`,
+        `pwd -P > "${cwdTracePath}"`,
+        "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}]}'",
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  // Fake omp that does the expected sandbox edit but ALSO dirties its cwd
+  // (which is now the repo root) — violating isolation.
+  function writeDirtyRepoFakeOmp(sandboxDir: string): string {
+    const path = join(fakeOmpDir, "fake-omp-dirty.sh");
+    writeFileSync(
+      path,
+      [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "cat > /dev/null 2>&1 || true",
+        `mkdir -p "${sandboxDir}/docs"`,
+        `printf 'probe\\n' > "${sandboxDir}/docs/probe.md"`,
+        "printf 'outside-sandbox\\n' > dirty.txt",
+        "printf '%s\\n' '{\"type\":\"agent_end\",\"messages\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}]}'",
+      ].join("\n") + "\n",
+      "utf8",
+    );
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  afterEach(() => {
+    if (cwdTracePath && existsSync(dirname(cwdTracePath))) {
+      rmSync(dirname(cwdTracePath), { recursive: true, force: true });
+    }
+  });
+
+  it("spawns the OMP worker with cwd = the registered repo root (not the sandbox)", async () => {
+    const base = git(["rev-parse", "HEAD"], repo).trim();
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      base,
+      join(sandboxRoot, "sandbox-cwd"),
+      "gorp/run/omp-cwd-test/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeCwdTraceFakeOmp(sandbox.dir);
+    try {
+      const result = await ompAdapter.invoke({ sandbox, graphId: "g-cwd", runId: "run-1", node: makeNode(), clock });
+      expect(result.outcome).toBe("succeeded");
+      const cwd = readFileSync(cwdTracePath, "utf8").trim();
+      expect(realpathSync(cwd)).toBe(realpathSync(repo));
+      expect(realpathSync(cwd)).not.toBe(realpathSync(sandbox.dir));
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
+  });
+
+  it("fails closed when the worker dirties the repo root outside the sandbox", async () => {
+    const base = git(["rev-parse", "HEAD"], repo).trim();
+    const sandbox: Sandbox = createSandbox(
+      repo,
+      base,
+      join(sandboxRoot, "sandbox-dirty"),
+      "gorp/run/omp-dirty-test/node-1/run-1",
+    );
+    process.env["GORP_OMP_CMD"] = writeDirtyRepoFakeOmp(sandbox.dir);
+    let err: GorpError | null = null;
+    try {
+      await ompAdapter.invoke({ sandbox, graphId: "g-dirty", runId: "run-1", node: makeNode(), clock });
+    } catch (e) {
+      if (e instanceof GorpError) err = e;
+      else throw e;
+    } finally {
+      delete process.env["GORP_OMP_CMD"];
+    }
+    expect(err).not.toBeNull();
+    expect(err!.code).toBe("WORKER_FAILED");
+    expect(err!.message).toContain("repo root");
+    expect(err!.details["repoPath"]).toBe(repo);
   });
 });
