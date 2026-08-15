@@ -617,6 +617,17 @@ export async function moveStatus(issueId: string, statusName: string): Promise<L
   return updateIssue(issueId, { status: stateId });
 }
 
+/** archive an issue (Linear archive is non-destructive: full history kept,
+ *  excluded from the active issue count; queryable with --archived). */
+export async function archiveIssue(issueId: string): Promise<void> {
+  await gql(
+    `mutation ($id: String!) {
+      issueArchive(id: $id) { success }
+    }`,
+    { id: issueId },
+  );
+}
+
 /** assign issue — set an issue's Assignee. */
 export async function assignIssue(
   issueId: string,

@@ -21,6 +21,7 @@
  *   npx tsx .guava-os/src/cli.ts pm unlink GUA-45 --blocked-by GUA-47
  *   npx tsx .guava-os/src/cli.ts pm move GUA-45 --status "In Progress"
  *   npx tsx .guava-os/src/cli.ts pm assign GUA-45 --assignee me
+ *   npx tsx .guava-os/src/cli.ts pm archive GUA-45
  *   npx tsx .guava-os/src/cli.ts pm comment GUA-45 --body "..."
  *
  * Stdin format for doctor: { "issues": [...], "labels": [...] }
@@ -260,6 +261,7 @@ Subcommands:
   unlink <id> [flags]      Remove dependencies (--blocks, --blocked-by)
   move <id> --status <s>   Move status
   assign <id> --assignee <a>  Assign issue
+  archive <id>             Archive an issue (non-destructive; keeps full history)
   comment <id> --body <t>  Create a comment
 
 All PM commands talk to Linear through the guava-os tooling layer.`);
@@ -351,6 +353,11 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
     case "assign": {
       const issue = await pm.assignIssue(rest[0], flag(rest, "--assignee")!);
       console.log(jsonMode ? JSON.stringify(issue, null, 2) : `Assigned: ${issue.id} → ${issue.assignee ?? "(none)"}`);
+      return;
+    }
+    case "archive": {
+      await pm.archiveIssue(rest[0]);
+      console.log(jsonMode ? JSON.stringify({ archived: true, id: rest[0] }) : `Archived: ${rest[0]}`);
       return;
     }
     case "comment": {
