@@ -35,7 +35,7 @@
  *                              mcp.json aside, and GORP_OMP_STARTUP_TIMEOUT is
  *                              the real fail-fast guard for the hang.
  *   GORP_OMP_MAX_COST_USD    — cumulative cost ceiling in USD, enforced per
- *                              attempt (default: 0.01 = $0.01). A safety
+ *                              attempt (default: 0.15 = $0.15). A safety
  *                              ceiling, NOT a working budget: operators raise
  *                              it for real work. Set to 0 to disable the cost
  *                              check. When the OMP worker's turn_end usage
@@ -43,7 +43,7 @@
  *                              SIGKILLed and the attempt records a cost-limit
  *                              outcome (never the generic 10-min timeout).
  *   GORP_OMP_MAX_TOKENS      — cumulative token ceiling, enforced per attempt
- *                              (default: 50000). Set to 0 to disable the token
+ *                              (default: 300000). Set to 0 to disable the token
  *                              check. Cost/tokens are accumulated ONLY from
  *                              turn_end usage events on the NDJSON stream;
  *                              whichever limit crosses first wins.
@@ -66,8 +66,8 @@ export const OMP_ADAPTER = "omp";
 const WORKER_NAME = "gorp-omp-worker";
 const WORKER_EMAIL = "omp-worker@gorp.local";
 
-const DEFAULT_MAX_COST_USD = 0.01;
-const DEFAULT_MAX_TOKENS = 50_000;
+const DEFAULT_MAX_COST_USD = 0.15;
+const DEFAULT_MAX_TOKENS = 300_000;
 
 const DEFAULT_TIMEOUT_MS = 600_000;
 const DEFAULT_STARTUP_TIMEOUT_MS = 120_000;
