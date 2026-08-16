@@ -15,6 +15,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { EXIT_CODES, GorpError, exitCodeFor, isGorpError } from "../errors/index.js";
 import { loadConfig } from "../config/index.js";
 import { emit, type CliResult } from "./output.js";
@@ -27,7 +28,7 @@ import { reviewRun } from "../run/review.js";
 import { executePromote } from "../promote/promote.js";
 import { executeApprove, executeReject, executeRetry } from "../review/decision.js";
 import { inspectRun } from "../inspect/inspect.js";
-import { runSchedulerLoop } from "../orchestrator/scheduler.js";
+import { currentLoader, runSchedulerLoop, schedulerSpawnArgs } from "../orchestrator/scheduler.js";
 import { readOrchestratorStatus, recordOrchestrateEnded, recordOrchestrateStarted } from "../orchestrator/status.js";
 import { compileGraph } from "../compiler/graph-compiler.js";
 import { git } from "../sandbox/worktree.js";
@@ -394,8 +395,38 @@ function cmdOrchestrate(args: ParsedArgs, clock: Clock): CliResult {
     }
     personaProfiles = raw as Record<string, { model: string; systemPrompt: string }>;
   }
-  // Sprint 2.1: the outcome must survive a detached invocation whose stdout is
-  // discarded — persist started/ended to the append-only per-graph status log.
+  // --detach: spawn the scheduler as a detached child and return immediately.
+  // The child runs the same synchronous loop (recordStarted → loop →
+  // recordEnded) but with its own process group, so the operator can background
+  // it and poll `orchestrate-status` without holding a blocking terminal.
+  if (args.bools.has("detach")) {
+    const childArgv = [
+      "orchestrate",
+      "--project-id", projectId,
+      "--graph-id", graphId,
+      "--actor-id", actorId,
+      ...(maxStepsRaw !== undefined ? ["--max-steps", maxStepsRaw] : []),
+      ...(profilesPath !== undefined ? ["--persona-profiles", profilesPath] : []),
+      ...(policyName !== "fixture" ? ["--review-policy", policyName] : []),
+    ];
+    const spawnArgs = schedulerSpawnArgs(fileURLToPath(import.meta.url), childArgv, currentLoader());
+    const child = spawn(process.execPath, spawnArgs, {
+      detached: true,
+      stdio: "ignore",
+      env: { ...process.env },
+    });
+    child.unref();
+    return {
+      success: true,
+      command: "orchestrate",
+      ids: { graphId, projectId },
+      data: {
+        detached: true,
+        pid: child.pid,
+        note: "scheduler detached; poll with `orchestrate-status` for progress",
+      },
+    };
+  }
   const started = recordOrchestrateStarted(cfg, projectId, graphId, actorId, clock);
   const result = runSchedulerLoop({
     cli: fileURLToPath(import.meta.url),
