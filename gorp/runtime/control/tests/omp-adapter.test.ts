@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSy
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { ompAdapter, extractOmpSummary, extractOmpUsage } from "../src/worker/omp.js";
+import { ompAdapter, extractOmpSummary, extractOmpUsage, parseUsageEvents } from "../src/worker/omp.js";
 import { createSandbox, sandboxHead, type Sandbox } from "../src/sandbox/worktree.js";
 import { GorpError } from "../src/errors/index.js";
 import type { GraphNode, WorkerResult } from "../src/contracts/types.js";
@@ -455,6 +455,36 @@ describe("extractOmpUsage (GOS-55)", () => {
     expect(usage).toBeDefined();
     expect(usage!.tokensIn).toBe(200);
     expect(usage!.tokensTotal).toBe(300);
+  });
+});
+
+describe("parseUsageEvents (GOS-65 per-turn history)", () => {
+  it("returns one entry per turn_end usage event, in order", () => {
+    const stdout = [
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":100,"output":50,"totalTokens":150,"cost":{"total":0.001}}}}',
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":200,"output":100,"totalTokens":300,"cost":{"total":0.002}}}}',
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":400,"output":200,"totalTokens":600,"cost":{"total":0.003}}}}',
+    ].join("\n");
+    const events = parseUsageEvents(stdout);
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({ turn: 1, tokensTotal: 150 });
+    expect(events[1]).toMatchObject({ turn: 2, tokensTotal: 300 });
+    expect(events[2]).toMatchObject({ turn: 3, tokensTotal: 600, costUsd: 0.003 });
+  });
+
+  it("ignores non-turn_end events (agent_end usage is not per-turn)", () => {
+    const stdout = [
+      '{"type":"turn_end","message":{"role":"assistant","usage":{"input":100,"output":50,"totalTokens":150,"cost":{"total":0.001}}}}',
+      '{"type":"agent_end","messages":[{"role":"assistant","content":[],"usage":{"input":999,"output":999,"totalTokens":9999,"cost":{"total":0.9}}}]}',
+    ].join("\n");
+    const events = parseUsageEvents(stdout);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ turn: 1, tokensTotal: 150 });
+  });
+
+  it("returns empty when there are no turn_end usage events", () => {
+    const stdout = '{"type":"session","id":"s1"}\n{"type":"agent_end","messages":[{"role":"assistant","content":[{"type":"text","text":"done"}]}]}\n';
+    expect(parseUsageEvents(stdout)).toEqual([]);
   });
 });
 

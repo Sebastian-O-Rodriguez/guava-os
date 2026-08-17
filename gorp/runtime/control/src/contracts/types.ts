@@ -131,6 +131,16 @@ export interface WorkerUsage {
   durationMs?: number;
 }
 
+/** One turn's usage, in order (GOS-65): per-turn visibility into where tokens go. */
+export interface WorkerUsageEvent {
+  /** 1-based turn index across the whole invocation. */
+  readonly turn: number;
+  readonly tokensIn?: number;
+  readonly tokensOut?: number;
+  readonly tokensTotal?: number;
+  readonly costUsd?: number;
+}
+
 export interface WorkerResult {
   readonly schemaVersion: 1;
   readonly graphId: string;
@@ -153,6 +163,8 @@ export interface WorkerResult {
   readonly startedAt: string;
   readonly endedAt: string;
   readonly usage?: WorkerUsage;
+  /** Per-turn usage history (GOS-65): where tokens go, in turn order. */
+  readonly usageHistory?: readonly WorkerUsageEvent[];
 }
 
 export type CheckStatus = "passed" | "failed";

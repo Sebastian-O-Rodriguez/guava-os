@@ -35,7 +35,7 @@
  *                              mcp.json aside, and GORP_OMP_STARTUP_TIMEOUT is
  *                              the real fail-fast guard for the hang.
  *   GORP_OMP_MAX_COST_USD    — cumulative cost ceiling in USD, enforced per
- *                              attempt (default: 0.15 = $0.15). A safety
+ *                              attempt (default: 0.30 = $0.30). A safety
  *                              ceiling, NOT a working budget: operators raise
  *                              it for real work. Set to 0 to disable the cost
  *                              check. When the OMP worker's turn_end usage
@@ -43,10 +43,11 @@
  *                              SIGKILLed and the attempt records a cost-limit
  *                              outcome (never the generic 10-min timeout).
  *   GORP_OMP_MAX_TOKENS      — cumulative token ceiling, enforced per attempt
- *                              (default: 300000). Set to 0 to disable the token
- *                              check. Cost/tokens are accumulated ONLY from
- *                              turn_end usage events on the NDJSON stream;
- *                              whichever limit crosses first wins.
+ *                              (default: 0 = disabled — cost is the binding
+ *                              limit, not an arbitrary token count). Cost/tokens
+ *                              are accumulated ONLY from turn_end usage events
+ *                              on the NDJSON stream; whichever limit crosses
+ *                              first wins.
  *
  * Worker profile (GOS-46, fail closed): a node MUST carry a persona, and the
  * guava-os wf layer MUST have resolved it into the environment before
@@ -58,16 +59,15 @@
 
 import { spawn } from "node:child_process";
 import { GorpError } from "../errors/index.js";
-import type { WorkerResult, WorkerUsage } from "../contracts/types.js";
+import type { WorkerResult, WorkerUsage, WorkerUsageEvent } from "../contracts/types.js";
 import { git, sandboxChangedFiles, sandboxHead } from "../sandbox/worktree.js";
 import type { WorkerAdapter, WorkerInvocation } from "./adapter.js";
 
 export const OMP_ADAPTER = "omp";
 const WORKER_NAME = "gorp-omp-worker";
 const WORKER_EMAIL = "omp-worker@gorp.local";
-
-const DEFAULT_MAX_COST_USD = 0.15;
-const DEFAULT_MAX_TOKENS = 300_000;
+const DEFAULT_MAX_COST_USD = 0.30;
+const DEFAULT_MAX_TOKENS = 0;
 
 const DEFAULT_TIMEOUT_MS = 600_000;
 const DEFAULT_STARTUP_TIMEOUT_MS = 120_000;
@@ -158,13 +158,46 @@ function findUsage(ev: Record<string, unknown>): Record<string, unknown> | undef
   return undefined;
 }
 
+
+
 /**
- * Extract token/cost usage defensively from omp JSON-lines (NDJSON) output
- * (GOS-55). The LAST usage-bearing event carries the most-cumulative run-level
- * usage. Every field is read defensively: only finite numbers are kept, and
- * cost is NEVER invented.
+ * Extract one usage entry per turn_end usage-bearing event, in order (GOS-65).
+ * Every field is read defensively: only finite numbers are kept, and cost is
+ * NEVER invented. The LAST event is the most-cumulative run-level usage.
+ */
+export function parseUsageEvents(stdout: string): readonly WorkerUsageEvent[] {
+  const events: WorkerUsageEvent[] = [];
+  for (const line of stdout.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    let ev: unknown;
+    try {
+      ev = JSON.parse(t) as unknown;
+    } catch {
+      continue;
+    }
+    if (typeof ev !== "object" || ev === null || Array.isArray(ev)) continue;
+    const rec = ev as Record<string, unknown>;
+    if (rec["type"] !== "turn_end") continue;
+    const u = findUsage(rec);
+    if (!u) continue;
+    const report = readUsage(u);
+    if (!report) continue;
+    events.push({ turn: events.length + 1, ...report });
+  }
+  return events;
+}
+
+/**
+ * Extract the LAST turn's usage (GOS-55): the most-cumulative run-level number.
+ * Backward-compatible with the single-number consumer; the full history is
+ * `parseUsageEvents` (GOS-65).
  */
 export function extractOmpUsage(stdout: string): WorkerUsage | undefined {
+  // Legacy (GOS-55): the LAST usage-bearing event of ANY type (agent_end is
+  // final/cumulative; turn_end is per-turn). Unlike parseUsageEvents, this
+  // does NOT filter to turn_end — a worker may report its final usage only in
+  // an agent_end event.
   let last: WorkerUsage | undefined;
   for (const line of stdout.split("\n")) {
     const t = line.trim();
@@ -523,6 +556,7 @@ export const ompAdapter: WorkerAdapter = {
       const endedAt = clock.now();
       const durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
       const usage = { ...(extractOmpUsage(p.stdout) ?? {}), durationMs };
+      const usageHistory = parseUsageEvents(p.stdout);
       return {
         schemaVersion: 1,
         graphId,
@@ -536,6 +570,7 @@ export const ompAdapter: WorkerAdapter = {
         startedAt,
         endedAt,
         usage,
+        ...(usageHistory.length > 0 ? { usageHistory } : {}),
       };
     };
 
@@ -586,6 +621,7 @@ export const ompAdapter: WorkerAdapter = {
     const endedAt = clock.now();
     const durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(startedAt));
     const usage = { ...(extractOmpUsage(proc.stdout) ?? {}), durationMs };
+    const usageHistory = parseUsageEvents(proc.stdout);
 
     return {
       schemaVersion: 1,
@@ -604,6 +640,7 @@ export const ompAdapter: WorkerAdapter = {
       startedAt,
       endedAt,
       usage,
+      ...(usageHistory.length > 0 ? { usageHistory } : {}),
     };
   },
 };
