@@ -16,10 +16,19 @@
     "endedAt"
   ],
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
-    "graphId": { "$ref": "#/$defs/stableId" },
-    "nodeId": { "$ref": "#/$defs/stableId" },
-    "runId": { "$ref": "#/$defs/stableId" },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "graphId": {
+      "$ref": "#/$defs/stableId"
+    },
+    "nodeId": {
+      "$ref": "#/$defs/stableId"
+    },
+    "runId": {
+      "$ref": "#/$defs/stableId"
+    },
     "workerAdapter": {
       "type": "string",
       "minLength": 1,
@@ -27,9 +36,16 @@
     },
     "outcome": {
       "type": "string",
-      "enum": ["succeeded", "failed", "blocked", "cost-limit"]
+      "enum": [
+        "succeeded",
+        "failed",
+        "blocked",
+        "cost-limit"
+      ]
     },
-    "exitCode": { "type": "integer" },
+    "exitCode": {
+      "type": "integer"
+    },
     "summary": {
       "type": "string",
       "minLength": 1,
@@ -37,7 +53,10 @@
     },
     "expectedFiles": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "description": "Files the worker intended/expected to produce or change. Reviewers compare this claim against the git-computed changedFiles."
     },
     "reviewerNotes": {
@@ -46,48 +65,127 @@
     },
     "changedFiles": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
-      "description": "Computed from git by the adapter — never the worker process's claim."
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Computed from git by the adapter \u2014 never the worker process's claim."
     },
     "commandsExecuted": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["command", "exitCode"],
+        "required": [
+          "command",
+          "exitCode"
+        ],
         "properties": {
-          "command": { "type": "string", "minLength": 1 },
-          "exitCode": { "type": "integer" }
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "exitCode": {
+            "type": "integer"
+          }
         }
       }
     },
     "artifactRefs": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "blocker": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code", "detail"],
+      "required": [
+        "code",
+        "detail"
+      ],
       "properties": {
-        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
-        "detail": { "type": "string", "minLength": 1 },
-        "irreducible": { "type": "boolean" }
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "irreducible": {
+          "type": "boolean"
+        }
       },
       "description": "Structured blocker detail; kept here to avoid a separate blocker schema in Sprint 1."
     },
-    "startedAt": { "type": "string", "format": "date-time" },
-    "endedAt": { "type": "string", "format": "date-time" },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
     "usage": {
       "type": "object",
       "additionalProperties": false,
       "description": "Optional per-run usage capture (GOS-55): tokens and cost are stamped only when the worker reports them (never estimated); durationMs is always present when usage is present.",
       "properties": {
-        "tokensIn": { "type": "integer", "minimum": 0 },
-        "tokensOut": { "type": "integer", "minimum": 0 },
-        "tokensTotal": { "type": "integer", "minimum": 0 },
-        "costUsd": { "type": "number", "minimum": 0 },
-        "durationMs": { "type": "number", "minimum": 0 }
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensTotal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "usageHistory": {
+      "type": "array",
+      "description": "Per-turn usage history (GOS-65): one entry per turn_end usage event, in turn order. Lets an operator see where tokens go (context accumulation vs generation).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "turn"
+        ],
+        "properties": {
+          "turn": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tokensIn": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokensOut": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokensTotal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "costUsd": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
       }
     }
   },
