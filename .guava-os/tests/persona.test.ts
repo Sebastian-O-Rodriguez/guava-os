@@ -68,6 +68,31 @@ describe("resolvePersona", () => {
     });
   });
 
+  it("treats an absent tools field as the full/default tool set (no GORP_OMP_TOOLS)", () => {
+    writePersona("notools", "---\nname: notools\nmodel: default\n---\n\nBody.\n");
+    const env = personaEnv(resolvePersona("notools", root));
+    expect(env.GORP_OMP_TOOLS).toBeUndefined();
+    expect(env).toEqual({ GORP_OMP_MODEL: "default", GORP_OMP_SYSTEM_PROMPT_APPEND: "Body." });
+  });
+
+  it("fails closed on an empty tools list (no accidental full-catalog fallback)", () => {
+    writePersona("empty", "---\nname: empty\nmodel: default\ntools: []\n---\n\nBody.\n");
+    expect(() => resolvePersona("empty", root)).toThrow(/empty tools/);
+  });
+
+  it("fails closed on an unknown tool name", () => {
+    writePersona("bad", "---\nname: bad\nmodel: default\ntools: [read, notatool]\n---\n\nBody.\n");
+    expect(() => resolvePersona("bad", root)).toThrow(/unknown tool.*notatool/);
+  });
+
+  it("parses the block-list tools form (canonical)", () => {
+    writePersona(
+      "block",
+      ["---", "name: block", "model: default", "tools:", "  - read", "  - grep", "---", "", "Body."].join("\n"),
+    );
+    expect(resolvePersona("block", root).tools).toEqual(["read", "grep"]);
+  });
+
   it("errors when the persona file is missing", () => {
     expect(() => resolvePersona("missing", root)).toThrow(/persona 'missing' not found/);
   });

@@ -46,11 +46,21 @@ Dispatch composes a worker profile: persona (`.guava-os/personas/<name>/persona.
 The persona label flows issue → SprintTask.persona → graph node.persona →
 run-record `profile {persona, model}` (visible via `wf review`/`gorp inspect`).
 The omp adapter stays source-neutral: it reads `node.persona` as data and the
-env vars `GORP_OMP_MODEL` (model tier) and `GORP_OMP_SYSTEM_PROMPT_APPEND`
-(persona body) and forwards them to the omp invocation
-(`--model`, `--append-system-prompt`). Real persona-aware OMP execution is
+env vars `GORP_OMP_MODEL` (model tier), `GORP_OMP_SYSTEM_PROMPT_APPEND`
+(persona body), and `GORP_OMP_TOOLS` (capability-scoped allowlist) and forwards
+them to the omp invocation (`--model`, `--append-system-prompt`, `--config`).
+Real persona-aware OMP execution is
 PROVEN (GOS-35, guava-site proof 2026-08-12). Contract:
 `docs/architecture/worker-profile-contract.md`.
+
+### Capability-scoped tools (GOS-74-lite)
+
+When creating/editing a persona, declare the **minimum** `tools:` set the work
+needs (from `read, edit, write, bash, grep, glob, lsp, ask, web_search`). Do not
+copy the broad default list; do not use the `--tools` flag (it backfires —
+injects the full catalog). Omission means the full/default set; an empty or
+unknown `tools:` entry fails closed at resolution (no silent full-catalog
+fallback). See `.guava-os/personas/README.md`.
 
 ## Worker skills
 
