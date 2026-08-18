@@ -48,6 +48,16 @@ describe("resolvePersona", () => {
     expect(resolved.model).toBe("default");
     expect(resolved.systemPrompt).toContain("# Backend");
     expect(resolved.systemPrompt).toContain("Implement backend logic.");
+    expect(resolved.tools).toEqual(["read", "edit"]);
+  });
+
+  it("emits GORP_OMP_TOOLS when the persona declares a tool allowlist", () => {
+    writePersona("backend", "---\nname: backend\nmodel: default\ntools: [read, grep, glob, bash, edit, write]\n---\n\nBackend body.\n");
+    expect(personaEnv(resolvePersona("backend", root))).toEqual({
+      GORP_OMP_MODEL: "default",
+      GORP_OMP_SYSTEM_PROMPT_APPEND: "Backend body.",
+      GORP_OMP_TOOLS: "read,grep,glob,bash,edit,write",
+    });
   });
 
   it("maps a resolved persona to the GORP_OMP_* env the omp adapter reads", () => {
