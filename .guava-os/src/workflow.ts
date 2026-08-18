@@ -97,11 +97,15 @@ export function plan(from: string, opts: { baseCommit?: string; overwrite?: bool
 export function resolvePersonasBundle(
   personas: readonly string[],
   repoRoot: string,
-): Record<string, { model: string; systemPrompt: string }> {
-  const bundle: Record<string, { model: string; systemPrompt: string }> = {};
+): Record<string, { model: string; systemPrompt: string; tools?: readonly string[] }> {
+  const bundle: Record<string, { model: string; systemPrompt: string; tools?: readonly string[] }> = {};
   for (const p of personas) {
     const resolved = resolvePersona(p, repoRoot); // fails closed on missing file/model/body
-    bundle[p] = { model: resolved.model, systemPrompt: resolved.systemPrompt };
+    bundle[p] = {
+      model: resolved.model,
+      systemPrompt: resolved.systemPrompt,
+      ...(resolved.tools ? { tools: resolved.tools } : {}),
+    };
   }
   return bundle;
 }

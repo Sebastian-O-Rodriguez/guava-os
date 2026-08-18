@@ -178,10 +178,12 @@ interface GraphView {
   readonly transitions?: readonly TransitionRecord[];
 }
 
-/** A resolved worker profile (model + persona body) keyed by persona label. */
+/** A resolved worker profile (model + persona body + optional tool allowlist) keyed by persona label. */
 export interface PersonaProfile {
   readonly model: string;
   readonly systemPrompt: string;
+  /** Comma-joined tool allowlist (GOS-74-lite). Absent = adapter default tools. */
+  readonly tools?: string;
 }
 
 function nodeStatesOf(g: GraphView): Record<string, string> {
@@ -414,7 +416,11 @@ export function runSchedulerLoop(opts: SchedulerOptions): SchedulerResult {
           }
           result = cli(
             ["run", "--project-id", opts.projectId, "--graph-id", opts.graphId, "--node-id", action.nodeId, "--actor-id", actorId],
-            { GORP_OMP_MODEL: p.model, GORP_OMP_SYSTEM_PROMPT_APPEND: p.systemPrompt },
+            {
+              GORP_OMP_MODEL: p.model,
+              GORP_OMP_SYSTEM_PROMPT_APPEND: p.systemPrompt,
+              ...(p.tools ? { GORP_OMP_TOOLS: p.tools } : {}),
+            },
           );
         } else {
           result = cli(["run", "--project-id", opts.projectId, "--graph-id", opts.graphId, "--node-id", action.nodeId, "--actor-id", actorId]);

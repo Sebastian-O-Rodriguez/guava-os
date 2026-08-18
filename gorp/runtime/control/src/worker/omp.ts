@@ -58,6 +58,9 @@
  */
 
 import { spawn } from "node:child_process";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
 import { GorpError } from "../errors/index.js";
 import type { WorkerResult, WorkerUsage, WorkerUsageEvent } from "../contracts/types.js";
 import { git, sandboxChangedFiles, sandboxHead } from "../sandbox/worktree.js";
@@ -429,6 +432,16 @@ export const ompAdapter: WorkerAdapter = {
     const maxTokens = parseBudget(maxTokensEnv, DEFAULT_MAX_TOKENS);
 
     const cmd = (process.env["GORP_OMP_CMD"] ?? "omp").trim();
+    // GOS-74-lite: capability-scoped tool allowlist. When set, materialize a
+    // minimal `--config` overlay (NOT `--tools`, which backfires by injecting the
+    // full tool catalog). Absent = adapter uses OMP's default tool set.
+    const toolsEnv = (process.env["GORP_OMP_TOOLS"] ?? "").trim();
+    let toolsConfigDir: string | undefined;
+    if (toolsEnv) {
+      const tools = toolsEnv.split(",").map((t) => t.trim()).filter(Boolean);
+      toolsConfigDir = mkdtempSync(join(tmpdir(), "gorp-omp-cfg-"));
+      writeFileSync(join(toolsConfigDir, "config.yml"), `tools:\n  enabled: [${tools.join(", ")}]\n`, "utf8");
+    }
     const timeoutMs = Number.parseInt(process.env["GORP_OMP_TIMEOUT"] ?? "", 10) || DEFAULT_TIMEOUT_MS;
     const startupTimeoutMs = Number.parseInt(process.env["GORP_OMP_STARTUP_TIMEOUT"] ?? "", 10) || DEFAULT_STARTUP_TIMEOUT_MS;
     const mcpDisableRaw = (process.env["GORP_OMP_MCP_DISABLE"] ?? "").trim();
@@ -476,7 +489,8 @@ export const ompAdapter: WorkerAdapter = {
     // Invoke OMP in print mode with auto-approve. The persona body arrives via
     // GORP_OMP_SYSTEM_PROMPT_APPEND — set by the guava-os wf layer, never
     // resolved from guava-os paths here (adapter stays source-neutral).
-    const args = ["-p", "--auto-approve", "--mode", "json", "--model", model, "--append-system-prompt", appendSystemPrompt];
+    const args = ["-p", "--auto-approve", "--mode", "json", "--model", model, "--append-system-prompt", appendSystemPrompt,
+      ...(toolsConfigDir ? ["--config", join(toolsConfigDir, "config.yml")] : [])];
 
     // args-redacted replaces the persona body with a length-only marker.
     const argsRedacted = args.map((a) =>
@@ -573,10 +587,16 @@ export const ompAdapter: WorkerAdapter = {
         ...(usageHistory.length > 0 ? { usageHistory } : {}),
       };
     };
+    // GOS-74-lite: best-effort cleanup of the materialized tool config.
+    const cleanupToolsConfig = (): void => {
+      if (toolsConfigDir) {
+        try { rmSync(toolsConfigDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+      }
+    };
 
     // Attempt 1.
     let proc = await invokeOmp(prompt);
-    if (proc.costLimited) return buildCostLimitResult(proc);
+    if (proc.costLimited) { cleanupToolsConfig(); return buildCostLimitResult(proc); }
     assertHeadPinned();
 
     // Bounded empty-turn retry: a clean exit that changed NOTHING (e.g. the
@@ -587,7 +607,7 @@ export const ompAdapter: WorkerAdapter = {
     let stagedFiles = stageAndList(sandbox.dir);
     if (stagedFiles.length === 0) {
       proc = await invokeOmp(prompt + RETRY_APPEND);
-      if (proc.costLimited) return buildCostLimitResult(proc);
+      if (proc.costLimited) { cleanupToolsConfig(); return buildCostLimitResult(proc); }
       assertHeadPinned();
       stagedFiles = stageAndList(sandbox.dir);
     }
@@ -623,6 +643,7 @@ export const ompAdapter: WorkerAdapter = {
     const usage = { ...(extractOmpUsage(proc.stdout) ?? {}), durationMs };
     const usageHistory = parseUsageEvents(proc.stdout);
 
+    cleanupToolsConfig();
     return {
       schemaVersion: 1,
       graphId,

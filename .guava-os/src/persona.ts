@@ -3,13 +3,15 @@
  *
  * guava-os owns persona resolution (ADR_001). A graph node carries a
  * `persona` label; this module resolves that label to the concrete worker
- * profile — the OMP model tier and the persona body delivered as the system
- * prompt — by reading `.guava-os/personas/<name>/persona.md`.
+ * profile — the OMP model tier, the persona body delivered as the system
+ * prompt, and (GOS-74-lite) a capability-scoped tool allowlist — by reading
+ * `.guava-os/personas/<name>/persona.md`.
  *
  * The gorp omp adapter stays source-neutral: it never reads these paths. It
  * consumes the resolved profile as environment (`GORP_OMP_MODEL`,
- * `GORP_OMP_SYSTEM_PROMPT_APPEND`) plus `node.persona` as data, and FAILS
- * CLOSED when the profile is not present (no weak/default fallback).
+ * `GORP_OMP_SYSTEM_PROMPT_APPEND`, `GORP_OMP_TOOLS`) plus `node.persona` as
+ * data, and FAILS CLOSED when the profile is not present (no weak/default
+ * fallback).
  */
 
 import { readFileSync } from "node:fs";
@@ -23,16 +25,21 @@ export interface ResolvedPersona {
   readonly model: string;
   /** The persona body — everything after the frontmatter — delivered as the system prompt. */
   readonly systemPrompt: string;
+  /** Optional capability-scoped tool allowlist (GOS-74-lite), from frontmatter `tools:`. */
+  readonly tools?: readonly string[];
 }
 
 /** The worker-profile environment the gorp omp adapter consumes. */
 export type PersonaEnv = {
   readonly GORP_OMP_MODEL: string;
   readonly GORP_OMP_SYSTEM_PROMPT_APPEND: string;
+  /** Comma-joined tool allowlist (optional). Absent = adapter uses its default tool set. */
+  readonly GORP_OMP_TOOLS?: string;
 };
 
 /** `---`-delimited frontmatter followed by the body. */
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+
 /**
  * Resolve a persona label to its worker profile.
  *
@@ -62,12 +69,18 @@ export function resolvePersona(name: string, repoRoot: string): ResolvedPersona 
     );
   }
 
+  // GOS-74-lite: capability-scoped tool allowlist from frontmatter `tools: [...]`.
+  const toolsRaw = /^tools:\s*\[([^\]]*)\]\s*$/m.exec(frontmatter)?.[1];
+  const tools = toolsRaw
+    ? toolsRaw.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
+    : undefined;
+
   const systemPrompt = body.trim();
   if (!systemPrompt) {
     throw new Error(`persona '${name}' has an empty body (nothing to append as the system prompt)`);
   }
 
-  return { name, model, systemPrompt };
+  return { name, model, systemPrompt, ...(tools ? { tools } : {}) };
 }
 
 /** Turn a resolved persona into the environment the omp adapter reads. */
@@ -75,5 +88,6 @@ export function personaEnv(resolved: ResolvedPersona): PersonaEnv {
   return {
     GORP_OMP_MODEL: resolved.model,
     GORP_OMP_SYSTEM_PROMPT_APPEND: resolved.systemPrompt,
+    ...(resolved.tools ? { GORP_OMP_TOOLS: resolved.tools.join(",") } : {}),
   };
 }
