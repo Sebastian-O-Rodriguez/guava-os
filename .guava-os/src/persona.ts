@@ -41,10 +41,62 @@ export type PersonaEnv = {
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
 /**
+ * Supported OMP tool names a persona may declare (GOS-74-lite guardrail).
+ * Unknown tool names fail closed — never silently expanded to the full catalog.
+ */
+const KNOWN_TOOLS: readonly string[] = [
+  "read", "edit", "write", "bash", "grep", "glob", "lsp", "ask", "web_search",
+];
+
+/**
+ * Validate a declared tool list. Empty and unknown entries fail closed with an
+ * actionable message. A VALID non-empty list is the only success path.
+ */
+function validateTools(list: readonly string[], name: string): readonly string[] {
+  if (list.length === 0) {
+    throw new Error(
+      `persona '${name}' declares an empty tools: list — declare the needed tools, or omit the field for the full/default tool set`,
+    );
+  }
+  const unknown = list.filter((t) => !KNOWN_TOOLS.includes(t));
+  if (unknown.length > 0) {
+    throw new Error(
+      `persona '${name}' declares unknown tool(s): ${unknown.join(", ")} (known: ${KNOWN_TOOLS.join(", ")})`,
+    );
+  }
+  return list;
+}
+
+/**
+ * Parse the `tools:` frontmatter into an allowlist, or undefined when absent.
+ * Supports the inline form `tools: [a, b]` and the block form
+ * `tools:\n  - a\n  - b`. Absent field = undefined (adapter default tools).
+ */
+function parseTools(frontmatter: string, name: string): readonly string[] | undefined {
+  const inline = /^tools:\s*\[([^\]]*)\]\s*$/m.exec(frontmatter);
+  if (inline) {
+    const list = inline[1].split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+    return validateTools(list, name);
+  }
+  const lines = frontmatter.split(/\r?\n/);
+  const toolsIdx = lines.findIndex((l) => /^tools:\s*$/.test(l));
+  if (toolsIdx !== -1) {
+    const list: string[] = [];
+    for (let i = toolsIdx + 1; i < lines.length; i++) {
+      const m = /^\s+-\s+(\S+)\s*$/.exec(lines[i]!);
+      if (m) list.push(m[1]!.trim());
+      else if (list.length > 0) break;
+    }
+    return validateTools(list, name);
+  }
+  return undefined;
+}
+
+/**
  * Resolve a persona label to its worker profile.
  *
- * Fails closed: a missing file, a missing/empty `model`, or an empty body is
- * a resolution error — never a silent default.
+ * Fails closed: a missing file, a missing/empty `model`, an empty body, or an
+ * empty/unknown `tools:` list is a resolution error — never a silent default.
  */
 export function resolvePersona(name: string, repoRoot: string): ResolvedPersona {
   const file = join(repoRoot, ".guava-os", "personas", name, "persona.md");
@@ -69,11 +121,7 @@ export function resolvePersona(name: string, repoRoot: string): ResolvedPersona 
     );
   }
 
-  // GOS-74-lite: capability-scoped tool allowlist from frontmatter `tools: [...]`.
-  const toolsRaw = /^tools:\s*\[([^\]]*)\]\s*$/m.exec(frontmatter)?.[1];
-  const tools = toolsRaw
-    ? toolsRaw.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
-    : undefined;
+  const tools = parseTools(frontmatter, name);
 
   const systemPrompt = body.trim();
   if (!systemPrompt) {

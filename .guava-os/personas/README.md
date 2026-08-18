@@ -38,7 +38,11 @@ maps_to: <omp-role>             # required — an OMP bundled agent:
                                 #    targets a fast executor rather than an agent)
 model: <omp-model-role>         # optional — smol | default | slow
                                 #   hints the model tier Gorp should resolve for the worker
-tools: [read, edit, write, bash, grep, glob]  # OMP tools available to the worker in the sandbox
+tools:                          # GOS-74-lite: capability-scoped tool allowlist — minimum needed
+  - read
+  - edit
+  - write
+  - bash
 ---
 ```
 
@@ -48,6 +52,25 @@ Body, four required sections in this order:
 2. `## Patterns` — encouraged approaches and conventions.
 3. `## Anti-patterns` — what to avoid and why.
 4. `## Tools` — the tool list with usage notes for this persona's work.
+
+## Capability-scoped tools (GOS-74-lite)
+
+Declare only the tools a persona's work actually needs. Resolution path:
+
+`persona/task needs → tools frontmatter → GORP_OMP_TOOLS → minimal OMP --config`
+
+Choose the minimum set — do **not** copy the broad default list onto every
+persona (a read-only reviewer does not need `write`/`edit`).
+
+- **Supported names:** `read`, `edit`, `write`, `bash`, `grep`, `glob`, `lsp`, `ask`, `web_search`.
+- **Omit `tools:`** → the worker gets OMP's full/default tool set (backward
+  compatible; use when the full set is genuinely needed).
+- **`tools: []` (empty)** → resolution **fails closed** — never silently
+  expanded to the full catalog.
+- **Unknown tool name** → resolution **fails closed** with the bad name listed.
+- **Debugging:** the resolved `GORP_OMP_TOOLS` is visible in the scheduler's
+  per-node profile; the adapter materializes a `--config` overlay with exactly
+  those tools.
 
 ## Notes
 
