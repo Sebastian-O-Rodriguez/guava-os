@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "sprintId": "sprint-routineme-vertical-slice-20260814",
+  "project": {
+    "projectId": "routineme"
+  },
+  "approvedBy": "sebroot",
+  "approvedAt": "2026-08-14T20:30:00.000Z",
+  "tasks": [
+    {
+      "taskId": "GUA-234",
+      "objective": "Fix chat input reliability — make input always accessible (not scroll-away)",
+      "acceptanceCriteria": [
+        "Input bar remains visible and interactive while scrolling Today/Weekly content.",
+        "Send and Add (+) buttons render reliably on every load and never disappear after a send.",
+        "Submitting works via Enter; pending state recovers cleanly on error/timeout.",
+        "No stuck disabled input after a failed request."
+      ],
+      "dependencies": [],
+      "scope": {
+        "allowedPaths": [
+          "app/index.tsx",
+          "components/now/chat-surface.tsx",
+          "components/**"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator",
+      "persona": "frontend"
+    },
+    {
+      "taskId": "GUA-235",
+      "objective": "Add minimal Profile (weight, preferred_units) + weight event type to data model",
+      "acceptanceCriteria": [
+        "New profiles table (userId PK, weight_kg nullable, preferred_units, timestamps); auto-created on first authenticated request.",
+        "GET/PATCH /api/profile endpoints with ownership-scoped reads/writes.",
+        "Weight supported as a log type (category/log path).",
+        "Profile row persists across refresh; retrievable via API."
+      ],
+      "dependencies": [],
+      "scope": {
+        "allowedPaths": [
+          "prisma/schema.prisma",
+          "lib/scripts/helpers.ts",
+          "app/api/**",
+          "lib/auth-server.ts"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator",
+      "persona": "backend"
+    },
+    {
+      "taskId": "GUA-236",
+      "objective": "Add log_weight action: chat-driven weight entry + weight display today/weekly",
+      "acceptanceCriteria": [
+        "New log_weight intent in ActionPayload schema + script + classifier prompt examples.",
+        "Chat \"weighed 180 lbs\" creates a weight event in logs and updates profile.weight.",
+        "Weight tile appears in Today/Weekly view via useTileData.",
+        "log_weight events are deletable via RM-5 correction path."
+      ],
+      "dependencies": [
+        "GUA-235"
+      ],
+      "scope": {
+        "allowedPaths": [
+          "lib/actions/types.ts",
+          "lib/chat-prompt.ts",
+          "lib/chat-scenarios.ts",
+          "lib/chat-classifier.ts",
+          "lib/scripts/mutations/*",
+          "lib/scripts/types.ts",
+          "lib/progress.ts",
+          "hooks/use-tile-data.ts",
+          "lib/types.ts"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator",
+      "persona": "backend"
+    },
+    {
+      "taskId": "GUA-237",
+      "objective": "Add update_goal action: edit goal target/period/unit from chat",
+      "acceptanceCriteria": [
+        "New update_goal intent in ActionPayload schema + classifier support + script.",
+        "PATCH /api/goals with ownership-scoped update (404 on cross-user, no info leak).",
+        "Chat \"change gym goal to 4x/week\" updates existing goal target/period.",
+        "Goal remains active; only target/period/unit/metric mutate."
+      ],
+      "dependencies": [],
+      "scope": {
+        "allowedPaths": [
+          "lib/actions/types.ts",
+          "lib/chat-prompt.ts",
+          "lib/chat-scenarios.ts",
+          "lib/chat-classifier.ts",
+          "lib/scripts/types.ts",
+          "lib/scripts/mutations/*",
+          "app/api/goals+api.ts"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator",
+      "persona": "backend"
+    },
+    {
+      "taskId": "GUA-238",
+      "objective": "Event correction & deletion: API + Today feed affordance",
+      "acceptanceCriteria": [
+        "DELETE /api/logs/:id with ownership scope (404 cross-user, no info leak).",
+        "Today feed rows (FeedBreakdown) have a delete affordance with confirmation.",
+        "Deleting a food/workout/weight event tallies refresh immediately.",
+        "End-state test #10 passes: Incorrect information can be corrected/deleted."
+      ],
+      "dependencies": [
+        "GUA-236"
+      ],
+      "scope": {
+        "allowedPaths": [
+          "app/api/logs+api.ts",
+          "app/index.tsx",
+          "components/**",
+          "lib/scripts/types.ts"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator",
+      "persona": "backend"
+    },
+    {
+      "taskId": "GUA-239",
+      "objective": "Minimal per-request action trace (observability — end-state #11)",
+      "acceptanceCriteria": [
+        "Each chat request produces a trace record: input, classified intent, chosen action + args, execution status, error, latency.",
+        "Trace records are queryable via a debug endpoint (/api/ai/traces) per user.",
+        "Observability doesn't add latency to the request path (fire-and-forget).",
+        "End-state test #11 passes: can inspect how each request was interpreted and executed."
+      ],
+      "dependencies": [],
+      "scope": {
+        "allowedPaths": [
+          "lib/llm-observability.ts",
+          "lib/**",
+          "app/api/**",
+          "prisma/schema.prisma"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator",
+      "persona": "qa"
+    },
+    {
+      "taskId": "GUA-240",
+      "objective": "UI coherence pass — actionable Today feed, dashboard cleanup, quote header removal",
+      "acceptanceCriteria": [
+        "Today feed (FeedBreakdown) rows show working delete + (where cheap) edit.",
+        "Dashboard (app/dashboard.tsx) accurately reflects daily/weekly goal progress.",
+        "Static \"The Stub is the Way\" header removed or replaced with real content.",
+        "Consistent buttons/feedback on main interactions (send, add, increment, delete)."
+      ],
+      "dependencies": [
+        "GUA-238"
+      ],
+      "scope": {
+        "allowedPaths": [
+          "app/index.tsx",
+          "app/dashboard.tsx",
+          "components/**",
+          "hooks/**"
+        ],
+        "forbiddenPaths": []
+      },
+      "gates": [],
+      "worker": "omp",
+      "review": "human",
+      "maxAttempts": 1,
+      "escalation": "operator",
+      "persona": "frontend"
+    }
+  ]
+}
