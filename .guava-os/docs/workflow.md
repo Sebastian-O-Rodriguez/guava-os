@@ -1,104 +1,37 @@
-# Current Workflow
+# Workflow
 
-> **Superseded by `.omp/skills/planning/SKILL.md` + `.omp/skills/execution/SKILL.md`.**
-> This doc describes the classifier-only loop. The full governed pipeline is:
-> `project root → OMP session → GOS planning → Linear → IssueGraph → executable
-> work → SprintDocument → gorp graph → persona-aware OMP worker → gates → human
-> review → approve/reject/retry → promote → Linear refresh`.
+guava-os plans; project sessions dispatch; subagents execute; GitHub authorizes.
 
-## The Loop (classifier only)
-
-```
-1. Human plans work in Linear
-2. Human creates parent issues and sub-issues with persona labels
-3. Human promotes sub-issues from Backlog → Todo when ready
-4. Operator runs: guava-os pm search ... | guava-os validate
-5. Operator runs: guava-os pm search ... | guava-os status
-6. Operator confirms Go / No-Go
-7. Governed execution: sprint generate → wf plan → gorp compile-graph → dispatch
-8. Human reviews at the gorp review gate → approve/reject/retry → promote
-9. Linear refreshed via pm
-10. Repeat
-
-> **Authority note (2026-07).** The loop above describes how this classifier is used over Linear input data. Steps 8-9 are superseded for governed work: agents execute through Gorp-governed sprints, and review happens at the Gorp review gate. guava-os is the control plane; Gorp is the execution engine — execution state is never derived from Linear.
-
-## Step by Step
-
-### 1. Plan Work
-
-Human/CTO creates parent issues in Linear representing features or work packages. Each parent gets sub-issues labeled with exactly one persona (architect, backend, frontend, or qa).
-
-New sub-issues start in Backlog.
-
-### 2. Promote Work
-
-When ready to schedule work, human moves selected sub-issues from Backlog → Todo in Linear.
-
-Guava OS does not do this. There is no automated promotion today.
-
-### 3. Export Linear Data
-
-The CLI needs issue data piped via stdin. The caller must fetch it.
-
-**Using guava-os tooling:**
-
-```
-guava-os pm search --project guava-os --json | guava-os validate
+```text
+operator ↔ guava-os (manager) → Linear issues (role label, scope, acceptance)
+        ↓
+project session (dispatcher) → load open issues → subagent per role
+        ↓
+subagent: implement → verify → commit GUA-### → dev/<role>
+        ↓
+QA review → merge dev/<role> → staging → (2nd review) → production
+        ↓
+pm comment + move status → Linear refresh
 ```
 
-Search returns the full issue snapshot (relations included, GOS-28); pipe it
-to status/validate/next.
+## Manager loop
 
-**If exporting manually:**
+1. `guava-os work --all` — nothing open → close.
+2. Plan: decompose into scoped deliverables (one issue = one outcome, one role
+   label, tight acceptance).
+3. Write Linear via `pm` (create/update/link/deps).
+4. On approval, the issue is ready for a project session to dispatch.
 
-Use Linear's API or export features to produce a JSON array of issues.
+## Dispatch loop (project)
 
-### 4. Validate
+1. `guava-os work` — no open issues → close.
+2. Load open issues (role + scope + acceptance).
+3. Fan out each to an OMP subagent of its role (decide tree per role in
+   `~/dev/guava-os/docs/workflow/roles/`).
+4. Subagent implements, `verify`, commits, and the result comment moves status
+   to In Review.
 
-```bash
-cat issues.json | .guava-os/bin/guava-os validate
-```
+## Promotion
 
-If exit code is 0: no errors. Proceed to status.
-
-If exit code is 1: fix errors in Linear before continuing. See the validate guide for remediation.
-
-### 5. Check Status
-
-```bash
-cat issues.json | .guava-os/bin/guava-os status
-```
-
-Review the executable queue. Confirm the right sub-issues are showing for each persona.
-
-### 6. Go / No-Go
-
-**Go** if:
-- validate exits 0
-- status shows expected executable work
-- warnings reviewed
-
-**No-Go** if:
-- validate has errors
-- status shows unexpected empty queue
-- unexplained anomalies in parent health
-
-### 7. Governed Execution
-
-`guava-os sprint generate` → `guava-os wf plan` → gorp compiles graph →
-persona-aware OMP workers execute in sandboxes → gates → human review at the
-gorp review gate.
-
-### 8. Review & Promote
-
-Human reviews at the gorp review gate. `guava-os wf approve/reject/retry`
-records decisions; `guava-os wf promote` promotes approved work. Linear is
-refreshed via `pm`.
-
-## What Guava OS Does NOT Do in the Classifier Workflow
-
-- The classifier commands do not fetch Linear data (`pm search` handles it)
-- The classifier commands do not promote sub-issues (gorp handles promotion)
-- The classifier commands do not dispatch agents (gorp dispatches workers)
-- guava-os `pm`/`sprint`/`wf` DO call Linear, mutate state, and drive
-  execution — see `.omp/skills/planning/SKILL.md`.
+Two review gates, GitHub-enforced: QA (dev/<role> → staging), then operator
+(staging → production).

@@ -31,74 +31,74 @@ function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssu
 // ──────────────────────────────────────────────────────────────────
 
 describe("next — directive generation", () => {
-  it("produces one directive per persona with executable work", () => {
+  it("produces one directive per role with executable work", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Arch task", labels: ["architect"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", title: "Backend task", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Arch task", labels: ["scout"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", title: "Backend task", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
     expect(result.directives).toHaveLength(2);
-    const personas = result.directives.map(d => d.persona);
-    expect(personas).toContain("architect");
-    expect(personas).toContain("backend");
+    const roles = result.directives.map(d => d.role);
+    expect(roles).toContain("scout");
+    expect(roles).toContain("task");
   });
 
-  it("selects highest priority item per persona", () => {
+  it("selects highest priority item per role", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
       makeIssue({
-        id: "TST-10", title: "Low pri", labels: ["backend"], parentId: "TST-1",
+        id: "TST-10", title: "Low pri", labels: ["task"], parentId: "TST-1",
         priority: { value: 4, name: "Low" },
       }),
       makeIssue({
-        id: "TST-11", title: "Urgent", labels: ["backend"], parentId: "TST-1",
+        id: "TST-11", title: "Urgent", labels: ["task"], parentId: "TST-1",
         priority: { value: 1, name: "Urgent" },
       }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const backendDirective = result.directives.find(d => d.persona === "backend");
-    expect(backendDirective).toBeDefined();
-    expect(backendDirective!.issue_id).toBe("TST-11");
-    expect(backendDirective!.priority.value).toBe(1);
+    const taskDirective = result.directives.find(d => d.role === "task");
+    expect(taskDirective).toBeDefined();
+    expect(taskDirective!.issue_id).toBe("TST-11");
+    expect(taskDirective!.priority.value).toBe(1);
   });
 
   it("returns empty directives when no executable work", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "Backlog", statusType: "backlog" }),
-      makeIssue({ id: "TST-10", title: "Task", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Task", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
     expect(result.directives).toHaveLength(0);
-    expect(result.summary.personas_with_work).toBe(0);
+    expect(result.summary.roles_with_work).toBe(0);
   });
 
-  it("filters by persona when --persona provided", () => {
+  it("filters by role when --role provided", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Arch task", labels: ["architect"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", title: "Backend task", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Arch task", labels: ["scout"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", title: "Backend task", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
-    const result = generateNext(graph, config, "backend");
+    const result = generateNext(graph, config, "task");
 
     expect(result.directives).toHaveLength(1);
-    expect(result.directives[0].persona).toBe("backend");
+    expect(result.directives[0].role).toBe("task");
   });
 
-  it("returns empty when filtered persona has no work", () => {
+  it("returns empty when filtered role has no work", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Arch task", labels: ["architect"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Arch task", labels: ["scout"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
-    const result = generateNext(graph, config, "frontend");
+    const result = generateNext(graph, config, "designer");
 
     expect(result.directives).toHaveLength(0);
   });
@@ -112,66 +112,66 @@ describe("next — branch generation", () => {
   it("generates correct branch format", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "GUA-17", title: "Build action executor", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "GUA-17", title: "Build action executor", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.persona === "backend");
+    const d = result.directives.find(d => d.role === "task");
     expect(d).toBeDefined();
-    expect(d!.branch).toBe("backend/gua-17-build-action-executor");
+    expect(d!.branch).toBe("task/gua-17-build-action-executor");
   });
 
   it("slugifies titles with special characters", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "GUA-42", title: "Define Action type + Zod schemas in lib/actions/types.ts", labels: ["architect"], parentId: "TST-1" }),
+      makeIssue({ id: "GUA-42", title: "Define Action type + Zod schemas in lib/actions/types.ts", labels: ["scout"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.persona === "architect");
-    expect(d!.branch).toMatch(/^architect\/gua-42-define-action-type-zod-schemas/);
+    const d = result.directives.find(d => d.role === "scout");
+    expect(d!.branch).toMatch(/^scout\/gua-42-define-action-type-zod-schemas/);
     expect(d!.branch).not.toMatch(/[^a-z0-9/-]/);
   });
 
   it("truncates long title at word boundary", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "GUA-16", title: "Define Action type + Zod schemas in lib/actions/types.ts", labels: ["architect"], parentId: "TST-1" }),
+      makeIssue({ id: "GUA-16", title: "Define Action type + Zod schemas in lib/actions/types.ts", labels: ["scout"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.persona === "architect")!;
+    const d = result.directives.find(d => d.role === "scout")!;
     // Must not cut mid-word — should end at a complete word
-    expect(d.branch).toBe("architect/gua-16-define-action-type-zod-schemas-in-lib");
+    expect(d.branch).toBe("scout/gua-16-define-action-type-zod-schemas-in-lib");
     expect(d.branch).not.toContain("-lib-ac");
   });
 
   it("file-path-heavy title produces valid slug", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "GUA-17", title: "Build action executor in lib/actions/executor.ts", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "GUA-17", title: "Build action executor in lib/actions/executor.ts", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.persona === "backend")!;
+    const d = result.directives.find(d => d.role === "task")!;
     // Must not produce "-exe" or "-actions-exe" truncation
-    expect(d.branch).toBe("backend/gua-17-build-action-executor-in-lib-actions");
+    expect(d.branch).toBe("task/gua-17-build-action-executor-in-lib-actions");
     expect(d.branch).not.toContain("-executor-ts");
   });
 
   it("single long token hard truncates", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "GUA-99", title: "aaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbccccc", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "GUA-99", title: "aaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbccccc", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.persona === "backend")!;
+    const d = result.directives.find(d => d.role === "task")!;
     // Single token exceeds limit — hard truncate at 40
     const slug = d.branch.split("/")[1].replace(/^gua-99-/, "");
     expect(slug.length).toBeLessThanOrEqual(40);
@@ -180,13 +180,13 @@ describe("next — branch generation", () => {
   it("short titles are unchanged", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "GUA-10", title: "Design auth schema", labels: ["architect"], parentId: "TST-1" }),
+      makeIssue({ id: "GUA-10", title: "Design auth schema", labels: ["scout"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.persona === "architect")!;
-    expect(d.branch).toBe("architect/gua-10-design-auth-schema");
+    const d = result.directives.find(d => d.role === "scout")!;
+    expect(d.branch).toBe("scout/gua-10-design-auth-schema");
   });
 });
 
@@ -198,9 +198,9 @@ describe("next — determinism", () => {
   it("produces identical output on repeated calls", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Task A", labels: ["architect"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", title: "Task B", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-12", title: "Task C", labels: ["frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Task A", labels: ["scout"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", title: "Task B", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", title: "Task C", labels: ["designer"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
 
@@ -210,29 +210,29 @@ describe("next — determinism", () => {
     expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
   });
 
-  it("directives sorted by priority then persona", () => {
+  it("directives sorted by priority then role", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
       makeIssue({
-        id: "TST-10", title: "Frontend low", labels: ["frontend"], parentId: "TST-1",
+        id: "TST-10", title: "Frontend low", labels: ["designer"], parentId: "TST-1",
         priority: { value: 4, name: "Low" },
       }),
       makeIssue({
-        id: "TST-11", title: "Backend urgent", labels: ["backend"], parentId: "TST-1",
+        id: "TST-11", title: "Backend urgent", labels: ["task"], parentId: "TST-1",
         priority: { value: 1, name: "Urgent" },
       }),
       makeIssue({
-        id: "TST-12", title: "Architect urgent", labels: ["architect"], parentId: "TST-1",
+        id: "TST-12", title: "Architect urgent", labels: ["scout"], parentId: "TST-1",
         priority: { value: 1, name: "Urgent" },
       }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    // Urgent items first (architect before backend alphabetically), then low
-    expect(result.directives[0].persona).toBe("architect");
-    expect(result.directives[1].persona).toBe("backend");
-    expect(result.directives[2].persona).toBe("frontend");
+    // Urgent items first (scout before task alphabetically), then low
+    expect(result.directives[0].role).toBe("scout");
+    expect(result.directives[1].role).toBe("task");
+    expect(result.directives[2].role).toBe("designer");
   });
 });
 
@@ -244,7 +244,7 @@ describe("next — output formats", () => {
   it("human and JSON derive from same result", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Task", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Task", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
@@ -252,14 +252,14 @@ describe("next — output formats", () => {
 
     expect(human).toContain("TST-10");
     expect(human).toContain("NEXT");
-    expect(human).toContain("backend");
+    expect(human).toContain("task");
     expect(result.directives[0].issue_id).toBe("TST-10");
   });
 
   it("JSON includes capabilities", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Task", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Task", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
@@ -270,15 +270,15 @@ describe("next — output formats", () => {
   it("human output shows context lines", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Task A", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", title: "Task B", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Task A", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", title: "Task B", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
     const human = formatNext(result);
 
     expect(human).toContain("dependency detection unavailable");
-    expect(human).toContain("2 executable backend items total");
+    expect(human).toContain("2 executable task items total");
   });
 });
 
@@ -301,7 +301,7 @@ describe("next — read-only guarantee", () => {
   it("does not modify input graph", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", title: "Task", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", title: "Task", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, config);
     const before = JSON.stringify(graph);
@@ -354,7 +354,7 @@ describe("next — CLI smoke", () => {
     expect(parsed).toHaveProperty("capabilities");
     expect(Array.isArray(parsed.directives)).toBe(true);
     if (parsed.directives.length > 0) {
-      expect(parsed.directives[0]).toHaveProperty("persona");
+      expect(parsed.directives[0]).toHaveProperty("role");
       expect(parsed.directives[0]).toHaveProperty("issue_id");
       expect(parsed.directives[0]).toHaveProperty("branch");
       expect(parsed.directives[0]).toHaveProperty("priority");
@@ -380,11 +380,11 @@ describe("next — CLI smoke", () => {
     expect(exitCode).toBe(1);
   });
 
-  it("--persona filters output", () => {
-    const { stdout } = run("next --json --persona architect", fixture("clean.json"));
+  it("--role filters output", () => {
+    const { stdout } = run("next --json --role scout", fixture("clean.json"));
     const parsed = JSON.parse(stdout);
     for (const d of parsed.directives) {
-      expect(d.persona).toBe("architect");
+      expect(d.role).toBe("scout");
     }
   });
 });

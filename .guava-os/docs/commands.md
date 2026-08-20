@@ -3,173 +3,89 @@
 The Guava OS CLI has two surfaces:
 
 - **Classifier commands** (`doctor`, `status`, `validate`, `next`) — read-only,
-  stdin-driven. This doc covers these.
-- **Planning/management commands** (`pm`, `sprint`, `wf`) — these call Linear,
-  mutate state, and drive the governed execution pipeline. See
-  `.omp/skills/planning/SKILL.md`.
-
-## Classifier Commands
-
-There are four classifier commands. All are read-only over stdin data; none
-mutate Linear, git, or external state.
+  stdin-driven JSON; never call Linear or mutate state.
+- **Live commands** (`work`, `pm`) — query Linear; the session gate + project
+  management.
+- **Bootstrap** (`register`) — project setup.
 
 ```bash
-# Recommended
 .guava-os/bin/guava-os <command> [flags]
-
-# Via npm script
-npm run guava-os -- <command> [flags]
-
-# Via npx
-npx tsx .guava-os/src/cli.ts <command> [flags]
 ```
 
 ## `doctor`
 
-Validates repo setup.
-
-```bash
-# Without Linear data
-.guava-os/bin/guava-os doctor
-
-# With Linear label data (enables persona-label cross-check)
-echo '{"issues": [], "labels": ["architect", "backend", "frontend", "qa"]}' | .guava-os/bin/guava-os doctor
-
-# JSON output
-.guava-os/bin/guava-os doctor --json
-```
-
-**Stdin**: Optional. Object `{"issues": [...], "labels": [...]}` or bare array `[...]`.
-
-**Exit 0**: All checks pass.
-**Exit 1**: One or more checks fail.
-
-**Example output:**
-
-```
-DOCTOR
-
-  ✓ config         .guava-os/config.json valid
-  ✓ agents-md      AGENTS.md present, authority hierarchy found
-  ✓ protocol       0/0 process docs found
-  ✓ linear         Guava AI / guava-os — issue graph loaded
-  ✓ labels         4/4 persona labels found in Linear data
-  ✓ gitignore      .guava-os/manifest.json is gitignored
-
-RESULT: 6/6 passed
-```
+Validates repo setup (config, registry remotes, Linear data availability, role
+labels, gitignore). Read-only.
 
 ## `status`
 
-Shows execution queue by persona.
+Shows the executable queue grouped by role.
 
 ```bash
-cat issues.json | .guava-os/bin/guava-os status
-cat issues.json | .guava-os/bin/guava-os status --json
+cat issues.json | guava-os status
+cat issues.json | guava-os status --json
 ```
 
-**Stdin**: Required. JSON array of Linear issues.
-
-**Exit 0**: Executable work exists for at least one persona.
-**Exit 1**: No executable work for any persona.
-
-**Example output:**
-
-```
-EXECUTABLE
-  architect:    (none)
-  backend:      GUA-27 [P0/Urgent] "Add tests for category fallback"
-                GUA-17 [P1/High] "Build action executor"
-  frontend:     (none)
-  qa:           (none)
-
-NOT_PROMOTED
-  GUA-16  [architect] "Define Action type + Zod schemas"
-
-BLOCKED (dependency relations not loaded — blocker detection unavailable)
-
-PARENTS
-  GUA-9  Todo          2/3   subtasks  (2 Done, 1 Todo)
-  GUA-6  Todo          0/3   subtasks  (1 Todo, 2 Backlog)
-
-SUMMARY: 2 executable, 1 not promoted, 0 blocked, 0 invalid, 2 active parents
-```
-
-**JSON output** includes `executable`, `not_promoted`, `blocked`, `invalid`, `parents`, `summary`, and `capabilities` fields.
+Exit 0 if executable work exists for at least one role.
 
 ## `validate`
 
 Detects protocol violations.
 
 ```bash
-cat issues.json | .guava-os/bin/guava-os validate
-cat issues.json | .guava-os/bin/guava-os validate --json
-cat issues.json | .guava-os/bin/guava-os validate --strict
+cat issues.json | guava-os validate
+cat issues.json | guava-os validate --strict
 ```
 
-**Stdin**: Required. JSON array of Linear issues.
+Codes: `V302` orphan · `V303` parent_not_active (error) · `V304` empty_parent ·
+`V305` subtask_overflow (error) · `V306` container_role_label · `V307`
+external_blocker_gap · `V400` missing_role_label (error) · `V401`
+multiple_role_labels (error) · `V402` unknown_role_label · `V500`
+queue_overflow.
 
-**Exit 0**: No error-severity violations.
-**Exit 1**: One or more errors.
-**Exit 1 with --strict**: Any violation (error or warning).
-
-**Example output (errors + warnings):**
-
-```
-ERRORS
-  V303 parent_not_active          GUA-52       Parent GUA-1 status "Backlog" is not active
-  V400 missing_persona_label      GUA-50       Sub-issue has no persona label
-
-WARNINGS
-  V302 orphan_sub_issue           GUA-53       Sub-issue references parent GUA-GONE not found
-
-SUMMARY: 2 errors, 1 warnings, 3 total
-```
-
-**Example output (clean graph):**
-
-```
-VALIDATE: no violations found
-```
-
-**JSON output** includes `summary` (`errors`, `warnings`, `total`) and `violations` array.
+Exit 0 if no errors; `--strict` also fails on warnings.
 
 ## `next`
 
-Compiles the issue graph into one operator-ready launch directive per persona.
+One launch directive per role (highest-priority executable issue).
 
 ```bash
 guava-os next < issues.json
-guava-os next --persona backend < issues.json
-guava-os next --json < issues.json
+guava-os next --role task < issues.json
 ```
 
-**Stdin**: Required. JSON array of Linear issues (same shape as `status` / `validate`).
+Read-only. Exit 0 if at least one directive.
 
-**Flags**:
+## `work`
 
-| Flag | Effect |
-|------|--------|
-| `--persona <name>` | Filter output to a single persona |
-| `--json` | Output machine-readable JSON instead of human text |
-
-**Exit 0**: Directives produced for at least one persona.
-**Exit 1**: No directives could be produced.
-
-Each directive carries a suggested git branch name and context notes for the
-operator to launch the persona's work. The command is read-only — it mutates
-nothing in Linear, git, or any external state.
-
-**Example:**
+The session gate — queries Linear for open work, grouped by role.
 
 ```bash
-guava-os next < issues.json
+guava-os work          # this project
+guava-os work --all    # every active registry project
+guava-os work --json
 ```
 
-## Global Flags
+Exit 0 if open work exists, 1 if none (the session hook closes on 1).
+
+## `pm`
+
+All Linear reads/writes. The only supported Linear interface — never Linear MCP.
+
+```bash
+guava-os pm search --project guava-os --status Todo --label task
+guava-os pm create --title "..." --team "Guava AI" --label task
+guava-os pm link <id> --blocked-by <id>
+guava-os pm move <id> --status "In Progress"
+guava-os pm comment <id> --body "..."
+guava-os pm archive <id>
+```
+
+## Global flags
 
 | Flag | Commands | Effect |
-|------|----------|--------|
-| `--json` | All | Output machine-readable JSON instead of human text |
-| `--strict` | `validate` only | Warnings become errors (affect exit code) |
-| `--help` | N/A | Show usage |
+|---|---|---|
+| `--json` | all | machine-readable output |
+| `--strict` | `validate` | warnings become errors |
+| `--role <name>` | `next` | filter directives to one role |
+| `--all` | `work` | every registry project |

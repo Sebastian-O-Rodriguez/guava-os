@@ -34,31 +34,26 @@ import { runDoctor, formatDoctor, type LinearLabelInfo } from "./doctor.js";
 import { formatStatus, formatStatusJson } from "./status.js";
 import { runValidate, formatValidate } from "./validate.js";
 import { generateNext, formatNext } from "./next.js";
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
 import * as pm from "./linear-client.js";
-import * as wf from "./workflow.js";
-import { generateSprint, generateSprintMulti, approveSprint } from "./sprint.js";
-import { resolveRegistryProjectId, loadRegistry } from "./registry.js";
-import { runLaunch } from "./launch.js";
 import { runRegister } from "./register.js";
+import { runWork } from "./work.js";
 
 function usage(): never {
   console.log(`guava-os <command> [flags]
 
 Commands:
   doctor    Verify repo Guava OS setup
-  status    Show executable queue by persona
+  status    Show executable queue by role
   validate  Detect protocol violations in issue graph
   next      Generate operator-ready launch directives
   pm        Project management via Linear (see: pm --help)
-  wf        Operator workflow over gorp (see: wf --help)
-  sprint    Generate/approve the gorp SprintDocument from Linear (see: sprint --help)
-  launch    Start a governed agent with a v1 permission role (see: launch --help)
+  work      Show open work by role (--all for every project; session gate)
   register  Register a project: create repo + record git_remote (see: register --help)
 Flags:
   --json           Output as JSON instead of human-readable text
   --strict         (validate only) Treat warnings as errors
-  --persona <name> (next only) Filter directives to a single persona
+  --role <name> (next only) Filter directives to a single role
 
 Stdin:
   doctor accepts: { "issues": [...], "labels": [...] }
@@ -104,16 +99,10 @@ async function main() {
 
   // Subcommand --help: show usage for any known command
   if (args.includes("--help") || args.includes("-h")) {
-    const known = ["doctor", "status", "validate", "next", "launch", "register"];
+    const known = ["doctor", "status", "validate", "next", "work", "register"];
     if (known.includes(command)) usage();
   }
 
-  // launch resolves its own registry + role manifest and does not need a
-  // repo-scoped config (it launches agents for ANY registry project).
-  if (command === "launch") {
-    runLaunch(args.slice(1), jsonMode);
-    process.exit(0);
-  }
 
   // register creates the repo + registry entry; no config needed.
   if (command === "register") {
@@ -189,11 +178,11 @@ async function main() {
       const issues = parseIssuesFromStdin(readStdin().trim());
       const graph = buildGraph(issues, config);
 
-      // Parse --persona flag
-      const personaIdx = args.indexOf("--persona");
-      const personaFilter = personaIdx !== -1 ? args[personaIdx + 1] : undefined;
+      // Parse --role flag
+      const roleIdx = args.indexOf("--role");
+      const roleFilter = roleIdx !== -1 ? args[roleIdx + 1] : undefined;
 
-      const result = generateNext(graph, config, personaFilter);
+      const result = generateNext(graph, config, roleFilter);
 
       if (jsonMode) {
         console.log(JSON.stringify(result, null, 2));
@@ -207,13 +196,8 @@ async function main() {
       await runPm(args.slice(1), config, jsonMode);
       process.exit(0);
     }
-    case "wf": {
-      await runWf(args.slice(1), jsonMode);
-      process.exit(0);
-    }
-    case "sprint": {
-      await runSprint(args.slice(1), config, jsonMode);
-      process.exit(0);
+    case "work": {
+      process.exit(await runWork(args.slice(1), jsonMode));
     }
 
 
@@ -372,183 +356,3 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
   }
 }
 
-async function runWf(args: string[], jsonMode: boolean): Promise<void> {
-  const sub = args[0];
-  const rest = args.slice(1);
-  const f = flag;
-
-  if (!sub || sub === "--help" || sub === "-h") {
-    console.log(`guava-os wf <subcommand> [flags]
-
-Subcommands:
-  plan <sprint.json>           Compile an approved execution request to a draft graph
-  orchestrate <project> <graph>  Start the scheduler loop
-  orchestrate-status <project> <graph>  Check scheduler state
-  review <project> <graph> <node>  Read-only inspection of a run
-  inspect <project> <graph> <node>  Read-only audit + deterministic trace of a run
-  approve <project> <graph> <node> --actor <a> --commit <sha> --reason <r>
-  reject <project> <graph> <node> --actor <a> --reason <r>
-  retry <project> <graph> <node> --actor <a> --reason <r>
-  promote <project> <graph> <node> --actor <a> [--override-baseline] [--push]
-  reconcile <project> <graph> --from <sprint.json> [--adopt | --regenerate] [--actor <a>]
-
-All wf commands call gorp CLI primitives — guava-os decides; gorp enforces.`);
-    return;
-  }
-
-  switch (sub) {
-    case "plan": {
-      const result = wf.plan(rest[0]!, {
-        baseCommit: f(rest, "--base-commit"),
-        overwrite: rest.includes("--overwrite"),
-      });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "orchestrate": {
-      const result = wf.orchestrate(rest[0]!, rest[1]!);
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "orchestrate-status": {
-      const result = wf.orchestrateStatus(rest[0]!, rest[1]!);
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "review": {
-      const result = wf.review(rest[0]!, rest[1]!, rest[2]!, { runId: f(rest, "--run-id") });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "inspect": {
-      const result = wf.inspect(rest[0]!, rest[1]!, rest[2]!, { runId: f(rest, "--run-id") });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "approve": {
-      const result = wf.approve(rest[0]!, rest[1]!, rest[2]!, f(rest, "--actor")!, f(rest, "--commit")!, f(rest, "--reason")!, { runId: f(rest, "--run-id") });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "reject": {
-      const result = wf.reject(rest[0]!, rest[1]!, rest[2]!, f(rest, "--actor")!, f(rest, "--reason")!, { runId: f(rest, "--run-id") });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "retry": {
-      const result = wf.retry(rest[0]!, rest[1]!, rest[2]!, f(rest, "--actor")!, f(rest, "--reason")!, { runId: f(rest, "--run-id") });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "promote": {
-      const result = wf.promote(rest[0]!, rest[1]!, rest[2]!, f(rest, "--actor")!, {
-        runId: f(rest, "--run-id"),
-        overrideBaseline: rest.includes("--override-baseline"),
-        push: rest.includes("--push"),
-      });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    case "reconcile": {
-      const result = wf.reconcile(rest[0]!, rest[1]!, f(rest, "--from")!, {
-        adopt: rest.includes("--adopt"),
-        regenerate: rest.includes("--regenerate"),
-        actorId: f(rest, "--actor"),
-        baseCommit: f(rest, "--base-commit"),
-      });
-      console.log(jsonMode ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
-      return;
-    }
-    default:
-      console.error(`unknown wf subcommand: ${sub}`);
-      console.error("run 'guava-os wf --help' for usage");
-      process.exit(1);
-  }
-}
-
-/** Sprint: generate/approve the gorp SprintDocument from Linear (GOS-29). */
-async function runSprint(
-  args: string[],
-  config: Config,
-  jsonMode: boolean,
-): Promise<void> {
-  const sub = args[0];
-  const rest = args.slice(1);
-  const f = flag;
-
-  if (!sub || sub === "--help" || sub === "-h") {
-    console.log(`guava-os sprint <subcommand> [flags]
-
-Subcommands:
-  generate --parent <id|GUA-N> [--parent <id> ...] [--project <linear-project-or-registry-id>] [--out <path>]
-            Fetch the parent(s) from Linear and generate a schema-valid
-            gorp SprintDocument (UNAPPROVED), write to --out (or stdout).
-            Shape is inferred: container parent (has children) → tasks from
-            children (blocked excluded); deliverable / standalone parent
-            (no children) → tasks = parent + transitive dependency chain.
-            Pass --parent MULTIPLE times (or comma/space) to UNION parents
-            into ONE document, preserving cross-container dependencies
-            (GOS-42).
-  approve <file> --by <actor>
-            Record explicit operator approval on a generated document.
-
-The document is a HANDOFF artifact, not a planning authority. Gorp compiles
-it; gorp never reads Linear (ADR_001).`);
-    return;
-  }
-
-  switch (sub) {
-    case "generate": {
-      const parents = flagAll(rest, "--parent");
-      const linearProject = f(rest, "--project") ?? config.linear.project;
-      if (parents.length === 0) {
-        console.error("sprint generate requires --parent <id|GUA-N> (repeatable for a union)");
-        process.exit(1);
-      }
-      const parentIssues = await Promise.all(parents.map((p) => pm.getIssue(p)));
-      const { issues } = await pm.searchIssues(config, { projectId: linearProject });
-      const registryId = resolveRegistryProjectId(linearProject, loadRegistry());
-      const result =
-        parentIssues.length === 1
-          ? generateSprint(issues, parentIssues[0].id, registryId, config)
-          : generateSprintMulti(
-              issues,
-              parentIssues.map((p) => p.id),
-              registryId,
-              config,
-            );
-      const docJson = JSON.stringify(result.doc, null, 2) + "\n";
-      const out = f(rest, "--out");
-      if (out) {
-        writeFileSync(out, docJson, "utf-8");
-        if (jsonMode) {
-          console.log(JSON.stringify({ out, ...result }, null, 2));
-        } else {
-          console.log(`Wrote ${out}`);
-          console.log(`  sprint ${result.doc.sprintId}, ${result.doc.tasks.length} task(s), ${result.doc.tasks.length} in graph`);
-          console.log(`  excluded: ${result.excludedBlocked.length} blocked, ${result.excludedInvalid.length} invalid, ${result.excludedBacklog.length} backlog`);
-          console.log(`  approvedBy: ${result.doc.approvedBy} — run 'guava-os sprint approve ${out} --by <actor>' before compiling`);
-          for (const w of result.warnings) console.log(`  warn: ${w}`);
-        }
-      } else {
-        console.log(docJson);
-      }
-      return;
-    }
-    case "approve": {
-      const file = rest[0];
-      const actor = f(rest, "--by");
-      if (!file || !actor) {
-        console.error("sprint approve <file> --by <actor>");
-        process.exit(1);
-      }
-      const doc = approveSprint(file, actor);
-      console.log(`Approved ${file}: ${doc.approvedBy} @ ${doc.approvedAt}`);
-      return;
-    }
-    default:
-      console.error(`unknown sprint subcommand: ${sub}`);
-      console.error("run 'guava-os sprint --help' for usage");
-      process.exit(1);
-  }
-}

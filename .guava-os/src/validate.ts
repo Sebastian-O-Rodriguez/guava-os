@@ -6,7 +6,7 @@
  */
 
 import type { Config } from "./config.js";
-import { allPersonaLabels } from "./config.js";
+import { allRoles } from "./config.js";
 import type { IssueGraph, LinearIssue } from "./linear.js";
 
 export type ViolationSeverity = "error" | "warning";
@@ -36,7 +36,7 @@ export interface ValidateResult {
  */
 export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Config): ValidateResult {
   const violations: Violation[] = [];
-  const personaLabels = allPersonaLabels(config);
+  const roleLabels = allRoles(config);
   const activeParentStatuses = config.active_parent_statuses;
 
   // Build a full issue lookup (ANY nesting level) + children-by-parent map.
@@ -56,7 +56,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   }
 
   // Containers (issues with ≥1 child) are groupings, not deliverables —
-  // persona/queue checks apply to deliverables only (GUA-111).
+  // role/queue checks apply to deliverables only (GUA-111).
   const containerIds = new Set(
     issues.filter((i) => !i.canceledAt && subtasksByParent.has(i.id)).map((i) => i.id),
   );
@@ -94,8 +94,8 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   }
 
   // ── V304: empty_parent ──
-  // Fires for active top-level issues that have NO children AND NO persona label.
-  // Standalone deliverables (have persona) are excluded — they're executable candidates.
+  // Fires for active top-level issues that have NO children AND NO role label.
+  // Standalone deliverables (have role) are excluded — they're executable candidates.
   // Real containers (have children) are excluded — they group work.
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
@@ -106,11 +106,11 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     const hasChildren = issues.some(i => i.parentId === issue.id && !i.canceledAt);
     if (hasChildren) continue;
 
-    // Skip if it has a persona label (it's a standalone deliverable)
-    const hasPersona = issue.labels.some(l => personaLabels.includes(l));
-    if (hasPersona) continue;
+    // Skip if it has a role label (it's a standalone deliverable)
+    const hasRole = issue.labels.some(l => roleLabels.includes(l));
+    if (hasRole) continue;
 
-    // Degenerate: no children, no persona — an empty parent with no reason to exist
+    // Degenerate: no children, no role — an empty parent with no reason to exist
     violations.push({
       code: "V304",
       name: "empty_parent",
@@ -143,101 +143,101 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     }
   }
 
-  // ── V306: container_persona_label ──
-  // Containers are groupings and must carry NO persona label (GOS-21: labels
-  // classify deliverables; parents never execute). A persona label on a
+  // ── V306: container_role_label ──
+  // Containers are groupings and must carry NO role label (GOS-21: labels
+  // classify deliverables; parents never execute). A role label on a
   // container is metadata drift — flag so it can be cleaned via
   // `pm update <id> --label <remaining labels>`.
   for (const id of containerIds) {
     const container = allById.get(id);
     if (!container) continue;
-    const matched = container.labels.filter((l) => personaLabels.includes(l));
+    const matched = container.labels.filter((l) => roleLabels.includes(l));
     if (matched.length > 0) {
       violations.push({
         code: "V306",
-        name: "container_persona_label",
+        name: "container_role_label",
         severity: "warning",
         issue_id: id,
-        detail: `Container carries persona label(s): ${matched.join(", ")} — containers are groupings and must have no persona label (remove via pm update)`,
+        detail: `Container carries role label(s): ${matched.join(", ")} — containers are groupings and must have no role label (remove via pm update)`,
       });
     }
   }
 
-  // ── V400: missing_persona_label ──
+  // ── V400: missing_role_label ──
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
     if (containerIds.has(issue.id)) continue;
 
-    const matched = issue.labels.filter(l => personaLabels.includes(l));
+    const matched = issue.labels.filter(l => roleLabels.includes(l));
     if (matched.length === 0) {
       violations.push({
         code: "V400",
-        name: "missing_persona_label",
+        name: "missing_role_label",
         severity: "error",
         issue_id: issue.id,
-        detail: "Sub-issue has no persona label — not routable to any agent",
+        detail: "Sub-issue has no role label — not routable to any agent",
       });
     }
   }
 
-  // ── V401: multiple_persona_labels ──
+  // ── V401: multiple_role_labels ──
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
     if (containerIds.has(issue.id)) continue;
 
-    const matched = issue.labels.filter(l => personaLabels.includes(l));
+    const matched = issue.labels.filter(l => roleLabels.includes(l));
     if (matched.length > 1) {
       violations.push({
         code: "V401",
-        name: "multiple_persona_labels",
+        name: "multiple_role_labels",
         severity: "error",
         issue_id: issue.id,
-        detail: `Sub-issue has multiple persona labels: ${matched.join(", ")}`,
+        detail: `Sub-issue has multiple role labels: ${matched.join(", ")}`,
       });
     }
   }
 
-  // ── V402: unknown_persona_label ──
-  // Labels on sub-issues that look like they could be persona labels but aren't in config.
-  // We check for labels that are NOT in personaLabels and NOT in the known non-persona set.
-  const knownNonPersona = new Set(["Feature", "Bug", "Improvement"]);
+  // ── V402: unknown_role_label ──
+  // Labels on sub-issues that look like they could be role labels but aren't in config.
+  // We check for labels that are NOT in roleLabels and NOT in the known non-role set.
+  const knownNonRole = new Set(["Feature", "Bug", "Improvement"]);
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
 
     for (const label of issue.labels) {
-      if (!personaLabels.includes(label) && !knownNonPersona.has(label)) {
+      if (!roleLabels.includes(label) && !knownNonRole.has(label)) {
         violations.push({
           code: "V402",
-          name: "unknown_persona_label",
+          name: "unknown_role_label",
           severity: "warning",
           issue_id: issue.id,
-          detail: `Label "${label}" is not a configured persona or known category label`,
+          detail: `Label "${label}" is not a configured role or known category label`,
         });
       }
     }
   }
 
   // ── V500: queue_overflow ──
-  const todoCountByPersona = new Map<string, number>();
+  const todoCountByRole = new Map<string, number>();
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
     if (containerIds.has(issue.id)) continue;
     if (issue.status !== config.statuses.todo) continue;
 
-    const matched = issue.labels.filter(l => personaLabels.includes(l));
+    const matched = issue.labels.filter(l => roleLabels.includes(l));
     if (matched.length === 1) {
-      const persona = matched[0];
-      todoCountByPersona.set(persona, (todoCountByPersona.get(persona) || 0) + 1);
+      const role = matched[0];
+      todoCountByRole.set(role, (todoCountByRole.get(role) || 0) + 1);
     }
   }
-  for (const [persona, count] of todoCountByPersona) {
-    if (count > config.invariants.max_todo_per_persona) {
+  for (const [role, count] of todoCountByRole) {
+    if (count > config.invariants.max_todo_per_role) {
       violations.push({
         code: "V500",
         name: "queue_overflow",
         severity: "warning",
-        issue_id: `(${persona})`,
-        detail: `${count} Todo sub-issues for persona "${persona}" exceeds max ${config.invariants.max_todo_per_persona}`,
+        issue_id: `(${role})`,
+        detail: `${count} Todo sub-issues for role "${role}" exceeds max ${config.invariants.max_todo_per_role}`,
       });
     }
   }

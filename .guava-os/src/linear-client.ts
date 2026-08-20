@@ -214,7 +214,7 @@ async function resolveTeamStateId(teamId: string, statusName: string): Promise<s
  * Canonical issue reference: a Linear UUID, or the canonical identifier
  * (`GUA-113`) that Linear assigns at creation. Temporary plan aliases
  * (`S0`/`R1`/`S0/S1`) and arbitrary strings are rejected — they cannot
- * resolve to issues in deps/graph/gorp handoff (GOS-38).
+ * resolve to issues in dependency/handoff references (GOS-38).
  */
 const CANONICAL_REF = /^[A-Za-z]{2,}-\d+$/;
 export function assertCanonicalReference(value: string, field = "issue"): void {

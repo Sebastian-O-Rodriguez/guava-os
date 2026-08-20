@@ -96,15 +96,14 @@ describe("formatDoctor git_remote column", () => {
 
 const ADVISORY_CONFIG: Config = {
   linear: { team: "Test", project: "TestProject", issue_prefix: "TST" },
-  personas: ["architect", "backend", "frontend", "qa"],
+  roles: ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
   statuses: {
     backlog: "Backlog", todo: "Todo", in_progress: "In Progress",
     in_review: "In Review", done: "Done",
   },
   active_parent_statuses: ["Todo", "In Progress"],
-  labels: { persona_labels: ["architect", "backend", "frontend"], qa_label: "qa" },
   invariants: {
-    max_todo_per_persona: 3, stale_hours: 48, reclaim_limit: 2,
+    max_todo_per_role: 3, stale_hours: 48, reclaim_limit: 2,
     bulk_threshold: 5, max_subtasks_per_parent: 3,
   },
   branch_pattern: "feat/{prefix}-{id}-{slug}",

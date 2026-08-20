@@ -1,10 +1,8 @@
 # registry/projects.yml — Schema
 
-The project registry: the one file mapping a `projectId` to its repository.
-Execution state stores projectId only; the control plane resolves the path
-here at command time (`runtime/control/src/registry/projects.ts`; override
-with `GORP_PROJECT_REGISTRY`). An unregistered project fails closed
-(`PROJECT_NOT_REGISTERED`, exit 20).
+The project registry: one file mapping a `projectId` to its repository. guava-os
+reads it (`.guava-os/src/registry.ts`; override with
+`GUAVA_OS_PROJECT_REGISTRY`).
 
 ## Shape
 
@@ -12,31 +10,18 @@ with `GORP_PROJECT_REGISTRY`). An unregistered project fails closed
 projects:
   - id: <string>          # stable lowercase id (matches ^[A-Za-z0-9][A-Za-z0-9._-]*$)
     name: <string>        # human-readable (informational)
-    repo_path: <path>     # path to the consumer repo (~ allowed); must exist
-    git_remote: <url>     # canonical git remote (e.g. https://github.com/<owner>/<repo>.git); optional
-    linear_project: <string> # canonical Linear project name (maps to config.linear.project)
-    lifecycle: active | paused | retired   # informational
-    notes: <string>       # free text (informational)
+    repo_path: <path>     # consumer repo path (~ allowed); must exist
+    git_remote: <url>     # canonical git remote (https://github.com/<owner>/<repo>.git)
+    linear_project: <string>  # canonical Linear project name (maps to config.linear.project)
+    lifecycle: active | paused | retired
+    notes: <string>       # free text
 ```
 
-The runtime reads `id` and `repo_path`. The control plane registry loader
-(`.guava-os/src/registry.ts`) also reads `linear_project` to resolve Linear
-project names to canonical registry ids at `sprint generate` time. `git_remote`
-is the project's canonical upstream URL — recorded at registration so the
-control plane knows where the repo lives without guessing from the local
-directory name. `guava-os doctor` validates it against the local origin and
-reports mismatches as advisory warnings. The parser is a conservative
-line-based reader: one `- id:` line per entry followed by its scalar keys;
-unknown keys are ignored.
+## Rules
 
-Rules:
-
-0. `linear_project` MUST be the exact Linear project name (from
-   `config.linear.project` / the Linear project picker). The registry loader
+1. `repo_path` must exist on disk.
+2. `linear_project` MUST be the exact Linear project name — the registry loader
    uses it to map Linear names to canonical ids.
-
-1. `repo_path` must exist on disk at command time.
-2. Two entries must not share a `repo_path` (sandbox branch names are keyed by
-   graph/node/run, not project — duplicate paths would collide).
-3. Moving a repository rebinds all of that project's historical graphs; do it
-   deliberately.
+3. Two entries must not share a `repo_path`.
+4. Archived projects: `lifecycle: retired` and `repo_path` moved under
+   `~/dev/repos/archive/`. `guava-os work --all` and `doctor` skip `retired`.

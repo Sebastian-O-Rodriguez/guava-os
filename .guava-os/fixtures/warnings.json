@@ -9,7 +9,7 @@
       "name": "High"
     },
     "labels": [
-      "architect"
+      "scout"
     ],
     "project": "TestProject",
     "createdAt": "2026-01-01",
@@ -43,7 +43,7 @@
       "name": "Medium"
     },
     "labels": [
-      "backend",
+      "task",
       "spike"
     ],
     "parentId": "TST-2",

@@ -2,8 +2,8 @@
 
 > **Authority:** `ADR_001.md` → this doc. This is the single canonical
 > explanation of where GOS repositories live and how they are operated.
-> Other docs (AGENTS.md, playbooks, RUNBOOK, skills) point here instead of
-> duplicating it.
+> Other docs (AGENTS.md, playbooks, skills) point here instead of duplicating
+> it.
 
 ## Layout
 
@@ -16,43 +16,47 @@
 
 | Path | Role | Rules |
 |---|---|---|
-| `~/dev/guava-os` | The stable runtime: guava-os tooling + gorp + skills + registry, all tracked on clean `main`. | **Never develop here.** Only merged/approved state. All agents execute from it. Push only from here. |
-| `~/dev/guava-archives/` | Durable offline backup storage. Currently holds `gorp-history.bundle` (the archived pre-merge gorp git history; the same history also lives read-only at `github.com/Sebastian-O-Rodriguez/gorp.git`). | Never delete; never commit into guava-os. |
+| `~/dev/guava-os` | The stable runtime: guava-os tooling + skills + registry, all tracked on clean `main`. | **Never develop here.** Only merged/approved state. All agents execute from it. Push only from here. |
+| `~/dev/guava-archives/` | Durable offline backup storage. Holds `gorp-history.bundle` (historical — the retired gorp engine's pre-merge git history). | Never delete; never commit into guava-os. |
 | `~/dev/repos/<project>/` | Project working roots (guavabi, bell-diagnostic, …). | Agents work here; each project is its own repo (registered in `.guava-os/registry/projects.yml`). |
-| Temporary dev clones | Scratch copies for GOS self-development. | Create on demand (`git clone ~/dev/guava-os <tmpdir>`), remove after merge. **There is no permanent guava-os-dev checkout.** |
+| Temporary dev clones | Scratch copies for GOS self-development. | Create on demand, remove after merge. **There is no permanent guava-os-dev checkout.** |
 
 ## Operating Model
 
 1. **Project work runs from the project's own repo root.** Agent sessions for a
-   project operate in `~/dev/repos/<project>/`; the project is the cwd/working root.
-2. **guava-os is shared stable infrastructure.** Its tooling (`guava-os pm|wf|sprint`
-   via `.guava-os/bin/guava-os`) is invoked from the guava-os checkout — that is where
-   the CLI resolves `gorp/` and loads skills. Do not run it from inside a project repo
-   expecting it to resolve there.
+   project operate in `~/dev/repos/<project>/`; the project is the cwd/working
+   root.
+2. **guava-os is shared stable infrastructure.** Its tooling (`guava-os
+   pm|doctor|status|validate|next|launch|register` via `.guava-os/bin/guava-os`)
+   is invoked from the guava-os checkout — that is where the CLI resolves
+   skills. Do not run it from inside a project repo expecting it to resolve
+   there.
 3. **Do not develop in the stable checkout.** All GOS changes land here only as
    reviewed, merged, tested commits on `main`.
-4. **GOS dev changes use a temporary isolated clone** (GOS-23/GOS-24/GOS-26):
-   clone → branch → change → test → merge to stable `main` → stable checkout
-   fast-forwards → **delete the temp clone**.
-5. **Dev runs use an isolated state root.** Production gorp state defaults to
-   `~/.local/state/gorp` (or `GORP_STATE_HOME`). Scratch/dev runs set
-   `GORP_STATE_HOME` to a scratch dir **for that session only** — no persistent
-   shell exports, no proof-state leftovers.
-6. **Registry isolation when testing registry changes.** Copy
-   `.guava-os/registry/projects.yml` and point `GORP_PROJECT_REGISTRY` at the copy
-   for the test session. Never write the production registry from a dev run.
-7. **Merge/test before stable rollout.** Every change passes guava-os `tsc` +
-   vitest and gorp `typecheck` + vitest before it is considered for merge.
-8. **Archives are write-once.** `~/dev/guava-archives/` content is durable
+4. **GOS dev changes use a temporary isolated clone** (GOS-23/GOS-24): clone →
+   branch → change → test → merge to stable `main` → fast-forward → delete the
+   temp clone.
+5. **Merge/test before stable rollout.** Every change passes `tsc --noEmit` +
+   vitest before it is considered for merge.
+6. **Archives are write-once.** `~/dev/guava-archives/` content is durable
    history; nothing ephemeral goes there.
 
-## Restore / Archive Reference
+## Branching (per project)
 
-- gorp history (pre-merge, 51 commits, `8b3f58e..465ce81e`):
-  - remote archive: `https://github.com/Sebastian-O-Rodriguez/gorp.git`
-    (main `465ce81e`, tag `v0.1-foundation`) — read-only.
-  - local bundle: `~/dev/guava-archives/gorp-history.bundle`
-  - restore: `git clone ~/dev/guava-archives/gorp-history.bundle <dir>`
+```
+production   ← protected: PR from staging + required review + required CI
+staging      ← protected: PR from dev/* + QA review + required CI
+dev/backend   dev/frontend
+```
+
+See `docs/architecture/linear-conventions.md` and
+`docs/architecture/guava-os-operating-contract.md`.
+
+## Retired: gorp
+
+The gorp execution engine was retired (2026-08-20, ADR_001 Amendment 2). Its
+history is preserved in `~/dev/guava-archives/gorp-history.bundle` and in git
+history. No component rebuilds gorp.
 
 ## Related
 

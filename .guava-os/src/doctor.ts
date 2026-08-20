@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join, resolve } from "path";
 import type { Config } from "./config.js";
-import { allPersonaLabels } from "./config.js";
+import { allRoles } from "./config.js";
 import { loadRegistry, type RegistryProject } from "./registry.js";
 
 export interface CheckResult {
@@ -201,15 +201,15 @@ export function runDoctor(
       : "no Linear data provided (caller must pipe issue/label data via stdin)",
   });
 
-  // 5. Every configured persona has a matching Linear label (if data provided)
+  // 5. Every configured role has a matching Linear label (if data provided)
   if (linearDataProvided && linearLabels) {
-    const requiredLabels = allPersonaLabels(config);
+    const requiredLabels = allRoles(config);
     const missingLabels = requiredLabels.filter(l => !linearLabels.labels.includes(l));
     results.push({
       name: "labels",
       passed: missingLabels.length === 0,
       detail: missingLabels.length === 0
-        ? `${requiredLabels.length}/${requiredLabels.length} persona labels found in Linear data`
+        ? `${requiredLabels.length}/${requiredLabels.length} role labels found in Linear data`
         : `missing Linear labels: ${missingLabels.join(", ")}`,
     });
   } else {
