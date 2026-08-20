@@ -12,7 +12,7 @@
  */
 
 import type { Config } from "./config.js";
-import { allPersonaLabels } from "./config.js";
+import { allRoles } from "./config.js";
 
 export interface LinearIssue {
   id: string;
@@ -30,7 +30,7 @@ export interface LinearIssue {
   completedAt: string | null;
   canceledAt: string | null;
   assignee?: string;
-  /** Markdown body (needed for sprint generation). */
+  /** Markdown body — the issue's Why/Scope/Acceptance description (the subagent's task contract). */
   description?: string;
   /** Out-edges of native "blocks" relations (this issue blocks these ids). */
   blocks?: string[];
@@ -46,7 +46,7 @@ export interface ParentHealth {
   todo: number;
   backlog: number;
   total: number;
-  hasPersonaLabels: boolean;
+  hasRoleLabels: boolean;
   hasSubtasks: boolean;
 }
 
@@ -55,7 +55,7 @@ export interface ExecutableSubtask {
   title: string;
   priority: number;
   priorityName: string;
-  persona: string;
+  role: string;
   parentId?: string;
   updatedAt: string;
 }
@@ -63,14 +63,14 @@ export interface ExecutableSubtask {
 export interface NotPromotedSubtask {
   id: string;
   title: string;
-  persona: string;
+  role: string;
   status: string;
 }
 
 export interface BlockedSubtask {
   id: string;
   title: string;
-  persona: string;
+  role: string;
   reason: string;
 }
 
@@ -127,7 +127,7 @@ export interface IssueGraph {
 }
 
 export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
-  const personaLabels = allPersonaLabels(config);
+  const roleLabels = allRoles(config);
   const activeParentStatuses = config.active_parent_statuses;
 
   // Blocks edges: out = this issue blocks X; inverse (blockedBy) computed
@@ -188,14 +188,14 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     ).length;
     const todo = subs.filter(s => s.status === config.statuses.todo).length;
     const backlog = subs.filter(s => s.statusType === "backlog").length;
-    const hasPersonaLabels = subs.length > 0 && subs.every(s =>
-      s.labels.some(l => personaLabels.includes(l))
+    const hasRoleLabels = subs.length > 0 && subs.every(s =>
+      s.labels.some(l => roleLabels.includes(l))
     );
 
     parents.push({
       id, title: container.title, status: container.status,
       subtasks: subs, done, inProgress, todo, backlog,
-      total: subs.length, hasPersonaLabels,
+      total: subs.length, hasRoleLabels,
       hasSubtasks: subs.length > 0,
     });
   }
@@ -206,31 +206,31 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
   const blocked: BlockedSubtask[] = [];
   const invalid: InvalidSubtask[] = [];
 
-  for (const persona of personaLabels) {
-    executable.set(persona, []);
+  for (const role of roleLabels) {
+    executable.set(role, []);
   }
 
   for (const issue of deliverables) {
     if (issue.statusType === "completed") continue;
 
-    const matchedLabels = issue.labels.filter(l => personaLabels.includes(l));
+    const matchedLabels = issue.labels.filter(l => roleLabels.includes(l));
 
-    // INVALID: missing persona label
+    // INVALID: missing role label
     if (matchedLabels.length === 0) {
       invalid.push({
         id: issue.id, title: issue.title,
-        violation: "missing persona label",
+        violation: "missing role label",
       });
       continue;
     }
 
-    const persona = matchedLabels[0];
+    const role = matchedLabels[0];
 
-    // INVALID: multiple persona labels
+    // INVALID: multiple role labels
     if (matchedLabels.length > 1) {
       invalid.push({
         id: issue.id, title: issue.title,
-        violation: `multiple persona labels: ${matchedLabels.join(", ")}`,
+        violation: `multiple role labels: ${matchedLabels.join(", ")}`,
       });
       continue;
     }
@@ -238,7 +238,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     // NOT_PROMOTED: deliverable in Backlog
     if (issue.statusType === "backlog") {
       notPromoted.push({
-        id: issue.id, title: issue.title, persona, status: issue.status,
+        id: issue.id, title: issue.title, role, status: issue.status,
       });
       continue;
     }
@@ -285,7 +285,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
         }
         if (unresolved.length > 0) {
           blocked.push({
-            id: issue.id, title: issue.title, persona,
+            id: issue.id, title: issue.title, role,
             reason: `blocked by: ${unresolved.join(", ")}`,
           });
           continue;
@@ -294,19 +294,19 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     }
 
     // Eligible
-    const queue = executable.get(persona)!;
+    const queue = executable.get(role)!;
     queue.push({
       id: issue.id,
       title: issue.title,
       priority: issue.priority.value,
       priorityName: issue.priority.name,
-      persona,
+      role,
       parentId: issue.parentId,
       updatedAt: issue.updatedAt,
     });
   }
 
-  // Sort each persona queue: priority asc (1=urgent), then oldest updatedAt, then lowest ID
+  // Sort each role queue: priority asc (1=urgent), then oldest updatedAt, then lowest ID
   for (const [, queue] of executable) {
     queue.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;

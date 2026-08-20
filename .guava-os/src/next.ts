@@ -2,7 +2,7 @@
  * Next directive generator.
  *
  * Compiles the execution graph into operator-ready launch directives.
- * One directive per persona: the highest-priority executable subtask.
+ * One directive per role: the highest-priority executable subtask.
  *
  * READ-ONLY: No mutation, claiming, assignment, or side effects.
  * Derives entirely from the canonical IssueGraph — no independent
@@ -14,7 +14,7 @@ import { priorityLabel } from "./linear.js";
 import type { Config } from "./config.js";
 
 export interface Directive {
-  persona: string;
+  role: string;
   issue_id: string;
   title: string;
   branch: string;
@@ -28,14 +28,14 @@ export interface Directive {
 export interface NextResult {
   directives: Directive[];
   summary: {
-    personas_with_work: number;
-    personas_without_work: number;
+    roles_with_work: number;
+    roles_without_work: number;
     total_executable: number;
   };
   capabilities: GraphCapabilities;
 }
 
-function buildBranch(config: Config, persona: string, task: ExecutableSubtask): string {
+function buildBranch(config: Config, role: string, task: ExecutableSubtask): string {
   const prefix = config.linear.issue_prefix;
   // Extract numeric part from issue ID (e.g., "GUA-17" → "17", "TST-10" → "10")
   const idNum = task.id.includes("-") ? task.id.split("-").slice(1).join("-") : task.id;
@@ -53,11 +53,11 @@ function buildBranch(config: Config, persona: string, task: ExecutableSubtask): 
     const lastDash = truncated.lastIndexOf("-");
     slug = lastDash > 0 ? truncated.slice(0, lastDash) : truncated;
   }
-  return `${persona}/${prefix.toLowerCase()}-${idNum}-${slug}`;
+  return `${role}/${prefix.toLowerCase()}-${idNum}-${slug}`;
 }
 
 function buildContext(
-  persona: string,
+  role: string,
   queue: ExecutableSubtask[],
   graph: IssueGraph,
 ): string[] {
@@ -84,7 +84,7 @@ function buildContext(
 
   // Queue depth
   if (queue.length > 1) {
-    ctx.push(`${queue.length} executable ${persona} items total`);
+    ctx.push(`${queue.length} executable ${role} items total`);
   }
 
   return ctx;
@@ -93,14 +93,14 @@ function buildContext(
 export function generateNext(
   graph: IssueGraph,
   config: Config,
-  personaFilter?: string,
+  roleFilter?: string,
 ): NextResult {
   const directives: Directive[] = [];
   let withWork = 0;
   let withoutWork = 0;
 
-  for (const [persona, queue] of graph.executable) {
-    if (personaFilter && persona !== personaFilter) continue;
+  for (const [role, queue] of graph.executable) {
+    if (roleFilter && role !== roleFilter) continue;
 
     if (queue.length === 0) {
       withoutWork++;
@@ -111,27 +111,27 @@ export function generateNext(
     const top = queue[0];
 
     directives.push({
-      persona,
+      role,
       issue_id: top.id,
       title: top.title,
-      branch: buildBranch(config, persona, top),
+      branch: buildBranch(config, role, top),
       priority: { value: top.priority, label: priorityLabel(top.priority) },
       parent_id: top.parentId,
-      context: buildContext(persona, queue, graph),
+      context: buildContext(role, queue, graph),
     });
   }
 
-  // Deterministic sort: by priority value ascending, then persona alphabetically
+  // Deterministic sort: by priority value ascending, then role alphabetically
   directives.sort((a, b) => {
     if (a.priority.value !== b.priority.value) return a.priority.value - b.priority.value;
-    return a.persona.localeCompare(b.persona);
+    return a.role.localeCompare(b.role);
   });
 
   return {
     directives,
     summary: {
-      personas_with_work: withWork,
-      personas_without_work: withoutWork,
+      roles_with_work: withWork,
+      roles_without_work: withoutWork,
       total_executable: graph.summary.totalExecutable,
     },
     capabilities: graph.capabilities,
@@ -144,9 +144,9 @@ export function formatNext(result: NextResult): string {
   if (result.directives.length === 0) {
     lines.push("NEXT");
     lines.push("");
-    lines.push("  (no executable work for any persona)");
+    lines.push("  (no executable work for any role)");
     lines.push("");
-    lines.push(`SUMMARY: ${result.summary.personas_with_work} personas with work, ${result.summary.total_executable} executable total`);
+    lines.push(`SUMMARY: ${result.summary.roles_with_work} roles with work, ${result.summary.total_executable} executable total`);
     return lines.join("\n");
   }
 
@@ -154,7 +154,7 @@ export function formatNext(result: NextResult): string {
 
   for (const d of result.directives) {
     lines.push("");
-    lines.push(`${d.persona}`);
+    lines.push(`${d.role}`);
     lines.push(`  ISSUE:    ${d.issue_id}`);
     lines.push(`  TITLE:    ${d.title}`);
     lines.push(`  PRIORITY: ${d.priority.label}`);
@@ -170,7 +170,7 @@ export function formatNext(result: NextResult): string {
     }
   }
   lines.push("");
-  lines.push(`SUMMARY: ${result.summary.personas_with_work} personas with work, ${result.summary.total_executable} executable total`);
+  lines.push(`SUMMARY: ${result.summary.roles_with_work} roles with work, ${result.summary.total_executable} executable total`);
 
   if (result.capabilities.hasExternalBlockerGap && result.directives.length > 0) {
     lines.push("NOTE: External blockers may exist outside the snapshot — directives may target issues blocked by out-of-dataset work.");

@@ -9,7 +9,7 @@ export interface LinearConfig {
 
 export interface Config {
   linear: LinearConfig;
-  personas: string[];
+  roles: string[];
   statuses: {
     backlog: string;
     todo: string;
@@ -18,12 +18,8 @@ export interface Config {
     done: string;
   };
   active_parent_statuses: string[];
-  labels: {
-    persona_labels: string[];
-    qa_label: string;
-  };
   invariants: {
-    max_todo_per_persona: number;
+    max_todo_per_role: number;
     stale_hours: number;
     reclaim_limit: number;
     bulk_threshold: number;
@@ -34,13 +30,9 @@ export interface Config {
   manifest_path: string;
 }
 
-/** All persona labels including qa */
-export function allPersonaLabels(config: Config): string[] {
-  const labels = [...config.labels.persona_labels];
-  if (!labels.includes(config.labels.qa_label)) {
-    labels.push(config.labels.qa_label);
-  }
-  return labels;
+/** All OMP roles in this project */
+export function allRoles(config: Config): string[] {
+  return config.roles;
 }
 
 export function findRepoRoot(startDir: string = process.cwd()): string {

@@ -1,4 +1,0 @@
-# Generated build output: build locally with `npm run build` (see README "dist/ policy").
-dist/
-node_modules/
-*.tsbuildinfo

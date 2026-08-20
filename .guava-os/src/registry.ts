@@ -20,12 +20,12 @@ export interface RegistryProject {
 }
 
 /**
- * Resolve the registry path from GORP_PROJECT_REGISTRY env var, or derive it
+ * Resolve the registry path from GUAVA_OS_PROJECT_REGISTRY env var, or derive it
  * from this module's location (works regardless of cwd).
  */
 export function resolveRegistryPath(registryPath?: string): string {
   if (registryPath) return registryPath;
-  const envPath = process.env["GORP_PROJECT_REGISTRY"];
+  const envPath = process.env["GUAVA_OS_PROJECT_REGISTRY"];
   if (envPath) return resolve(envPath);
   // Derive from module location: .guava-os/src/registry.ts → .guava-os/registry/projects.yml
   return resolve(dirname(__dirname), "registry", "projects.yml");

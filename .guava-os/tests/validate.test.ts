@@ -5,15 +5,14 @@ import type { Config } from "../src/config.js";
 
 const TEST_CONFIG: Config = {
   linear: { team: "Test", project: "TestProject", issue_prefix: "TST" },
-  personas: ["architect", "backend", "frontend", "qa"],
+  roles: ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
   statuses: {
     backlog: "Backlog", todo: "Todo", in_progress: "In Progress",
     in_review: "In Review", done: "Done",
   },
   active_parent_statuses: ["Todo", "In Progress"],
-  labels: { persona_labels: ["architect", "backend", "frontend"], qa_label: "qa" },
   invariants: {
-    max_todo_per_persona: 2, stale_hours: 48, reclaim_limit: 2,
+    max_todo_per_role: 2, stale_hours: 48, reclaim_limit: 2,
     bulk_threshold: 5, max_subtasks_per_parent: 3,
   },
   branch_pattern: "feat/{prefix}-{id}-{slug}",
@@ -46,7 +45,7 @@ function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssu
 describe("V302 orphan_sub_issue", () => {
   it("detects sub-issue whose parent is not in dataset", () => {
     const issues = [
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-MISSING" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-MISSING" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -59,7 +58,7 @@ describe("V302 orphan_sub_issue", () => {
   it("does not flag sub-issues whose parent exists", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -72,7 +71,7 @@ describe("V303 parent_not_active", () => {
   it("detects Todo sub-issue with Backlog parent", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Backlog", statusType: "backlog" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -85,7 +84,7 @@ describe("V303 parent_not_active", () => {
   it("does not flag sub-issue with active parent", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -95,7 +94,7 @@ describe("V303 parent_not_active", () => {
 });
 
 describe("V304 empty_parent", () => {
-  it("detects active issue with no children and no persona", () => {
+  it("detects active issue with no children and no role", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
     ];
@@ -110,7 +109,7 @@ describe("V304 empty_parent", () => {
   it("does not flag issue with children (real container)", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -128,11 +127,11 @@ describe("V304 empty_parent", () => {
     expect(result.violations.filter(v => v.code === "V304")).toHaveLength(0);
   });
 
-  it("does not flag standalone deliverable with persona label (GUA-111)", () => {
-    // A top-level issue with no children but with a persona label
+  it("does not flag standalone deliverable with role label (GUA-111)", () => {
+    // A top-level issue with no children but with a role label
     // is a standalone deliverable, not an empty parent.
     const issues = [
-      makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["architect"] }),
+      makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["scout"] }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -146,10 +145,10 @@ describe("V305 subtask_overflow", () => {
     // config has max_subtasks_per_parent = 3
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-13", status: "Todo", statusType: "unstarted", labels: ["frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-13", status: "Todo", statusType: "unstarted", labels: ["designer"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -164,9 +163,9 @@ describe("V305 subtask_overflow", () => {
   it("does not flag parent at the cap boundary", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -189,8 +188,8 @@ describe("V305 subtask_overflow", () => {
   });
 });
 
-describe("V400 missing_persona_label", () => {
-  it("detects sub-issue with no persona label", () => {
+describe("V400 missing_role_label", () => {
+  it("detects sub-issue with no role label", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: [], parentId: "TST-1" }),
@@ -199,14 +198,14 @@ describe("V400 missing_persona_label", () => {
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V400", name: "missing_persona_label", severity: "error", issue_id: "TST-10",
+      code: "V400", name: "missing_role_label", severity: "error", issue_id: "TST-10",
     }));
   });
 
-  it("does not flag sub-issue with valid persona label", () => {
+  it("does not flag sub-issue with valid role label", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -225,7 +224,7 @@ describe("V400 missing_persona_label", () => {
     expect(result.violations.filter(v => v.code === "V400")).toHaveLength(0);
   });
 
-  it("flags standalone deliverable with no persona label (GUA-111)", () => {
+  it("flags standalone deliverable with no role label (GUA-111)", () => {
     const issues = [
       makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: [] }),
     ];
@@ -233,37 +232,37 @@ describe("V400 missing_persona_label", () => {
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V400", name: "missing_persona_label", severity: "error", issue_id: "GUA-104",
+      code: "V400", name: "missing_role_label", severity: "error", issue_id: "GUA-104",
     }));
   });
 });
 
-describe("V401 multiple_persona_labels", () => {
-  it("detects sub-issue with multiple persona labels", () => {
+describe("V401 multiple_role_labels", () => {
+  it("detects sub-issue with multiple role labels", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "designer"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V401", name: "multiple_persona_labels", severity: "error", issue_id: "TST-10",
+      code: "V401", name: "multiple_role_labels", severity: "error", issue_id: "TST-10",
     }));
   });
 });
 
-describe("V402 unknown_persona_label", () => {
-  it("detects label not in configured personas or known categories", () => {
+describe("V402 unknown_role_label", () => {
+  it("detects label not in configured roles or known categories", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "devops"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V402", name: "unknown_persona_label", severity: "warning", issue_id: "TST-10",
+      code: "V402", name: "unknown_role_label", severity: "warning", issue_id: "TST-10",
     }));
     expect(result.violations.find(v => v.code === "V402")!.detail).toContain("devops");
   });
@@ -271,7 +270,7 @@ describe("V402 unknown_persona_label", () => {
   it("does not flag known category labels (Feature, Bug, Improvement)", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "Bug"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "Bug"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -281,13 +280,13 @@ describe("V402 unknown_persona_label", () => {
 });
 
 describe("V500 queue_overflow", () => {
-  it("detects persona queue exceeding max_todo_per_persona", () => {
-    // config has max_todo_per_persona = 2
+  it("detects role queue exceeding max_todo_per_role", () => {
+    // config has max_todo_per_role = 2
     const issues = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -296,14 +295,14 @@ describe("V500 queue_overflow", () => {
       code: "V500", name: "queue_overflow", severity: "warning",
     }));
     expect(result.violations.find(v => v.code === "V500")!.detail).toContain("3");
-    expect(result.violations.find(v => v.code === "V500")!.detail).toContain("backend");
+    expect(result.violations.find(v => v.code === "V500")!.detail).toContain("task");
   });
 
   it("does not flag when under capacity", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -312,11 +311,11 @@ describe("V500 queue_overflow", () => {
   });
 
   it("counts standalone Todo deliverables in queue overflow (GUA-111)", () => {
-    // max_todo_per_persona = 2. Three standalone backend deliverables -> V500.
+    // max_todo_per_role = 2. Three standalone task deliverables -> V500.
     const issues = [
-      makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
-      makeIssue({ id: "GUA-105", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
-      makeIssue({ id: "GUA-106", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
+      makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["task"] }),
+      makeIssue({ id: "GUA-105", status: "Todo", statusType: "unstarted", labels: ["task"] }),
+      makeIssue({ id: "GUA-106", status: "Todo", statusType: "unstarted", labels: ["task"] }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -325,7 +324,7 @@ describe("V500 queue_overflow", () => {
       code: "V500", name: "queue_overflow", severity: "warning",
     }));
     expect(result.violations.find(v => v.code === "V500")!.detail).toContain("3");
-    expect(result.violations.find(v => v.code === "V500")!.detail).toContain("backend");
+    expect(result.violations.find(v => v.code === "V500")!.detail).toContain("task");
   });
 });
 
@@ -337,7 +336,7 @@ describe("exit code semantics", () => {
   it("clean graph has 0 errors and 0 warnings", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -350,7 +349,7 @@ describe("exit code semantics", () => {
   it("error violations set errors > 0", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Backlog", statusType: "backlog" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -359,11 +358,11 @@ describe("exit code semantics", () => {
   });
 
   it("warning-only violations have errors = 0", () => {
-    // V402 unknown_persona_label is warning-only.
+    // V402 unknown_role_label is warning-only.
     // Child under active parent — avoids V304/V400.
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "devops"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -375,7 +374,7 @@ describe("exit code semantics", () => {
   it("strict mode: hasFailures when warnings exist", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "devops"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops"], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -419,7 +418,7 @@ describe("output consistency", () => {
   it("violations are deterministically ordered", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "designer"], parentId: "TST-1" }),
       makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: [], parentId: "TST-1" }),
     ];
 
@@ -435,7 +434,7 @@ describe("output consistency", () => {
   it("errors sort before warnings", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Backlog", statusType: "backlog" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
       // V303 (error) + V304 (warning for empty Backlog parent? no — Backlog not active)
       // Let's add a warning source
       makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: [], parentId: "TST-1" }),
@@ -489,8 +488,8 @@ describe("nested decomposition — wave → container → leaves", () => {
     return [
       makeIssue({ id: "WAVE", title: "Wave", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "CONT", title: "Container", status: "Todo", statusType: "unstarted", parentId: "WAVE" }),
-      makeIssue({ id: "L1", title: "Leaf One", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }),
-      makeIssue({ id: "L2", title: "Leaf Two", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }),
+      makeIssue({ id: "L1", title: "Leaf One", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "CONT" }),
+      makeIssue({ id: "L2", title: "Leaf Two", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "CONT" }),
     ];
   }
   function codes(issues: LinearIssue[]): string[] {
@@ -519,7 +518,7 @@ describe("nested decomposition — wave → container → leaves", () => {
     const issues = nestedFixture();
     // give CONT 4 children (cap is 3) — CONT is itself a child of WAVE
     for (let i = 0; i < 2; i++) {
-      issues.push(makeIssue({ id: `LX${i}`, status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }));
+      issues.push(makeIssue({ id: `LX${i}`, status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "CONT" }));
     }
     const v = codes(issues);
     expect(v).toContain("V305");
@@ -528,9 +527,9 @@ describe("nested decomposition — wave → container → leaves", () => {
     expect(detail?.issue_id).toBe("CONT");
   });
 
-  it("flags a persona label on a container (V306 — cleanup support)", () => {
+  it("flags a role label on a container (V306 — cleanup support)", () => {
     const issues = nestedFixture();
-    issues.find((i) => i.id === "CONT")!.labels = ["backend"];
+    issues.find((i) => i.id === "CONT")!.labels = ["task"];
     const v = codes(issues);
     expect(v).toContain("V306");
     const detail = runValidate(buildGraph(issues, TEST_CONFIG), issues, TEST_CONFIG)
@@ -543,7 +542,7 @@ describe("nested decomposition — wave → container → leaves", () => {
     const issues = nestedFixture();
     // give CONT 4 children (over cap 3) but make it Backlog (unscheduled grouping)
     for (let i = 0; i < 2; i++) {
-      issues.push(makeIssue({ id: `LB${i}`, status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "CONT" }));
+      issues.push(makeIssue({ id: `LB${i}`, status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "CONT" }));
     }
     const cont = issues.find((i) => i.id === "CONT")!;
     cont.status = "Backlog";

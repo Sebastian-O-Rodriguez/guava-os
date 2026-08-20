@@ -33,20 +33,20 @@ function graph(issues: LinearIssue[]) {
   return buildGraph(issues, config);
 }
 
-/** Parent + A(Todo, backend) blocks B(Todo, backend) ; C(Todo, backend) free. */
+/** Parent + A(Todo, task) blocks B(Todo, task) ; C(Todo, task) free. */
 function board(overrides: { aBlocksB?: boolean; aDone?: boolean } = {}): LinearIssue[] {
   const aBlocksB = overrides.aBlocksB ?? true;
   const aDone = overrides.aDone ?? false;
   return [
     issue({ id: PARENT, title: "Parent", labels: [], status: "Todo", statusType: "unstarted" }),
     issue({
-      id: A, title: "A", parentId: PARENT, labels: ["backend"],
+      id: A, title: "A", parentId: PARENT, labels: ["task"],
       status: aDone ? "Done" : "Todo",
       statusType: aDone ? "completed" : "unstarted",
       blocks: aBlocksB ? [B] : [],
     }),
-    issue({ id: B, title: "B", parentId: PARENT, labels: ["backend"] }),
-    issue({ id: C, title: "C", parentId: PARENT, labels: ["backend"] }),
+    issue({ id: B, title: "B", parentId: PARENT, labels: ["task"] }),
+    issue({ id: C, title: "C", parentId: PARENT, labels: ["task"] }),
   ];
 }
 
@@ -63,11 +63,11 @@ describe("GOS-28 buildGraph dependency edges", () => {
 
   it("classifies blocked work as NOT executable", () => {
     const g = graph(board());
-    const persona = g.executable.get("backend")!;
+    const role = g.executable.get("task")!;
     // A (the blocker) is executable; B (blocked) is not; C is free
-    expect(persona.map((s) => s.id)).toEqual(["t-a", "t-c"]);
+    expect(role.map((s) => s.id)).toEqual(["t-a", "t-c"]);
     const blocked = g.blocked.find((b) => b.id === B)!;
-    expect(blocked.persona).toBe("backend");
+    expect(blocked.role).toBe("task");
     expect(blocked.reason).toContain("A");
     expect(g.summary.totalBlocked).toBe(1);
   });
@@ -75,14 +75,14 @@ describe("GOS-28 buildGraph dependency edges", () => {
   it("unblocks when the blocker completes", () => {
     const g = graph(board({ aDone: true }));
     // A completed is skipped by the classifier entirely; B and C are free
-    expect(g.executable.get("backend")!.map((s) => s.id).sort()).toEqual(["t-b", "t-c"]);
+    expect(g.executable.get("task")!.map((s) => s.id).sort()).toEqual(["t-b", "t-c"]);
     expect(g.blocked).toEqual([]);
   });
 
 it("ignores relations when no data was loaded (legacy behavior)", () => {
     const g = graph(board({ aBlocksB: false }));
     // no relation data: A, B, C all executable (blocker check unavailable)
-    expect(g.executable.get("backend")!.map((s) => s.id).sort()).toEqual(["t-a", "t-b", "t-c"]);
+    expect(g.executable.get("task")!.map((s) => s.id).sort()).toEqual(["t-a", "t-b", "t-c"]);
     expect(g.blocked).toEqual([]);
   });
 });
@@ -104,7 +104,7 @@ describe("GOS-28 status/next consumption", () => {
   it("next never emits a blocked issue and reports them in context", () => {
     const g = graph(board());
     const result = generateNext(g, config);
-    // one directive per persona = only the top executable (A); B (blocked) never.
+    // one directive per role = only the top executable (A); B (blocked) never.
     expect(result.directives.some((d) => d.issue_id === B)).toBe(false);
     expect(result.directives.some((d) => d.issue_id === A)).toBe(true);
     const ctx = JSON.stringify(result);

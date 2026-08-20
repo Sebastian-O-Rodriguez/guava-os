@@ -6,15 +6,14 @@ import type { Config } from "../src/config.js";
 
 const TEST_CONFIG: Config = {
   linear: { team: "Test", project: "TestProject", issue_prefix: "TST" },
-  personas: ["architect", "backend", "frontend", "qa"],
+  roles: ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
   statuses: {
     backlog: "Backlog", todo: "Todo", in_progress: "In Progress",
     in_review: "In Review", done: "Done",
   },
   active_parent_statuses: ["Todo", "In Progress"],
-  labels: { persona_labels: ["architect", "backend", "frontend"], qa_label: "qa" },
   invariants: {
-    max_todo_per_persona: 3, stale_hours: 48, reclaim_limit: 2,
+    max_todo_per_role: 3, stale_hours: 48, reclaim_limit: 2,
     bulk_threshold: 5, max_subtasks_per_parent: 3,
   },
   branch_pattern: "feat/{prefix}-{id}-{slug}",
@@ -48,8 +47,8 @@ describe("runtime consistency", () => {
   it("human and JSON output derive from the same graph.summary", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: ["frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: ["designer"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -72,9 +71,9 @@ describe("runtime consistency", () => {
   it("executable counts match executable arrays", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["architect"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["scout"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["designer"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -88,19 +87,19 @@ describe("runtime consistency", () => {
     expect(graph.summary.totalExecutable).toBe(3);
   });
 
-  it("persona queues are deterministic for identical input", () => {
+  it("role queues are deterministic for identical input", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1", priority: { value: 2, name: "High" }, updatedAt: "2026-01-02" }),
-      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1", priority: { value: 1, name: "Urgent" }, updatedAt: "2026-01-01" }),
-      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1", priority: { value: 2, name: "High" }, updatedAt: "2026-01-01" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1", priority: { value: 2, name: "High" }, updatedAt: "2026-01-02" }),
+      makeIssue({ id: "TST-11", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1", priority: { value: 1, name: "Urgent" }, updatedAt: "2026-01-01" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1", priority: { value: 2, name: "High" }, updatedAt: "2026-01-01" }),
     ];
 
     const graph1 = buildGraph(issues, TEST_CONFIG);
     const graph2 = buildGraph(issues, TEST_CONFIG);
 
-    const q1 = graph1.executable.get("backend")!;
-    const q2 = graph2.executable.get("backend")!;
+    const q1 = graph1.executable.get("task")!;
+    const q2 = graph2.executable.get("task")!;
 
     expect(q1.map(s => s.id)).toEqual(q2.map(s => s.id));
     expect(q1[0].id).toBe("TST-11"); // P0/Urgent
@@ -111,8 +110,8 @@ describe("runtime consistency", () => {
   it("classification is deterministic for identical input", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: ["frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: ["designer"], parentId: "TST-1" }),
       makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: [], parentId: "TST-1" }),
     ];
 
@@ -134,7 +133,7 @@ describe("classification correctness", () => {
   it("sub-issues in Backlog are NOT_PROMOTED, not BLOCKED", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["task"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -143,7 +142,7 @@ describe("classification correctness", () => {
     expect(graph.blocked.length).toBe(0);
   });
 
-  it("sub-issues with missing persona label are INVALID", () => {
+  it("sub-issues with missing role label are INVALID", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: [], parentId: "TST-1" }),
@@ -151,14 +150,14 @@ describe("classification correctness", () => {
 
     const graph = buildGraph(issues, TEST_CONFIG);
     expect(graph.invalid.length).toBe(1);
-    expect(graph.invalid[0].violation).toBe("missing persona label");
+    expect(graph.invalid[0].violation).toBe("missing role label");
     expect(graph.summary.totalExecutable).toBe(0);
   });
 
   it("sub-issues with inactive parent are INVALID", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Backlog", statusType: "backlog" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -166,34 +165,34 @@ describe("classification correctness", () => {
     expect(graph.invalid[0].violation).toContain("not active");
   });
 
-  it("sub-issues with multiple persona labels are INVALID", () => {
+  it("sub-issues with multiple role labels are INVALID", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend", "frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "designer"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
     expect(graph.invalid.length).toBe(1);
-    expect(graph.invalid[0].violation).toContain("multiple persona labels");
+    expect(graph.invalid[0].violation).toContain("multiple role labels");
   });
 
   it("eligible Todo sub-issues with active parent are EXECUTABLE", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
     expect(graph.summary.totalExecutable).toBe(1);
-    expect(graph.executable.get("backend")![0].id).toBe("TST-10");
+    expect(graph.executable.get("task")![0].id).toBe("TST-10");
   });
 
   it("canceled issues are excluded entirely", () => {
     const issues: LinearIssue[] = [
       // TST-1 is a deliverable in progress (skipped from every category);
       // TST-10 is its canceled child (excluded entirely).
-      makeIssue({ id: "TST-1", status: "In Progress", statusType: "started", labels: ["architect"] }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1", canceledAt: "2026-01-05" }),
+      makeIssue({ id: "TST-1", status: "In Progress", statusType: "started", labels: ["scout"] }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1", canceledAt: "2026-01-05" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -205,7 +204,7 @@ describe("classification correctness", () => {
   it("completed sub-issues are excluded from all categories", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Done", statusType: "completed", labels: ["backend"], parentId: "TST-1", completedAt: "2026-01-05" }),
+      makeIssue({ id: "TST-10", status: "Done", statusType: "completed", labels: ["task"], parentId: "TST-1", completedAt: "2026-01-05" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -218,7 +217,7 @@ describe("classification correctness", () => {
   it("In Progress sub-issues are not in any category", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "In Progress", statusType: "started", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "In Progress", statusType: "started", labels: ["task"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -285,7 +284,7 @@ describe("read-only guarantee", () => {
   it("buildGraph is a pure function — does not modify input array", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
     ];
 
     const snapshot = JSON.stringify(issues);
@@ -356,8 +355,8 @@ describe("capabilities", () => {
   it("blocked category is always empty when dependencies not loaded", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["backend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: ["frontend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-11", status: "Backlog", statusType: "backlog", labels: ["designer"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
@@ -374,24 +373,24 @@ describe("capabilities", () => {
 describe("parent health", () => {
   it("standalone issue without children is a deliverable, not a parent (GUA-111)", () => {
     const issues: LinearIssue[] = [
-      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted", labels: ["backend"] }),
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted", labels: ["task"] }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);
     // Not in parents — no children means it's a deliverable
     expect(graph.parents.find(p => p.id === "TST-1")).toBeUndefined();
     // It's executable as a standalone deliverable
-    expect(graph.executable.get("backend")![0].id).toBe("TST-1");
-    expect(graph.executable.get("backend")![0].parentId).toBeUndefined();
+    expect(graph.executable.get("task")![0].id).toBe("TST-1");
+    expect(graph.executable.get("task")![0].parentId).toBeUndefined();
   });
 
   it("parent health counts match actual sub-issue statuses", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "Done", statusType: "completed", labels: ["backend"], parentId: "TST-1", completedAt: "2026-01-05" }),
-      makeIssue({ id: "TST-11", status: "In Progress", statusType: "started", labels: ["frontend"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["architect"], parentId: "TST-1" }),
-      makeIssue({ id: "TST-13", status: "Backlog", statusType: "backlog", labels: ["backend"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Done", statusType: "completed", labels: ["task"], parentId: "TST-1", completedAt: "2026-01-05" }),
+      makeIssue({ id: "TST-11", status: "In Progress", statusType: "started", labels: ["designer"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-12", status: "Todo", statusType: "unstarted", labels: ["scout"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-13", status: "Backlog", statusType: "backlog", labels: ["task"], parentId: "TST-1" }),
     ];
 
     const graph = buildGraph(issues, TEST_CONFIG);

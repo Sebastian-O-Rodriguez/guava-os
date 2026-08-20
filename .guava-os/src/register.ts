@@ -5,12 +5,12 @@
  *
  *   1. create minimal repo        (git init a real directory)
  *   2. register (with git_remote)  (record the canonical remote, GOS-31)
- *   3. execute/scaffold            (only now is a gorp-facing issue ready)
+ *   3. execute/scaffold            (only now is an execution-ready issue present)
  *
  * `register` enforces steps 1–2: it creates-or-checks the repo directory
  * (git init when missing) and records the canonical git_remote both in the
  * local `origin` and in the project registry (`.guava-os/registry/
- * projects.yml`). Execution still fails closed — gorp never invents a path
+ * projects.yml`). Execution still fails closed — never invents a path
  * and refuses to run against a repo dir that does not exist.
  */
 
