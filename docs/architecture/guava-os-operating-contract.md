@@ -127,8 +127,8 @@ Linear project mapping. No other component owns or mutates it.
 
 ## Roles
 
-Roles are the six OMP agent types: `task`, `reviewer`, `scout`, `designer`,
-`sonic`, `librarian`. An issue carries exactly one role label, which selects
+Roles are the seven OMP agent types: `task`, `reviewer`, `scout`, `designer`,
+`sonic`, `librarian`, `security-reviewer`. An issue carries one role label (and one domain label), which selects
 the subagent a project session dispatches. Roles do not own governance,
 approval, or promotion — those are operator/QA-gated via GitHub.
 
@@ -141,7 +141,7 @@ guava-os owns the interface; agents never depend on Linear directly.
 Agent → guava-os Skills → guava-os Tooling → Linear (provider)
 ```
 
-Never `Agent → Linear MCP → Linear`. Linear network access lives only in the
+Prefer `Agent → guava-os Tooling → Linear`; Linear MCP is a last-resort fallback. Linear network access lives in the
 guava-os tooling layer. Linear is the workflow state of record: status, the
 task contract, and the handoff comment thread.
 

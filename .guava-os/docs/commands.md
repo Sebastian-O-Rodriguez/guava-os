@@ -70,7 +70,7 @@ Exit 0 if open work exists, 1 if none (the session hook closes on 1).
 
 ## `pm`
 
-All Linear reads/writes. The only supported Linear interface — never Linear MCP.
+All Linear reads/writes — the preferred interface. Linear MCP is a fallback only.
 
 ```bash
 guava-os pm search --project guava-os --status Todo --label task

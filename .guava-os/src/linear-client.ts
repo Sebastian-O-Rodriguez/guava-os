@@ -3,7 +3,7 @@
  *
  * This module is the ONLY place in guava-os that talks to Linear's network
  * API. All Linear network access lives here; commands and skills call this
- * module; agents never use Linear MCP directly (GOS-18/GOS-19).
+ * module; agents prefer this module over Linear MCP (GOS-18/GOS-19).
  *
  * Linear only — no generic provider abstraction.
  *
@@ -26,12 +26,15 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { LinearIssue } from "./linear.js";
 import type { Config } from "./config.js";
 import { findRepoRoot } from "./config.js";
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";
+/** The guava-os checkout root — the only place the Linear key's `.env` lives. */
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,14 +46,14 @@ function isUuid(value: string): boolean {
 
 /**
  * Load the Linear API key: env first (`LINEAR_API_KEY`, then
- * `LINEAR_TOKEN`), then the gitignored `.env` at the repo root.
- * Fails with a canonical, actionable message — never the secret.
+ * `LINEAR_TOKEN`), then the gitignored `.env` in the guava-os checkout
+ * (anchored to this module, independent of cwd). Never prints the secret.
  */
 export function loadToken(): string {
   const fromEnv = process.env.LINEAR_API_KEY ?? process.env.LINEAR_TOKEN;
   if (fromEnv && fromEnv.trim().length > 0) return fromEnv;
   try {
-    const repoRoot = findRepoRoot();
+    const repoRoot = findRepoRoot(MODULE_DIR);
     const envPath = join(repoRoot, ".env");
     if (existsSync(envPath)) {
       const content = readFileSync(envPath, "utf-8");
@@ -64,7 +67,7 @@ export function loadToken(): string {
   }
   throw new Error(
     "Linear API key not found. Set LINEAR_API_KEY (or LINEAR_TOKEN) env var, " +
-      "or add LINEAR_API_KEY=<key> to the gitignored .env at the repo root " +
+      "or add LINEAR_API_KEY=<key> to the guava-os checkout's gitignored .env " +
       "(Linear Settings → API → Personal API keys). The key is never printed.",
   );
 }

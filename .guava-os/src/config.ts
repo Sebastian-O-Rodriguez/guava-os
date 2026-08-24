@@ -10,6 +10,7 @@ export interface LinearConfig {
 export interface Config {
   linear: LinearConfig;
   roles: string[];
+  domains?: string[];
   statuses: {
     backlog: string;
     todo: string;
@@ -33,6 +34,10 @@ export interface Config {
 /** All OMP roles in this project */
 export function allRoles(config: Config): string[] {
   return config.roles;
+}
+
+export function allDomains(config: Config): string[] {
+  return config.domains ?? [];
 }
 
 export function findRepoRoot(startDir: string = process.cwd()): string {

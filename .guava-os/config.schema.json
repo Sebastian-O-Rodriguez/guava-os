@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Guava OS Configuration",
   "type": "object",
-  "required": ["linear", "roles", "statuses", "active_parent_statuses", "invariants", "branch_pattern", "process_files", "manifest_path"],
+  "required": ["linear", "roles", "domains", "statuses", "active_parent_statuses", "invariants", "branch_pattern", "process_files", "manifest_path"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -24,6 +24,13 @@
       "minItems": 1,
       "uniqueItems": true,
       "description": "All OMP roles in this project"
+    },
+    "domains": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Skill domains — what a worker builds (pm, qa, security, backend, frontend, devops, ai-ml)"
     },
     "statuses": {
       "type": "object",

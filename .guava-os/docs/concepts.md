@@ -12,8 +12,8 @@ Key terms used throughout guava-os documentation and output.
 
 ## Roles
 
-Roles are the six OMP agent types. One issue carries exactly one **role label**,
-which selects the subagent a project session dispatches. No persona layer.
+Roles are the seven OMP agent types. One issue carries exactly one **role label**
+(selecting the OMP agent) and one **domain label** (selecting the skill domain).
 
 | Role | OMP agent | Does |
 |---|---|---|
@@ -23,6 +23,7 @@ which selects the subagent a project session dispatches. No persona layer.
 | `designer` | designer | UI/UX implementation |
 | `sonic` | sonic | fast mechanical edits |
 | `librarian` | librarian | research libraries/APIs from source |
+| `security-reviewer` | security-reviewer | security audit (read-only) |
 
 ## Execution states
 

@@ -34,4 +34,4 @@ loop.
 ## Choose your playbook
 
 - Planning, Linear, review → `.guava-os/PLAYBOOK.md`
-- Execution, dispatch (OMP subagents) → `execution` skill
+- Execution, dispatch (OMP subagents) → `dispatch` skill

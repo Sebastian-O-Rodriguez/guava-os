@@ -6,7 +6,7 @@
  */
 
 import type { Config } from "./config.js";
-import { allRoles } from "./config.js";
+import { allRoles, allDomains } from "./config.js";
 import type { IssueGraph, LinearIssue } from "./linear.js";
 
 export type ViolationSeverity = "error" | "warning";
@@ -37,6 +37,7 @@ export interface ValidateResult {
 export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Config): ValidateResult {
   const violations: Violation[] = [];
   const roleLabels = allRoles(config);
+  const domainLabels = allDomains(config);
   const activeParentStatuses = config.active_parent_statuses;
 
   // Build a full issue lookup (ANY nesting level) + children-by-parent map.
@@ -205,7 +206,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     if (issue.canceledAt || issue.statusType === "completed") continue;
 
     for (const label of issue.labels) {
-      if (!roleLabels.includes(label) && !knownNonRole.has(label)) {
+      if (!roleLabels.includes(label) && !domainLabels.includes(label) && !knownNonRole.has(label)) {
         violations.push({
           code: "V402",
           name: "unknown_role_label",
@@ -214,6 +215,24 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
           detail: `Label "${label}" is not a configured role or known category label`,
         });
       }
+    }
+  }
+
+  // ── V403: multiple_domain_labels ──
+  // A deliverable maps to ONE domain (which skills to load). More than one is
+  // ambiguous routing — warning, not error (domain rollout is additive).
+  for (const issue of issues) {
+    if (issue.canceledAt || issue.statusType === "completed") continue;
+    if (containerIds.has(issue.id)) continue;
+    const matched = issue.labels.filter(l => domainLabels.includes(l));
+    if (matched.length > 1) {
+      violations.push({
+        code: "V403",
+        name: "multiple_domain_labels",
+        severity: "warning",
+        issue_id: issue.id,
+        detail: `Sub-issue has multiple domain labels: ${matched.join(", ")}`,
+      });
     }
   }
 

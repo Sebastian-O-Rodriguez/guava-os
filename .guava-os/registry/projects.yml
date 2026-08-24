@@ -29,7 +29,7 @@ projects:
     notes: distributor-operations analytics backend + dashboard; Linear project guava-bi
   - id: guava-site
     name: Guava Site
-    git_remote: https://github.com/Sebastian-O-Rodriguez/company-site.git
+    git_remote: https://github.com/Sebastian-O-Rodriguez/guava-site.git
     repo_path: ~/dev/repos/guava-site
     linear_project: guava-site
     lifecycle: active
@@ -38,18 +38,19 @@ projects:
     name: Reusable Diagnostic Engine v1
     git_remote: https://github.com/Sebastian-O-Rodriguez/reusable-diagnostic-engine.git
     repo_path: ~/dev/repos/reusable-diagnostic-engine
-    linear_project: Reusable Diagnostic Engine v1
+    linear_project: reusable-diagnostic-engine
     lifecycle: active
-    notes: productizes bell-diagnostic (read-only reference); all RDI v1 code + deliverables live here; Linear project Reusable Diagnostic Engine v1
-  - id: routineme
-    name: RoutineMe
-    git_remote: https://github.com/Sebastian-O-Rodriguez/routineme.git
-    repo_path: ~/dev/repos/routineme
-    linear_project: routineme
+    notes: productizes bell-diagnostic (read-only reference); all RDI v1 code + deliverables live here; Linear project reusable-diagnostic-engine
+  - id: routine-me
+    name: Routine-Me
+    git_remote: https://github.com/Sebastian-O-Rodriguez/routine-me.git
+    repo_path: ~/dev/repos/routine-me
+    linear_project: routine-me
     lifecycle: active
     notes: AI evidence host — evals, LLM observability, user-grounded retrieval, and bounded agentic tool loops (Phase 4 evidence upgrades)
   - id: resume-site
     name: Resume Site
+    git_remote: https://github.com/Sebastian-O-Rodriguez/resume-site.git
     repo_path: ~/dev/repos/resume-site
     linear_project: resume-site
     lifecycle: active

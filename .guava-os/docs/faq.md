@@ -24,6 +24,8 @@ implements, verifies, commits to `dev/<role>`, and comments. QA reviews and
 merges to `staging`; the operator merges to `production`; the issue moves to
 `Done`.
 
-## Never call Linear MCP directly
+## Why not Linear MCP first?
 
-Only `guava-os pm` (the `linear` skill) touches Linear.
+`guava-os pm` (the `linear` skill) is the primary, reliable path. Linear MCP
+is a fallback when `pm` can't express the operation — MCPs are expensive and
+unreliable, so skills and native tools come first.

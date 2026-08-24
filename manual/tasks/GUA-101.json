@@ -1,0 +1,13 @@
+{
+  "role": "task",
+  "domain": "backend",
+  "issue": "GUA-101",
+  "why": "Analytics dashboard requires DAU.",
+  "scope": ["add GET /metrics", "query Postgres", "return {dau: N}"],
+  "out_of_scope": ["auth", "caching", "unrelated refactors"],
+  "acceptance": [
+    "GET /metrics returns 200 {dau: N}",
+    "query uses appropriate existing index",
+    "automated test covers behavior"
+  ]
+}
