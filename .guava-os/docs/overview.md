@@ -15,8 +15,8 @@ orchestrates OMP subagents. It does not implement — project sessions are
 
 ## Roles
 
-The six OMP agent types are the roles: `task`, `reviewer`, `scout`, `designer`,
-`sonic`, `librarian`. One issue carries exactly one role label.
+The seven OMP agent types are the roles: `task`, `reviewer`, `scout`, `designer`,
+`sonic`, `librarian`, `security-reviewer`. One issue carries one role label and one domain label.
 
 ## Commands
 

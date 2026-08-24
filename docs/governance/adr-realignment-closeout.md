@@ -34,7 +34,7 @@ Every ADR_001 concern → exactly one owner → evidence.
 | Promotion gates | gorp | `promote/promote.ts` — fail-closed |
 | Scope/command gates | gorp | `gate/scope.ts`, `gate/commands.ts` |
 | Governance enforcement | gorp | fail-closed gates, hash binding, transition table |
-| Personas | guava-os | `.guava-os/personas/` — defined here, loaded by OMP at dispatch |
+| Roles | guava-os | six OMP agent types; `.guava-os/config.json` `roles` |
 | OMP runtime contract | gorp (source-neutral) | GOS-8: `docs/architecture/omp-runtime-boundary.md` |
 | Operator session model | Herdr (planned) | GOS-3: VISION/SYSTEM-MODEL mention Herdr |
 | guava-os ↔ gorp contract | both | GOS-2: `docs/architecture/guava-os-gorp-contract.md` |
@@ -72,7 +72,7 @@ Every ADR_001 concern → exactly one owner → evidence.
 - No "governance-of-execution" or "Gorp wins" language remains outside history.
 - No hermes references in source code (contracts test passes).
 - Registry is owned by guava-os; gorp has no internal default path.
-- Personas defined in guava-os; loaded by OMP at dispatch.
+- Roles defined in guava-os (`.guava-os/config.json`); select the OMP agent.
 
 ## Known gaps
 

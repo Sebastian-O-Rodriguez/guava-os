@@ -32,5 +32,5 @@
 
 `linear-client.ts` is the one supported guava-os Linear interface. All Linear
 network access is contained there; the CLI and future skills import from it;
-agents never call Linear MCP directly. Linear only — no generic provider
+agents prefer this module over Linear MCP. Linear only — no generic provider
 abstraction.

@@ -1,7 +1,8 @@
 {
   "$schema": "./config.schema.json",
   "linear": { "team": "Guava AI", "project": "guava-os", "issue_prefix": "GUA" },
-  "roles": ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
+  "roles": ["task", "reviewer", "scout", "designer", "sonic", "librarian", "security-reviewer"],
+  "domains": ["pm", "qa", "security", "backend", "frontend", "devops", "ai-ml"],
   "statuses": { "backlog": "Backlog", "todo": "Todo", "in_progress": "In Progress", "in_review": "In Review", "done": "Done" },
   "active_parent_statuses": ["Todo", "In Progress"],
   "invariants": { "max_todo_per_role": 3, "stale_hours": 48, "reclaim_limit": 2, "bulk_threshold": 5, "max_subtasks_per_parent": 3 },

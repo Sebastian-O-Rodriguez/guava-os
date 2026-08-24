@@ -550,3 +550,34 @@ describe("nested decomposition — wave → container → leaves", () => {
     expect(codes(issues)).not.toContain("V305");
   });
 });
+
+// ──────────────────────────────────────────────────────────────────
+// Domain labels — role and domain are separate axes
+// ──────────────────────────────────────────────────────────────────
+
+describe("domain labels (role + domain axes)", () => {
+  const CFG: Config = {
+    ...TEST_CONFIG,
+    domains: ["pm", "qa", "security", "backend", "frontend", "devops", "ai-ml"],
+  };
+
+  it("accepts a single domain label alongside a role label (no V400/V402/V403)", () => {
+    const issues = [
+      makeIssue({ id: "TST-60", status: "Todo", statusType: "unstarted", labels: ["task", "backend"] }),
+    ];
+    const result = runValidate(buildGraph(issues, CFG), issues, CFG);
+    expect(result.violations.some((v) => v.code === "V400")).toBe(false);
+    expect(result.violations.some((v) => v.code === "V402")).toBe(false);
+    expect(result.violations.some((v) => v.code === "V403")).toBe(false);
+  });
+
+  it("flags multiple domain labels (V403)", () => {
+    const issues = [
+      makeIssue({ id: "TST-61", status: "Todo", statusType: "unstarted", labels: ["task", "backend", "frontend"] }),
+    ];
+    const result = runValidate(buildGraph(issues, CFG), issues, CFG);
+    expect(result.violations).toContainEqual(
+      expect.objectContaining({ code: "V403", name: "multiple_domain_labels", issue_id: "TST-61" }),
+    );
+  });
+});

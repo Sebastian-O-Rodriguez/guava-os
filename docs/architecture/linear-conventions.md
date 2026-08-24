@@ -6,9 +6,9 @@
 
 ## Principle
 
-Linear native fields carry workflow. Labels carry metadata only. Never use
-labels for workflow state. An issue's **role label** picks the OMP subagent that
-executes it.
+Linear native fields carry workflow. Labels carry metadata and routing. Never use
+labels for workflow state. An issue carries **one role label** (picking the OMP subagent)
+and **one domain label** (activating domain guidance and routing).
 
 ## Native fields (workflow)
 
@@ -23,10 +23,11 @@ executes it.
 | Cycle | Sprint cycle (if used). |
 | Milestone | Project milestone (if used). |
 
-## Labels — the 6 OMP roles
+## Labels — 7 OMP roles + 7 domain tags
 
-One issue carries **exactly one** role label; that label maps to the OMP agent
-type the project session dispatches.
+An issue carries **one role label** and **one domain label**.
+
+### Roles (how it is executed — OMP agent type)
 
 | Label | OMP agent | Does |
 |---|---|---|
@@ -36,10 +37,21 @@ type the project session dispatches.
 | `designer` | designer | UI/UX implementation |
 | `sonic` | sonic | fast mechanical edits |
 | `librarian` | librarian | research libraries/APIs from source |
+| `security-reviewer` | security-reviewer | security audit (read-only) |
 
-Domain (backend vs frontend) lives in the issue's **scope/description**, not a
-label. Never use labels for workflow state (no `ready`, `blocked`, `in-progress`).
+### Domains (what is being built — skill domain)
 
+| Domain | What it covers |
+|---|---|
+| `pm` | Product management, planning, scoping |
+| `qa` | Quality assurance, testing, verification |
+| `security` | Security authoring and review |
+| `backend` | APIs, databases, servers |
+| `frontend` | UI components, styling, animations |
+| `devops` | CI/CD, IaC, infrastructure, deployment |
+| `ai-ml` | Vector databases, RAG, prompt engineering, analytics |
+
+Never use labels for workflow state (no `ready`, `blocked`, `in-progress`).
 ## Issue template
 
 Every issue must have:
@@ -56,7 +68,7 @@ Every issue must have:
   - `## Dependencies` (blocked by: GUA-N)
 - **Project** — the owning project.
 - **Parent** — the sprint container issue.
-- **Labels** — exactly one role label (`task`/`reviewer`/`scout`/`designer`/`sonic`/`librarian`).
+- **Labels** — one role label (`task`/`reviewer`/`scout`/`designer`/`sonic`/`librarian`/`security-reviewer`) + one domain label (`pm`/`qa`/`security`/`backend`/`frontend`/`devops`/`ai-ml`).
 - **Status** — `Todo` on creation.
 - **Dependencies** — Linear `blocks` / `blocked-by` mirroring the dependency graph.
 

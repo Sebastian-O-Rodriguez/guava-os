@@ -75,7 +75,7 @@ dev/task   dev/designer   ...   (one per role; workers push here)
   process supervision.
 - GitHub owns: authorization (branch protection, required review, required CI).
 - Linear owns: workflow state of record (the issue + comment thread).
-- Agents reach Linear only through guava-os tooling — never Linear MCP directly.
+- Agents prefer guava-os tooling for Linear; Linear MCP is a last-resort fallback.
 
 ## Skills
 

@@ -37,8 +37,8 @@ flowchart TD
   comment, cancel, archive).
 - **review** — QA/promotion verdicts.
 
-Roles are the 6 OMP agent types: `task`, `reviewer`, `scout`, `designer`,
-`sonic`, `librarian`. An issue carries exactly one role label; that decides
+Roles are the 7 OMP agent types: `task`, `reviewer`, `scout`, `designer`,
+`sonic`, `librarian`, `security-reviewer`. An issue carries one role label and one domain label; that decides
 which subagent a project session dispatches.
 
-Never use Linear MCP directly — only `guava-os pm`.
+Prefer `guava-os pm` — the primary Linear path. Linear MCP is a last-resort fallback.

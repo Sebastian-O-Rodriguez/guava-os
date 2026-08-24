@@ -62,7 +62,7 @@ When asked to plan (a sprint, a request, /planning):
    max_subtasks_per_parent, DoR = `pm search --json | validate` exits 0.
 
 ## Tooling
-Use only guava-os tooling; never Linear MCP directly. Run the CLI from THIS
+Prefer guava-os tooling for Linear; Linear MCP is a last-resort fallback. Run the CLI from THIS
 repo root so it loads this project's .guava-os/config.json (project, roles,
 invariants); the binary lives in the guava-os checkout:
   ~/dev/guava-os/.guava-os/bin/guava-os pm <cmd>

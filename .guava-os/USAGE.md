@@ -89,7 +89,7 @@ guava-os pm comment <id> --body "..."
 guava-os pm archive <id>
 ```
 
-Never Linear MCP directly — `pm` is the only path.
+Prefer `pm` for Linear; Linear MCP is a last-resort fallback.
 
 ## Stdin contract (classifier commands)
 

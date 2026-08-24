@@ -7,6 +7,7 @@ import {
   loadToken,
 } from "../src/linear-client.js";
 import { findRepoRoot } from "../src/config.js";
+import { tmpdir } from "node:os";
 
 // loadToken's .env fallback resolves via findRepoRoot; point it at a
 // nonexistent root so the missing-key path is exercised without the real .env.
@@ -297,5 +298,25 @@ describe("GOS-25 auth loading", () => {
     expect(findRepoRoot("/any")).toBe("/nonexistent-root"); // mock active
     expect(() => loadToken()).toThrow(/LINEAR_API_KEY/);
     expect(() => loadToken()).not.toThrow(/test-key|lin_api/);
+  });
+
+  it("anchors the .env lookup to the checkout, not process.cwd()", () => {
+    vi.stubEnv("LINEAR_API_KEY", "");
+    vi.stubEnv("LINEAR_TOKEN", "");
+    const probes: (string | undefined)[] = [];
+    vi.mocked(findRepoRoot).mockImplementationOnce((startDir?: string) => {
+      probes.push(startDir);
+      return "/nonexistent-root";
+    });
+    const cwdBefore = process.cwd();
+    try {
+      process.chdir(tmpdir());
+      expect(() => loadToken()).toThrow(/LINEAR_API_KEY/);
+    } finally {
+      process.chdir(cwdBefore);
+    }
+    expect(probes).toHaveLength(1);
+    expect(probes[0]).toBeTypeOf("string");
+    expect(probes[0] as string).toContain(".guava-os");
   });
 });
