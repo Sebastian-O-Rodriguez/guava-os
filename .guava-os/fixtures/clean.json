@@ -18,13 +18,14 @@
     "status": "Todo",
     "statusType": "unstarted",
     "priority": { "value": 2, "name": "High" },
-    "labels": ["scout"],
+    "labels": ["security", "ready-for-work"],
     "parentId": "TST-1",
     "project": "TestProject",
     "createdAt": "2026-01-01",
     "updatedAt": "2026-01-01",
     "completedAt": null,
-    "canceledAt": null
+    "canceledAt": null,
+    "description": "## Why this exists\nauth needs a schema\n\n## Scope\ndefine the auth types\n\n## Acceptance criteria\nschema reviewed and merged\n"
   },
   {
     "id": "TST-11",
@@ -32,12 +33,13 @@
     "status": "Todo",
     "statusType": "unstarted",
     "priority": { "value": 2, "name": "High" },
-    "labels": ["task"],
+    "labels": ["backend", "ready-for-work"],
     "parentId": "TST-1",
     "project": "TestProject",
     "createdAt": "2026-01-01",
     "updatedAt": "2026-01-02",
     "completedAt": null,
-    "canceledAt": null
+    "canceledAt": null,
+    "description": "## Why this exists\nroutes are missing\n\n## Scope\nimplement the auth routes\n\n## Acceptance criteria\nroutes tested and passing\n"
   }
 ]

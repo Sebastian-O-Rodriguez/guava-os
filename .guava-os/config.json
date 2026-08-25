@@ -1,12 +1,43 @@
 {
   "$schema": "./config.schema.json",
-  "linear": { "team": "Guava AI", "project": "guava-os", "issue_prefix": "GUA" },
-  "roles": ["task", "reviewer", "scout", "designer", "sonic", "librarian", "security-reviewer"],
+  "linear": {
+    "team": "Guava AI",
+    "project": "guava-os",
+    "issue_prefix": "GUA",
+    "aliases": { "gos": "guava-os" }
+  },
   "domains": ["pm", "qa", "security", "backend", "frontend", "devops", "ai-ml"],
-  "statuses": { "backlog": "Backlog", "todo": "Todo", "in_progress": "In Progress", "in_review": "In Review", "done": "Done" },
+  "domainAgents": {
+    "pm": "task",
+    "qa": "reviewer",
+    "security": "security-reviewer",
+    "backend": "task",
+    "frontend": "designer",
+    "devops": "task",
+    "ai-ml": "task"
+  },
+  "types": ["Feature", "Bug", "Improvement", "Chore", "Spike"],
+  "readiness": {
+    "untriaged": "untriaged",
+    "ready": "ready-for-work",
+    "needs_rescoping": "needs-rescoping"
+  },
+  "statuses": {
+    "backlog": "Backlog",
+    "todo": "Todo",
+    "in_progress": "In Progress",
+    "in_review": "In Review",
+    "done": "Done"
+  },
   "active_parent_statuses": ["Todo", "In Progress"],
-  "invariants": { "max_todo_per_role": 3, "stale_hours": 48, "reclaim_limit": 2, "bulk_threshold": 5, "max_subtasks_per_parent": 3 },
-  "branch_pattern": "dev/{role}",
+  "invariants": {
+    "max_todo_per_domain": 3,
+    "stale_hours": 48,
+    "reclaim_limit": 2,
+    "bulk_threshold": 5,
+    "max_subtasks_per_parent": 3
+  },
+  "branch_pattern": "dev/{domain}",
   "process_files": {},
   "manifest_path": ".guava-os/manifest.json"
 }

@@ -2,12 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Guava OS Configuration",
   "type": "object",
-  "required": ["linear", "roles", "domains", "statuses", "active_parent_statuses", "invariants", "branch_pattern", "process_files", "manifest_path"],
+  "required": ["linear", "domains", "domainAgents", "types", "readiness", "statuses", "active_parent_statuses", "invariants", "branch_pattern", "process_files", "manifest_path"],
   "additionalProperties": false,
   "properties": {
-    "$schema": {
-      "type": "string"
-    },
+    "$schema": { "type": "string" },
     "linear": {
       "type": "object",
       "required": ["team", "project", "issue_prefix"],
@@ -15,22 +13,42 @@
       "properties": {
         "team": { "type": "string", "description": "Linear team name" },
         "project": { "type": "string", "description": "Linear project name" },
-        "issue_prefix": { "type": "string", "pattern": "^[A-Z]+$", "description": "Issue ID prefix (e.g. GUA)" }
+        "issue_prefix": { "type": "string", "pattern": "^[A-Z]+$", "description": "Issue ID prefix (e.g. GUA)" },
+        "aliases": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Short aliases → canonical Linear project name (e.g. gos → guava-os)"
+        }
       }
-    },
-    "roles": {
-      "type": "array",
-      "items": { "type": "string" },
-      "minItems": 1,
-      "uniqueItems": true,
-      "description": "All OMP roles in this project"
     },
     "domains": {
       "type": "array",
       "items": { "type": "string" },
       "minItems": 1,
       "uniqueItems": true,
-      "description": "Skill domains — what a worker builds (pm, qa, security, backend, frontend, devops, ai-ml)"
+      "description": "Skill domains — what knowledge a worker loads (pm, qa, security, backend, frontend, devops, ai-ml)"
+    },
+    "domainAgents": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Domain → OMP agent type (model + disposition + tools). e.g. qa→reviewer, security→security-reviewer, frontend→designer"
+    },
+    "types": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Work classification labels (Feature, Bug, Improvement, Chore, Spike)"
+    },
+    "readiness": {
+      "type": "object",
+      "required": ["untriaged", "ready", "needs_rescoping"],
+      "additionalProperties": false,
+      "properties": {
+        "untriaged": { "type": "string", "description": "Default readiness label — not yet triaged" },
+        "ready": { "type": "string", "description": "Triage passed — dispatchable" },
+        "needs_rescoping": { "type": "string", "description": "Triage failed — requires attention" }
+      }
     },
     "statuses": {
       "type": "object",
@@ -47,33 +65,22 @@
     "active_parent_statuses": {
       "type": "array",
       "items": { "type": "string" },
-      "minItems": 1,
-      "description": "Parent statuses that allow sub-issue execution (e.g. Todo, In Progress)"
+      "minItems": 1
     },
     "invariants": {
       "type": "object",
-      "required": ["max_todo_per_role", "stale_hours", "reclaim_limit", "bulk_threshold", "max_subtasks_per_parent"],
+      "required": ["max_todo_per_domain", "stale_hours", "reclaim_limit", "bulk_threshold", "max_subtasks_per_parent"],
       "additionalProperties": false,
       "properties": {
-        "max_todo_per_role": { "type": "integer", "minimum": 1 },
-        "stale_hours": { "type": "integer", "minimum": 1 },
-        "reclaim_limit": { "type": "integer", "minimum": 1 },
-        "bulk_threshold": { "type": "integer", "minimum": 1 },
-        "max_subtasks_per_parent": { "type": "integer", "minimum": 1 }
+        "max_todo_per_domain": { "type": "number", "description": "Max open Todo per domain" },
+        "stale_hours": { "type": "number" },
+        "reclaim_limit": { "type": "number" },
+        "bulk_threshold": { "type": "number" },
+        "max_subtasks_per_parent": { "type": "number" }
       }
     },
-    "branch_pattern": {
-      "type": "string",
-      "description": "Branch naming pattern with {role} placeholder"
-    },
-    "process_files": {
-      "type": "object",
-      "additionalProperties": { "type": "string" },
-      "description": "Map of process doc name to file path"
-    },
-    "manifest_path": {
-      "type": "string",
-      "description": "Path to ephemeral manifest file (must be gitignored)"
-    }
+    "branch_pattern": { "type": "string" },
+    "process_files": { "type": "object", "additionalProperties": { "type": "string" } },
+    "manifest_path": { "type": "string" }
   }
 }

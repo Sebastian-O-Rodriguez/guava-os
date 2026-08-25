@@ -2,9 +2,9 @@
  * Session gate — deterministic hook run on `session_start`.
  *
  * Runs `guava-os work --all` and either surfaces the open work or signals
- * "nothing to do". This is the "script, not AI" layer: it runs before the
- * agent reasons. First cut — validates against the live OMP hook API
- * (`omp://hooks.md`).
+ * "nothing to do". Message-only: the execution-tool blocker is DISABLED until
+ * the readiness gate lands (GUA-472/473) — an earlier blocking version
+ * deadlocked because `work` still counted role labels mid-rework.
  */
 import { execFileSync } from "node:child_process";
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";

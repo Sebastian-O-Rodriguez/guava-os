@@ -2,7 +2,8 @@
  * Next directive generator.
  *
  * Compiles the execution graph into operator-ready launch directives.
- * One directive per role: the highest-priority executable subtask.
+ * One directive per domain: the highest-priority executable subtask, plus the
+ * OMP agent type that domain routes to.
  *
  * READ-ONLY: No mutation, claiming, assignment, or side effects.
  * Derives entirely from the canonical IssueGraph — no independent
@@ -12,9 +13,12 @@
 import type { IssueGraph, ExecutableSubtask, GraphCapabilities } from "./linear.js";
 import { priorityLabel } from "./linear.js";
 import type { Config } from "./config.js";
+import { agentForDomain } from "./config.js";
 
 export interface Directive {
-  role: string;
+  domain: string;
+  /** OMP agent type this domain routes to (e.g. reviewer, designer, task). */
+  agent: string;
   issue_id: string;
   title: string;
   branch: string;
@@ -28,15 +32,15 @@ export interface Directive {
 export interface NextResult {
   directives: Directive[];
   summary: {
-    roles_with_work: number;
-    roles_without_work: number;
+    domains_with_work: number;
+    domains_without_work: number;
     total_executable: number;
   };
   capabilities: GraphCapabilities;
 }
 
-function buildBranch(config: Config, role: string, task: ExecutableSubtask): string {
-  const prefix = config.linear.issue_prefix;
+function buildBranch(config: Config, domain: string, task: ExecutableSubtask): string {
+  const prefix = config.linear.issue_prefix.toLowerCase();
   // Extract numeric part from issue ID (e.g., "GUA-17" → "17", "TST-10" → "10")
   const idNum = task.id.includes("-") ? task.id.split("-").slice(1).join("-") : task.id;
   const MAX_SLUG = 40;
@@ -53,11 +57,15 @@ function buildBranch(config: Config, role: string, task: ExecutableSubtask): str
     const lastDash = truncated.lastIndexOf("-");
     slug = lastDash > 0 ? truncated.slice(0, lastDash) : truncated;
   }
-  return `${role}/${prefix.toLowerCase()}-${idNum}-${slug}`;
+  return config.branch_pattern
+    .replace("{domain}", domain)
+    .replace("{prefix}", prefix)
+    .replace("{id}", idNum)
+    .replace("{slug}", slug);
 }
 
 function buildContext(
-  role: string,
+  domain: string,
   queue: ExecutableSubtask[],
   graph: IssueGraph,
 ): string[] {
@@ -84,7 +92,7 @@ function buildContext(
 
   // Queue depth
   if (queue.length > 1) {
-    ctx.push(`${queue.length} executable ${role} items total`);
+    ctx.push(`${queue.length} executable ${domain} items total`);
   }
 
   return ctx;
@@ -93,14 +101,14 @@ function buildContext(
 export function generateNext(
   graph: IssueGraph,
   config: Config,
-  roleFilter?: string,
+  domainFilter?: string,
 ): NextResult {
   const directives: Directive[] = [];
   let withWork = 0;
   let withoutWork = 0;
 
-  for (const [role, queue] of graph.executable) {
-    if (roleFilter && role !== roleFilter) continue;
+  for (const [domain, queue] of graph.executable) {
+    if (domainFilter && domain !== domainFilter) continue;
 
     if (queue.length === 0) {
       withoutWork++;
@@ -111,27 +119,28 @@ export function generateNext(
     const top = queue[0];
 
     directives.push({
-      role,
+      domain,
+      agent: agentForDomain(config, domain),
       issue_id: top.id,
       title: top.title,
-      branch: buildBranch(config, role, top),
+      branch: buildBranch(config, domain, top),
       priority: { value: top.priority, label: priorityLabel(top.priority) },
       parent_id: top.parentId,
-      context: buildContext(role, queue, graph),
+      context: buildContext(domain, queue, graph),
     });
   }
 
-  // Deterministic sort: by priority value ascending, then role alphabetically
+  // Deterministic sort: by priority value ascending, then domain alphabetically
   directives.sort((a, b) => {
     if (a.priority.value !== b.priority.value) return a.priority.value - b.priority.value;
-    return a.role.localeCompare(b.role);
+    return a.domain.localeCompare(b.domain);
   });
 
   return {
     directives,
     summary: {
-      roles_with_work: withWork,
-      roles_without_work: withoutWork,
+      domains_with_work: withWork,
+      domains_without_work: withoutWork,
       total_executable: graph.summary.totalExecutable,
     },
     capabilities: graph.capabilities,
@@ -144,9 +153,9 @@ export function formatNext(result: NextResult): string {
   if (result.directives.length === 0) {
     lines.push("NEXT");
     lines.push("");
-    lines.push("  (no executable work for any role)");
+    lines.push("  (no executable work for any domain)");
     lines.push("");
-    lines.push(`SUMMARY: ${result.summary.roles_with_work} roles with work, ${result.summary.total_executable} executable total`);
+    lines.push(`SUMMARY: ${result.summary.domains_with_work} domains with work, ${result.summary.total_executable} executable total`);
     return lines.join("\n");
   }
 
@@ -154,7 +163,8 @@ export function formatNext(result: NextResult): string {
 
   for (const d of result.directives) {
     lines.push("");
-    lines.push(`${d.role}`);
+    lines.push(`${d.domain}`);
+    lines.push(`  AGENT:    ${d.agent}`);
     lines.push(`  ISSUE:    ${d.issue_id}`);
     lines.push(`  TITLE:    ${d.title}`);
     lines.push(`  PRIORITY: ${d.priority.label}`);
@@ -170,7 +180,7 @@ export function formatNext(result: NextResult): string {
     }
   }
   lines.push("");
-  lines.push(`SUMMARY: ${result.summary.roles_with_work} roles with work, ${result.summary.total_executable} executable total`);
+  lines.push(`SUMMARY: ${result.summary.domains_with_work} domains with work, ${result.summary.total_executable} executable total`);
 
   if (result.capabilities.hasExternalBlockerGap && result.directives.length > 0) {
     lines.push("NOTE: External blockers may exist outside the snapshot — directives may target issues blocked by out-of-dataset work.");

@@ -14,6 +14,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { TREES } from "./trees.mjs";
+import { createHash } from "node:crypto";
 
 const SKILLS = "/Users/sebroot/.agents/skills";
 const CORE_SKILL = "engineering-principles";
@@ -103,6 +104,19 @@ async function main() {
   L("acceptance:");
   for (const s of task.acceptance || []) L(`  - ${s}`);
   L("");
+  const behavior = skills["behavior"];
+  if (behavior) {
+    L("# BEHAVIOR");
+    L("");
+    const implement = extract(behavior.body, "Implement");
+    L("implement:");
+    for (const b of implement) L(`  - ${b}`);
+    L("");
+    const judge = extract(behavior.body, "Judge");
+    L("judge:");
+    for (const b of judge) L(`  - ${b}`);
+    L("");
+  }
 
   if (tree) {
     L("# ROUTING");
@@ -141,6 +155,9 @@ async function main() {
   L("");
   L("Return:");
   for (const s of COMPLETION) L(`- ${s}`);
+  const marker = createHash("sha256").update(JSON.stringify(task)).digest("hex");
+  L("");
+  L(`# CONTEXT-MARKER ${marker}`);
 
   console.log(o.join("\n"));
 }

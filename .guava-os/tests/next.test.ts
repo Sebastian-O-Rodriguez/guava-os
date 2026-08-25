@@ -1,12 +1,31 @@
 import { describe, it, expect } from "vitest";
 import { buildGraph, type LinearIssue } from "../src/linear.js";
 import { generateNext, formatNext } from "../src/next.js";
-import { loadConfig, findRepoRoot } from "../src/config.js";
+import type { Config } from "../src/config.js";
 import { execSync } from "child_process";
 import { resolve } from "path";
 import { readFileSync } from "fs";
 
-const config = loadConfig(findRepoRoot());
+const config: Config = {
+  linear: { team: "Test", project: "TestProject", issue_prefix: "GUA" },
+  domains: ["task", "scout", "designer", "reviewer", "sonic", "librarian"],
+  domainAgents: {
+    task: "task",
+    scout: "security-reviewer",
+    designer: "designer",
+    reviewer: "reviewer",
+    sonic: "sonic",
+    librarian: "librarian",
+  },
+  types: ["Feature", "Bug", "Improvement", "Chore", "Spike"],
+  readiness: { untriaged: "untriaged", ready: "ready-for-work", needs_rescoping: "needs-rescoping" },
+  statuses: { backlog: "Backlog", todo: "Todo", in_progress: "In Progress", in_review: "In Review", done: "Done" },
+  active_parent_statuses: ["Todo", "In Progress"],
+  invariants: { max_todo_per_domain: 3, stale_hours: 48, reclaim_limit: 2, bulk_threshold: 5, max_subtasks_per_parent: 3 },
+  branch_pattern: "{domain}/{prefix}-{id}-{slug}",
+  process_files: {},
+  manifest_path: ".guava-os/manifest.json",
+};
 
 function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssue {
   return {
@@ -31,7 +50,7 @@ function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssu
 // ──────────────────────────────────────────────────────────────────
 
 describe("next — directive generation", () => {
-  it("produces one directive per role with executable work", () => {
+  it("produces one directive per domain with executable work", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
       makeIssue({ id: "TST-10", title: "Arch task", labels: ["scout"], parentId: "TST-1" }),
@@ -41,12 +60,13 @@ describe("next — directive generation", () => {
     const result = generateNext(graph, config);
 
     expect(result.directives).toHaveLength(2);
-    const roles = result.directives.map(d => d.role);
-    expect(roles).toContain("scout");
-    expect(roles).toContain("task");
+    const domains = result.directives.map(d => d.domain);
+    expect(domains).toContain("scout");
+    expect(domains).toContain("task");
+    expect(result.directives.find(d => d.domain === "scout")!.agent).toBe("security-reviewer");
   });
 
-  it("selects highest priority item per role", () => {
+  it("selects highest priority item per domain", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
       makeIssue({
@@ -61,7 +81,7 @@ describe("next — directive generation", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const taskDirective = result.directives.find(d => d.role === "task");
+    const taskDirective = result.directives.find(d => d.domain === "task");
     expect(taskDirective).toBeDefined();
     expect(taskDirective!.issue_id).toBe("TST-11");
     expect(taskDirective!.priority.value).toBe(1);
@@ -76,10 +96,10 @@ describe("next — directive generation", () => {
     const result = generateNext(graph, config);
 
     expect(result.directives).toHaveLength(0);
-    expect(result.summary.roles_with_work).toBe(0);
+    expect(result.summary.domains_with_work).toBe(0);
   });
 
-  it("filters by role when --role provided", () => {
+  it("filters by domain", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
       makeIssue({ id: "TST-10", title: "Arch task", labels: ["scout"], parentId: "TST-1" }),
@@ -89,10 +109,10 @@ describe("next — directive generation", () => {
     const result = generateNext(graph, config, "task");
 
     expect(result.directives).toHaveLength(1);
-    expect(result.directives[0].role).toBe("task");
+    expect(result.directives[0].domain).toBe("task");
   });
 
-  it("returns empty when filtered role has no work", () => {
+  it("returns empty when filtered domain has no work", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
       makeIssue({ id: "TST-10", title: "Arch task", labels: ["scout"], parentId: "TST-1" }),
@@ -117,7 +137,7 @@ describe("next — branch generation", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.role === "task");
+    const d = result.directives.find(d => d.domain === "task");
     expect(d).toBeDefined();
     expect(d!.branch).toBe("task/gua-17-build-action-executor");
   });
@@ -130,7 +150,7 @@ describe("next — branch generation", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.role === "scout");
+    const d = result.directives.find(d => d.domain === "scout");
     expect(d!.branch).toMatch(/^scout\/gua-42-define-action-type-zod-schemas/);
     expect(d!.branch).not.toMatch(/[^a-z0-9/-]/);
   });
@@ -143,7 +163,7 @@ describe("next — branch generation", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.role === "scout")!;
+    const d = result.directives.find(d => d.domain === "scout")!;
     // Must not cut mid-word — should end at a complete word
     expect(d.branch).toBe("scout/gua-16-define-action-type-zod-schemas-in-lib");
     expect(d.branch).not.toContain("-lib-ac");
@@ -157,7 +177,7 @@ describe("next — branch generation", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.role === "task")!;
+    const d = result.directives.find(d => d.domain === "task")!;
     // Must not produce "-exe" or "-actions-exe" truncation
     expect(d.branch).toBe("task/gua-17-build-action-executor-in-lib-actions");
     expect(d.branch).not.toContain("-executor-ts");
@@ -171,7 +191,7 @@ describe("next — branch generation", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.role === "task")!;
+    const d = result.directives.find(d => d.domain === "task")!;
     // Single token exceeds limit — hard truncate at 40
     const slug = d.branch.split("/")[1].replace(/^gua-99-/, "");
     expect(slug.length).toBeLessThanOrEqual(40);
@@ -185,7 +205,7 @@ describe("next — branch generation", () => {
     const graph = buildGraph(issues, config);
     const result = generateNext(graph, config);
 
-    const d = result.directives.find(d => d.role === "scout")!;
+    const d = result.directives.find(d => d.domain === "scout")!;
     expect(d.branch).toBe("scout/gua-10-design-auth-schema");
   });
 });
@@ -210,7 +230,7 @@ describe("next — determinism", () => {
     expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
   });
 
-  it("directives sorted by priority then role", () => {
+  it("directives sorted by priority then domain", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", title: "Parent", status: "In Progress", statusType: "started" }),
       makeIssue({
@@ -230,9 +250,9 @@ describe("next — determinism", () => {
     const result = generateNext(graph, config);
 
     // Urgent items first (scout before task alphabetically), then low
-    expect(result.directives[0].role).toBe("scout");
-    expect(result.directives[1].role).toBe("task");
-    expect(result.directives[2].role).toBe("designer");
+    expect(result.directives[0].domain).toBe("scout");
+    expect(result.directives[1].domain).toBe("task");
+    expect(result.directives[2].domain).toBe("designer");
   });
 });
 
@@ -354,7 +374,8 @@ describe("next — CLI smoke", () => {
     expect(parsed).toHaveProperty("capabilities");
     expect(Array.isArray(parsed.directives)).toBe(true);
     if (parsed.directives.length > 0) {
-      expect(parsed.directives[0]).toHaveProperty("role");
+      expect(parsed.directives[0]).toHaveProperty("domain");
+      expect(parsed.directives[0]).toHaveProperty("agent");
       expect(parsed.directives[0]).toHaveProperty("issue_id");
       expect(parsed.directives[0]).toHaveProperty("branch");
       expect(parsed.directives[0]).toHaveProperty("priority");
@@ -380,11 +401,11 @@ describe("next — CLI smoke", () => {
     expect(exitCode).toBe(1);
   });
 
-  it("--role filters output", () => {
-    const { stdout } = run("next --json --role scout", fixture("clean.json"));
+  it("--domain filters output", () => {
+    const { stdout } = run("next --json --domain backend", fixture("clean.json"));
     const parsed = JSON.parse(stdout);
     for (const d of parsed.directives) {
-      expect(d.role).toBe("scout");
+      expect(d.domain).toBe("backend");
     }
   });
 });
