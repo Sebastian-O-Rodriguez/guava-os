@@ -8,6 +8,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface RegistryProject {
   id: string;
@@ -28,7 +29,7 @@ export function resolveRegistryPath(registryPath?: string): string {
   const envPath = process.env["GUAVA_OS_PROJECT_REGISTRY"];
   if (envPath) return resolve(envPath);
   // Derive from module location: .guava-os/src/registry.ts → .guava-os/registry/projects.yml
-  return resolve(dirname(__dirname), "registry", "projects.yml");
+  return resolve(dirname(fileURLToPath(import.meta.url)), "..", "registry", "projects.yml");
 }
 
 /**
@@ -111,4 +112,29 @@ export function resolveRegistryProjectId(
   throw new Error(
     `Unregistered Linear project "${linearProject}" — no matching linear_project or id in registry`,
   );
+}
+
+/**
+ * Resolve a Linear project name to its repo_path (the directory whose git
+ * history backs the done-commit gate). Mirrors resolveRegistryProjectId's
+ * match rule (linear_project first, id fallback) and throws when the project
+ * is unregistered or has no repo_path — never returns undefined.
+ */
+export function resolveRegistryRepoPath(
+  linearProject: string,
+  registry: RegistryProject[],
+): string {
+  const entry = registry.find((r) => r.linearProject === linearProject)
+    ?? registry.find((r) => r.id === linearProject);
+  if (!entry) {
+    throw new Error(
+      `Unregistered Linear project "${linearProject}" — no matching linear_project or id in registry`,
+    );
+  }
+  if (!entry.repoPath) {
+    throw new Error(
+      `Registry project "${entry.id}" has no repo_path — cannot verify the done-commit gate`,
+    );
+  }
+  return entry.repoPath;
 }

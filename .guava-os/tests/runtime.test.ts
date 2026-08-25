@@ -6,14 +6,17 @@ import type { Config } from "../src/config.js";
 
 const TEST_CONFIG: Config = {
   linear: { team: "Test", project: "TestProject", issue_prefix: "TST" },
-  roles: ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
+  domains: ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
+  domainAgents: { task: "task", reviewer: "reviewer", scout: "scout", designer: "designer", sonic: "sonic", librarian: "librarian" },
+  types: ["Feature", "Bug", "Improvement", "Chore", "Spike"],
+  readiness: { untriaged: "untriaged", ready: "ready-for-work", needs_rescoping: "needs-rescoping" },
   statuses: {
     backlog: "Backlog", todo: "Todo", in_progress: "In Progress",
     in_review: "In Review", done: "Done",
   },
   active_parent_statuses: ["Todo", "In Progress"],
   invariants: {
-    max_todo_per_role: 3, stale_hours: 48, reclaim_limit: 2,
+    max_todo_per_domain: 3, stale_hours: 48, reclaim_limit: 2,
     bulk_threshold: 5, max_subtasks_per_parent: 3,
   },
   branch_pattern: "feat/{prefix}-{id}-{slug}",
@@ -142,7 +145,7 @@ describe("classification correctness", () => {
     expect(graph.blocked.length).toBe(0);
   });
 
-  it("sub-issues with missing role label are INVALID", () => {
+  it("sub-issues with missing domain label are INVALID", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: [], parentId: "TST-1" }),
@@ -150,7 +153,7 @@ describe("classification correctness", () => {
 
     const graph = buildGraph(issues, TEST_CONFIG);
     expect(graph.invalid.length).toBe(1);
-    expect(graph.invalid[0].violation).toBe("missing role label");
+    expect(graph.invalid[0].violation).toBe("missing domain label");
     expect(graph.summary.totalExecutable).toBe(0);
   });
 
@@ -165,7 +168,7 @@ describe("classification correctness", () => {
     expect(graph.invalid[0].violation).toContain("not active");
   });
 
-  it("sub-issues with multiple role labels are INVALID", () => {
+  it("sub-issues with multiple domain labels are INVALID", () => {
     const issues: LinearIssue[] = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "designer"], parentId: "TST-1" }),
@@ -173,7 +176,7 @@ describe("classification correctness", () => {
 
     const graph = buildGraph(issues, TEST_CONFIG);
     expect(graph.invalid.length).toBe(1);
-    expect(graph.invalid[0].violation).toContain("multiple role labels");
+    expect(graph.invalid[0].violation).toContain("multiple domain labels");
   });
 
   it("eligible Todo sub-issues with active parent are EXECUTABLE", () => {

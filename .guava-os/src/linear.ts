@@ -12,7 +12,7 @@
  */
 
 import type { Config } from "./config.js";
-import { allRoles } from "./config.js";
+import { allDomains } from "./config.js";
 
 export interface LinearIssue {
   id: string;
@@ -127,7 +127,7 @@ export interface IssueGraph {
 }
 
 export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
-  const roleLabels = allRoles(config);
+  const domainLabels = allDomains(config);
   const activeParentStatuses = config.active_parent_statuses;
 
   // Blocks edges: out = this issue blocks X; inverse (blockedBy) computed
@@ -189,7 +189,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     const todo = subs.filter(s => s.status === config.statuses.todo).length;
     const backlog = subs.filter(s => s.statusType === "backlog").length;
     const hasRoleLabels = subs.length > 0 && subs.every(s =>
-      s.labels.some(l => roleLabels.includes(l))
+      s.labels.some(l => domainLabels.includes(l))
     );
 
     parents.push({
@@ -206,31 +206,31 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
   const blocked: BlockedSubtask[] = [];
   const invalid: InvalidSubtask[] = [];
 
-  for (const role of roleLabels) {
-    executable.set(role, []);
+  for (const domain of domainLabels) {
+    executable.set(domain, []);
   }
 
   for (const issue of deliverables) {
     if (issue.statusType === "completed") continue;
 
-    const matchedLabels = issue.labels.filter(l => roleLabels.includes(l));
+    const matchedLabels = issue.labels.filter(l => domainLabels.includes(l));
 
-    // INVALID: missing role label
+    // INVALID: missing domain label
     if (matchedLabels.length === 0) {
       invalid.push({
         id: issue.id, title: issue.title,
-        violation: "missing role label",
+        violation: "missing domain label",
       });
       continue;
     }
 
-    const role = matchedLabels[0];
+    const domain = matchedLabels[0];
 
-    // INVALID: multiple role labels
+    // INVALID: multiple domain labels
     if (matchedLabels.length > 1) {
       invalid.push({
         id: issue.id, title: issue.title,
-        violation: `multiple role labels: ${matchedLabels.join(", ")}`,
+        violation: `multiple domain labels: ${matchedLabels.join(", ")}`,
       });
       continue;
     }
@@ -238,7 +238,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     // NOT_PROMOTED: deliverable in Backlog
     if (issue.statusType === "backlog") {
       notPromoted.push({
-        id: issue.id, title: issue.title, role, status: issue.status,
+        id: issue.id, title: issue.title, role: domain, status: issue.status,
       });
       continue;
     }
@@ -285,7 +285,7 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
         }
         if (unresolved.length > 0) {
           blocked.push({
-            id: issue.id, title: issue.title, role,
+            id: issue.id, title: issue.title, role: domain,
             reason: `blocked by: ${unresolved.join(", ")}`,
           });
           continue;
@@ -294,19 +294,19 @@ export function buildGraph(issues: LinearIssue[], config: Config): IssueGraph {
     }
 
     // Eligible
-    const queue = executable.get(role)!;
+    const queue = executable.get(domain)!;
     queue.push({
       id: issue.id,
       title: issue.title,
       priority: issue.priority.value,
       priorityName: issue.priority.name,
-      role,
+      role: domain,
       parentId: issue.parentId,
       updatedAt: issue.updatedAt,
     });
   }
 
-  // Sort each role queue: priority asc (1=urgent), then oldest updatedAt, then lowest ID
+  // Sort each domain queue: priority asc (1=urgent), then oldest updatedAt, then lowest ID
   for (const [, queue] of executable) {
     queue.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;

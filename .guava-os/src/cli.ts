@@ -11,7 +11,9 @@
  *   npx tsx .guava-os/src/cli.ts doctor
  *   npx tsx .guava-os/src/cli.ts status < issues.json
  *   npx tsx .guava-os/src/cli.ts validate < issues.json
- *   npx tsx .guava-os/src/cli.ts pm get-project
+ *   npx tsx .guava-os/src/cli.ts work
+ *   npx tsx .guava-os/src/cli.ts triage
+ *   npx tsx .guava-os/src/cli.ts triage --all
  *   npx tsx .guava-os/src/cli.ts pm get-issue GUA-45
  *   npx tsx .guava-os/src/cli.ts pm search --status Todo
  *   npx tsx .guava-os/src/cli.ts register my-proj --repo ~/dev/repos/my-proj --remote https://github.com/owner/my-proj.git
@@ -38,22 +40,24 @@ import { readFileSync } from "fs";
 import * as pm from "./linear-client.js";
 import { runRegister } from "./register.js";
 import { runWork } from "./work.js";
+import { runTriage } from "./triage.js";
 
 function usage(): never {
   console.log(`guava-os <command> [flags]
 
 Commands:
   doctor    Verify repo Guava OS setup
-  status    Show executable queue by role
+  status    Show executable queue by domain
   validate  Detect protocol violations in issue graph
   next      Generate operator-ready launch directives
   pm        Project management via Linear (see: pm --help)
-  work      Show open work by role (--all for every project; session gate)
+  work      Show open work by domain (--all for every project; session gate)
+  triage    Set readiness labels on open Todo deliverables (--all for every project)
   register  Register a project: create repo + record git_remote (see: register --help)
 Flags:
   --json           Output as JSON instead of human-readable text
   --strict         (validate only) Treat warnings as errors
-  --role <name> (next only) Filter directives to a single role
+  --domain <name> (next only) Filter directives to a single domain
 
 Stdin:
   doctor accepts: { "issues": [...], "labels": [...] }
@@ -99,7 +103,7 @@ async function main() {
 
   // Subcommand --help: show usage for any known command
   if (args.includes("--help") || args.includes("-h")) {
-    const known = ["doctor", "status", "validate", "next", "work", "register"];
+    const known = ["doctor", "status", "validate", "next", "work", "triage", "register"];
     if (known.includes(command)) usage();
   }
 
@@ -178,11 +182,11 @@ async function main() {
       const issues = parseIssuesFromStdin(readStdin().trim());
       const graph = buildGraph(issues, config);
 
-      // Parse --role flag
-      const roleIdx = args.indexOf("--role");
-      const roleFilter = roleIdx !== -1 ? args[roleIdx + 1] : undefined;
+      // Parse --domain flag
+      const domainIdx = args.indexOf("--domain");
+      const domainFilter = domainIdx !== -1 ? args[domainIdx + 1] : undefined;
 
-      const result = generateNext(graph, config, roleFilter);
+      const result = generateNext(graph, config, domainFilter);
 
       if (jsonMode) {
         console.log(JSON.stringify(result, null, 2));
@@ -198,6 +202,9 @@ async function main() {
     }
     case "work": {
       process.exit(await runWork(args.slice(1), jsonMode));
+    }
+    case "triage": {
+      process.exit(await runTriage(args.slice(1), jsonMode));
     }
 
 
@@ -243,7 +250,7 @@ Subcommands:
   update <id> [flags]      Update an issue (--title, --description, --priority, --assignee, --status, --label, --parent; --parent none detaches)
   link <id> [flags]        Link dependencies (--blocks, --blocked-by)
   unlink <id> [flags]      Remove dependencies (--blocks, --blocked-by)
-  move <id> --status <s>   Move status
+  move <id> --status <s> [--allow-no-commit]  Move status
   assign <id> --assignee <a>  Assign issue
   archive <id>             Archive an issue (non-destructive; keeps full history)
   comment <id> --body <t>  Create a comment
@@ -281,14 +288,17 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
       return;
     }
     case "create": {
+      const description = flag(rest, "--description");
       const labels = flagAll(rest, "--label");
+      pm.assertCanonicalDescription(description);
+      const resolvedLabels = pm.resolveCreateLabels(config, labels);
       const issue = await pm.createIssue({
         title: flag(rest, "--title")!,
-        description: flag(rest, "--description"),
+        description,
         teamId: flag(rest, "--team") ?? config.linear.team,
         projectId: flag(rest, "--project"),
         parentId: flag(rest, "--parent"),
-        labels,
+        labels: resolvedLabels,
         priority: flag(rest, "--priority") ? Number(flag(rest, "--priority")) : undefined,
         status: flag(rest, "--status"),
         assigneeId: flag(rest, "--assignee"),
@@ -330,7 +340,15 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
       return;
     }
     case "move": {
-      const issue = await pm.moveStatus(rest[0], flag(rest, "--status")!);
+      const issueId = rest[0];
+      const status = flag(rest, "--status")!;
+      const allowNoCommit = rest.includes("--allow-no-commit");
+      const issue = await pm.moveStatus(issueId, status, config, { allowNoCommit });
+      if (allowNoCommit) {
+        const body = `Done-commit gate waived via --allow-no-commit: moved to ${status} without a commit referencing ${issue.identifier}.`;
+        await pm.createComment(issue.id, body);
+        console.error(`Waiver recorded: ${body}`);
+      }
       console.log(jsonMode ? JSON.stringify(issue, null, 2) : `Moved: ${issue.id} → ${issue.status}`);
       return;
     }

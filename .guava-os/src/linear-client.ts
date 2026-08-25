@@ -25,12 +25,15 @@
  * enforced by the callers, not here — this module is a thin transport.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { LinearIssue } from "./linear.js";
 import type { Config } from "./config.js";
-import { findRepoRoot } from "./config.js";
+import { findRepoRoot, allDomains, readinessLabels } from "./config.js";
+import { loadRegistry, resolveRegistryRepoPath } from "./registry.js";
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";
 /** The guava-os checkout root — the only place the Linear key's `.env` lives. */
@@ -256,7 +259,7 @@ export async function getProject(
   config: Config,
   projectName?: string,
 ): Promise<ProjectInfo> {
-  const name = projectName ?? config.linear.project;
+  const name = (projectName && config.linear.aliases?.[projectName]) ?? projectName ?? config.linear.project;
   const data = await gql<{
     project?: { id: string; name: string; url: string };
     projects?: { nodes: { id: string; name: string; url: string }[] };
@@ -387,6 +390,55 @@ export async function searchIssues(
   if (opts.assignee)
     issues = issues.filter((i) => i.assignee === opts.assignee);
   return { issues };
+}
+
+// ── pm create enforcement (canonical description + domain/readiness labels) ──
+
+const REQUIRED_DESCRIPTION_SECTIONS = [
+  "## Why this exists",
+  "## Scope",
+  "## Acceptance criteria",
+];
+
+/** Classified error when `pm create` input violates the canonical structure. */
+export class CreateIssueValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CreateIssueValidationError";
+  }
+}
+
+/** Assert the description carries all three required headings; names any missing. */
+export function assertCanonicalDescription(description: string | undefined): void {
+  const missing = REQUIRED_DESCRIPTION_SECTIONS.filter(
+    (s) => !(description ?? "").includes(s),
+  );
+  if (missing.length > 0) {
+    throw new CreateIssueValidationError(
+      `pm create requires --description containing all three headings. ` +
+        `Missing: ${missing.join(", ")}. ` +
+        `Required: ${REQUIRED_DESCRIPTION_SECTIONS.join(", ")}.`,
+    );
+  }
+}
+
+/**
+ * Resolve create labels: require at least one configured domain label, then
+ * auto-apply the `untriaged` readiness label unless a readiness label is
+ * already present. Pure — throws before any Linear call.
+ */
+export function resolveCreateLabels(config: Config, labels: string[]): string[] {
+  const domains = allDomains(config);
+  if (!labels.some((l) => domains.includes(l))) {
+    throw new CreateIssueValidationError(
+      `pm create requires at least one --label matching a configured domain. ` +
+        `Configured domains: ${domains.join(", ") || "(none)"}.`,
+    );
+  }
+  const readiness = readinessLabels(config);
+  return labels.some((l) => readiness.includes(l))
+    ? labels
+    : [...labels, config.readiness.untriaged];
 }
 
 /** create issue — create an issue. Names and identifiers resolved here. */
@@ -614,9 +666,92 @@ async function resolveStateId(issueId: string, statusName: string): Promise<stri
   return state.id;
 }
 
-/** move status — transition an issue's Status. */
-export async function moveStatus(issueId: string, statusName: string): Promise<LinearIssue> {
+export interface MoveStatusOptions {
+  /** Skip the done-commit gate (the caller records a waiver instead). */
+  allowNoCommit?: boolean;
+}
+
+/**
+ * Classified error when the done-commit gate blocks a `pm move --status Done`.
+ * The message names the canonical id and the expected commit convention.
+ */
+export class DoneCommitGateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DoneCommitGateError";
+  }
+}
+
+/** Expand a leading `~` in a registry `repo_path` (execFileSync does not shell-expand). */
+function expandHome(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/")) return join(homedir(), p.slice(2));
+  return p;
+}
+
+/**
+ * True when any commit in the repo (any branch) references the canonical id in
+ * its subject (`--oneline`) or full message body. git failure fails closed.
+ * The canonical id is alphanumeric-plus-dash, so it is regex-safe verbatim;
+ * `\b` anchors prevent `GUA-123` matching `GUA-1234`.
+ */
+function gitLogReferencesId(repoPath: string, canonicalId: string): boolean {
+  const idRe = new RegExp(`\\b${canonicalId}\\b`);
+  try {
+    const subjects = execFileSync(
+      "git",
+      ["-C", repoPath, "log", "--all", "--oneline"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+    if (idRe.test(subjects)) return true;
+    const bodies = execFileSync(
+      "git",
+      ["-C", repoPath, "log", "--all", "--format=%B"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+    return idRe.test(bodies);
+  } catch {
+    // Not a repo / git missing — fail safe: treat as "no matching commit".
+    return false;
+  }
+}
+
+/**
+ * Enforce the done-commit gate: moving an issue to the configured done status
+ * requires a commit in the project's registered repo that references its
+ * canonical id. No-op unless the target status resolves to the done status.
+ */
+async function enforceDoneCommitGate(
+  issueId: string,
+  statusName: string,
+  config: Config,
+): Promise<void> {
+  if (statusName.toLowerCase() !== config.statuses.done.toLowerCase()) return;
+  const issue = await getIssue(issueId);
+  const registry = loadRegistry();
+  const repoPath = expandHome(resolveRegistryRepoPath(issue.project, registry));
+  if (!gitLogReferencesId(repoPath, issue.identifier)) {
+    throw new DoneCommitGateError(
+      `Refusing to move ${issue.identifier} to ${config.statuses.done}: ` +
+        `no git commit in ${repoPath} references the canonical id. ` +
+        `A commit must name the issue as "${issue.identifier} <outcome>" ` +
+        `before it can be marked ${config.statuses.done}. ` +
+        `Re-run with --allow-no-commit to bypass.`,
+    );
+  }
+}
+
+/** move status — transition an issue's Status. Enforces the done-commit gate. */
+export async function moveStatus(
+  issueId: string,
+  statusName: string,
+  config: Config,
+  options: MoveStatusOptions = {},
+): Promise<LinearIssue> {
   const stateId = await resolveStateId(issueId, statusName);
+  if (!options.allowNoCommit) {
+    await enforceDoneCommitGate(issueId, statusName, config);
+  }
   return updateIssue(issueId, { status: stateId });
 }
 

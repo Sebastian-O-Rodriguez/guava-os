@@ -1,31 +1,10 @@
 [
   {
     "id": "TST-1",
-    "title": "Parent: No Sub-Issues Yet",
-    "status": "Todo",
-    "statusType": "unstarted",
-    "priority": {
-      "value": 2,
-      "name": "High"
-    },
-    "labels": [
-      "scout"
-    ],
-    "project": "TestProject",
-    "createdAt": "2026-01-01",
-    "updatedAt": "2026-01-01",
-    "completedAt": null,
-    "canceledAt": null
-  },
-  {
-    "id": "TST-2",
-    "title": "Parent: Has Sub-Issues",
+    "title": "Parent: In Progress",
     "status": "In Progress",
     "statusType": "started",
-    "priority": {
-      "value": 2,
-      "name": "High"
-    },
+    "priority": { "value": 2, "name": "High" },
     "labels": [],
     "project": "TestProject",
     "createdAt": "2026-01-01",
@@ -38,19 +17,14 @@
     "title": "Sub with unknown label",
     "status": "Todo",
     "statusType": "unstarted",
-    "priority": {
-      "value": 3,
-      "name": "Medium"
-    },
-    "labels": [
-      "task",
-      "spike"
-    ],
-    "parentId": "TST-2",
+    "priority": { "value": 3, "name": "Medium" },
+    "labels": ["backend", "ready-for-work", "stale-label"],
+    "parentId": "TST-1",
     "project": "TestProject",
     "createdAt": "2026-01-01",
     "updatedAt": "2026-01-01",
     "completedAt": null,
-    "canceledAt": null
+    "canceledAt": null,
+    "description": "## Why this exists\ncarries a stale label\n\n## Scope\nreclassify it\n\n## Acceptance criteria\nunknown label removed\n"
   }
 ]

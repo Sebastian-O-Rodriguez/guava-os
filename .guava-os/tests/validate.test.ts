@@ -3,16 +3,29 @@ import { buildGraph, type LinearIssue } from "../src/linear.js";
 import { runValidate, formatValidate } from "../src/validate.js";
 import type { Config } from "../src/config.js";
 
+const READY = "ready-for-work";
+const DESC = "## Why this exists\nreason\n\n## Scope\nscope\n\n## Acceptance criteria\ncriteria\n";
+
 const TEST_CONFIG: Config = {
   linear: { team: "Test", project: "TestProject", issue_prefix: "TST" },
-  roles: ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
+  domains: ["task", "reviewer", "scout", "designer", "sonic", "librarian"],
+  domainAgents: {
+    task: "task",
+    reviewer: "reviewer",
+    scout: "scout",
+    designer: "designer",
+    sonic: "sonic",
+    librarian: "librarian",
+  },
+  types: ["Feature", "Bug", "Improvement", "Chore", "Spike"],
+  readiness: { untriaged: "untriaged", ready: "ready-for-work", needs_rescoping: "needs-rescoping" },
   statuses: {
     backlog: "Backlog", todo: "Todo", in_progress: "In Progress",
     in_review: "In Review", done: "Done",
   },
   active_parent_statuses: ["Todo", "In Progress"],
   invariants: {
-    max_todo_per_role: 2, stale_hours: 48, reclaim_limit: 2,
+    max_todo_per_domain: 2, stale_hours: 48, reclaim_limit: 2,
     bulk_threshold: 5, max_subtasks_per_parent: 3,
   },
   branch_pattern: "feat/{prefix}-{id}-{slug}",
@@ -34,6 +47,7 @@ function makeIssue(overrides: Partial<LinearIssue> & { id: string }): LinearIssu
     updatedAt: "2026-01-01",
     completedAt: null,
     canceledAt: null,
+    description: DESC,
     ...overrides,
   };
 }
@@ -94,7 +108,7 @@ describe("V303 parent_not_active", () => {
 });
 
 describe("V304 empty_parent", () => {
-  it("detects active issue with no children and no role", () => {
+  it("detects active issue with no children and no domain", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
     ];
@@ -127,8 +141,8 @@ describe("V304 empty_parent", () => {
     expect(result.violations.filter(v => v.code === "V304")).toHaveLength(0);
   });
 
-  it("does not flag standalone deliverable with role label (GUA-111)", () => {
-    // A top-level issue with no children but with a role label
+  it("does not flag standalone deliverable with domain label (GUA-111)", () => {
+    // A top-level issue with no children but with a domain label
     // is a standalone deliverable, not an empty parent.
     const issues = [
       makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["scout"] }),
@@ -188,8 +202,8 @@ describe("V305 subtask_overflow", () => {
   });
 });
 
-describe("V400 missing_role_label", () => {
-  it("detects sub-issue with no role label", () => {
+describe("V400 missing_domain_label", () => {
+  it("detects sub-issue with no domain label", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: [], parentId: "TST-1" }),
@@ -198,11 +212,11 @@ describe("V400 missing_role_label", () => {
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V400", name: "missing_role_label", severity: "error", issue_id: "TST-10",
+      code: "V400", name: "missing_domain_label", severity: "error", issue_id: "TST-10",
     }));
   });
 
-  it("does not flag sub-issue with valid role label", () => {
+  it("does not flag sub-issue with valid domain label", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Backlog", statusType: "backlog", labels: ["task"], parentId: "TST-1" }),
@@ -224,7 +238,7 @@ describe("V400 missing_role_label", () => {
     expect(result.violations.filter(v => v.code === "V400")).toHaveLength(0);
   });
 
-  it("flags standalone deliverable with no role label (GUA-111)", () => {
+  it("flags standalone deliverable with no domain label (GUA-111)", () => {
     const issues = [
       makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: [] }),
     ];
@@ -232,28 +246,13 @@ describe("V400 missing_role_label", () => {
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V400", name: "missing_role_label", severity: "error", issue_id: "GUA-104",
+      code: "V400", name: "missing_domain_label", severity: "error", issue_id: "GUA-104",
     }));
   });
 });
 
-describe("V401 multiple_role_labels", () => {
-  it("detects sub-issue with multiple role labels", () => {
-    const issues = [
-      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "designer"], parentId: "TST-1" }),
-    ];
-    const graph = buildGraph(issues, TEST_CONFIG);
-    const result = runValidate(graph, issues, TEST_CONFIG);
-
-    expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V401", name: "multiple_role_labels", severity: "error", issue_id: "TST-10",
-    }));
-  });
-});
-
-describe("V402 unknown_role_label", () => {
-  it("detects label not in configured roles or known categories", () => {
+describe("V402 unknown_label", () => {
+  it("detects label not in configured domains, types, or readiness", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
       makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops"], parentId: "TST-1" }),
@@ -262,7 +261,7 @@ describe("V402 unknown_role_label", () => {
     const result = runValidate(graph, issues, TEST_CONFIG);
 
     expect(result.violations).toContainEqual(expect.objectContaining({
-      code: "V402", name: "unknown_role_label", severity: "warning", issue_id: "TST-10",
+      code: "V402", name: "unknown_label", severity: "warning", issue_id: "TST-10",
     }));
     expect(result.violations.find(v => v.code === "V402")!.detail).toContain("devops");
   });
@@ -280,8 +279,8 @@ describe("V402 unknown_role_label", () => {
 });
 
 describe("V500 queue_overflow", () => {
-  it("detects role queue exceeding max_todo_per_role", () => {
-    // config has max_todo_per_role = 2
+  it("detects domain queue exceeding max_todo_per_domain", () => {
+    // config has max_todo_per_domain = 2
     const issues = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
       makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
@@ -311,7 +310,7 @@ describe("V500 queue_overflow", () => {
   });
 
   it("counts standalone Todo deliverables in queue overflow (GUA-111)", () => {
-    // max_todo_per_role = 2. Three standalone task deliverables -> V500.
+    // max_todo_per_domain = 2. Three standalone task deliverables -> V500.
     const issues = [
       makeIssue({ id: "GUA-104", status: "Todo", statusType: "unstarted", labels: ["task"] }),
       makeIssue({ id: "GUA-105", status: "Todo", statusType: "unstarted", labels: ["task"] }),
@@ -336,7 +335,7 @@ describe("exit code semantics", () => {
   it("clean graph has 0 errors and 0 warnings", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "In Progress", statusType: "started" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", READY], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -358,11 +357,11 @@ describe("exit code semantics", () => {
   });
 
   it("warning-only violations have errors = 0", () => {
-    // V402 unknown_role_label is warning-only.
+    // V402 unknown_label is warning-only.
     // Child under active parent — avoids V304/V400.
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops", READY], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -374,7 +373,7 @@ describe("exit code semantics", () => {
   it("strict mode: hasFailures when warnings exist", () => {
     const issues = [
       makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
-      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops"], parentId: "TST-1" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "devops", READY], parentId: "TST-1" }),
     ];
     const graph = buildGraph(issues, TEST_CONFIG);
     const result = runValidate(graph, issues, TEST_CONFIG);
@@ -527,7 +526,7 @@ describe("nested decomposition — wave → container → leaves", () => {
     expect(detail?.issue_id).toBe("CONT");
   });
 
-  it("flags a role label on a container (V306 — cleanup support)", () => {
+  it("flags a domain label on a container (V306 — cleanup support)", () => {
     const issues = nestedFixture();
     issues.find((i) => i.id === "CONT")!.labels = ["task"];
     const v = codes(issues);
@@ -552,20 +551,15 @@ describe("nested decomposition — wave → container → leaves", () => {
 });
 
 // ──────────────────────────────────────────────────────────────────
-// Domain labels — role and domain are separate axes
+// Domain labels — single domain per deliverable
 // ──────────────────────────────────────────────────────────────────
 
-describe("domain labels (role + domain axes)", () => {
-  const CFG: Config = {
-    ...TEST_CONFIG,
-    domains: ["pm", "qa", "security", "backend", "frontend", "devops", "ai-ml"],
-  };
-
-  it("accepts a single domain label alongside a role label (no V400/V402/V403)", () => {
+describe("domain labels (single domain per deliverable)", () => {
+  it("accepts a single domain label (no V400/V402/V403)", () => {
     const issues = [
-      makeIssue({ id: "TST-60", status: "Todo", statusType: "unstarted", labels: ["task", "backend"] }),
+      makeIssue({ id: "TST-60", status: "Todo", statusType: "unstarted", labels: ["task", READY] }),
     ];
-    const result = runValidate(buildGraph(issues, CFG), issues, CFG);
+    const result = runValidate(buildGraph(issues, TEST_CONFIG), issues, TEST_CONFIG);
     expect(result.violations.some((v) => v.code === "V400")).toBe(false);
     expect(result.violations.some((v) => v.code === "V402")).toBe(false);
     expect(result.violations.some((v) => v.code === "V403")).toBe(false);
@@ -573,11 +567,75 @@ describe("domain labels (role + domain axes)", () => {
 
   it("flags multiple domain labels (V403)", () => {
     const issues = [
-      makeIssue({ id: "TST-61", status: "Todo", statusType: "unstarted", labels: ["task", "backend", "frontend"] }),
+      makeIssue({ id: "TST-61", status: "Todo", statusType: "unstarted", labels: ["task", "designer"] }),
     ];
-    const result = runValidate(buildGraph(issues, CFG), issues, CFG);
+    const result = runValidate(buildGraph(issues, TEST_CONFIG), issues, TEST_CONFIG);
     expect(result.violations).toContainEqual(
       expect.objectContaining({ code: "V403", name: "multiple_domain_labels", issue_id: "TST-61" }),
     );
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────
+// Readiness + description (new protocol invariants)
+// ──────────────────────────────────────────────────────────────────
+
+describe("V404 readiness_label_count", () => {
+  it("errors when an open deliverable has no readiness label", () => {
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task"], parentId: "TST-1" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+    expect(result.violations).toContainEqual(expect.objectContaining({
+      code: "V404", name: "readiness_label_count", severity: "error", issue_id: "TST-10",
+    }));
+  });
+
+  it("errors when an open deliverable has multiple readiness labels", () => {
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", "ready-for-work", "untriaged"], parentId: "TST-1" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+    expect(result.violations).toContainEqual(expect.objectContaining({
+      code: "V404", name: "readiness_label_count", severity: "error", issue_id: "TST-10",
+    }));
+  });
+
+  it("does not flag a deliverable with exactly one readiness label", () => {
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", READY], parentId: "TST-1" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+    expect(result.violations.filter(v => v.code === "V404")).toHaveLength(0);
+  });
+});
+
+describe("V405 missing_description_sections", () => {
+  it("errors when an open deliverable lacks required description sections", () => {
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", READY], parentId: "TST-1", description: "just a body" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+    expect(result.violations).toContainEqual(expect.objectContaining({
+      code: "V405", name: "missing_description_sections", severity: "error", issue_id: "TST-10",
+    }));
+  });
+
+  it("does not flag when all three sections are present", () => {
+    const issues = [
+      makeIssue({ id: "TST-1", status: "Todo", statusType: "unstarted" }),
+      makeIssue({ id: "TST-10", status: "Todo", statusType: "unstarted", labels: ["task", READY], parentId: "TST-1" }),
+    ];
+    const graph = buildGraph(issues, TEST_CONFIG);
+    const result = runValidate(graph, issues, TEST_CONFIG);
+    expect(result.violations.filter(v => v.code === "V405")).toHaveLength(0);
   });
 });

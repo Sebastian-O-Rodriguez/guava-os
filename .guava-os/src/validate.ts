@@ -6,7 +6,7 @@
  */
 
 import type { Config } from "./config.js";
-import { allRoles, allDomains } from "./config.js";
+import { allDomains, readinessLabels } from "./config.js";
 import type { IssueGraph, LinearIssue } from "./linear.js";
 
 export type ViolationSeverity = "error" | "warning";
@@ -36,8 +36,9 @@ export interface ValidateResult {
  */
 export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Config): ValidateResult {
   const violations: Violation[] = [];
-  const roleLabels = allRoles(config);
   const domainLabels = allDomains(config);
+  const typeLabels = config.types;
+  const readiness = readinessLabels(config);
   const activeParentStatuses = config.active_parent_statuses;
 
   // Build a full issue lookup (ANY nesting level) + children-by-parent map.
@@ -57,7 +58,7 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   }
 
   // Containers (issues with ≥1 child) are groupings, not deliverables —
-  // role/queue checks apply to deliverables only (GUA-111).
+  // domain/queue checks apply to deliverables only (GUA-111).
   const containerIds = new Set(
     issues.filter((i) => !i.canceledAt && subtasksByParent.has(i.id)).map((i) => i.id),
   );
@@ -95,8 +96,8 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
   }
 
   // ── V304: empty_parent ──
-  // Fires for active top-level issues that have NO children AND NO role label.
-  // Standalone deliverables (have role) are excluded — they're executable candidates.
+  // Fires for active top-level issues that have NO children AND NO domain label.
+  // Standalone deliverables (have domain) are excluded — they're executable candidates.
   // Real containers (have children) are excluded — they group work.
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
@@ -107,11 +108,11 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     const hasChildren = issues.some(i => i.parentId === issue.id && !i.canceledAt);
     if (hasChildren) continue;
 
-    // Skip if it has a role label (it's a standalone deliverable)
-    const hasRole = issue.labels.some(l => roleLabels.includes(l));
-    if (hasRole) continue;
+    // Skip if it has a domain label (it's a standalone deliverable)
+    const hasDomain = issue.labels.some(l => domainLabels.includes(l));
+    if (hasDomain) continue;
 
-    // Degenerate: no children, no role — an empty parent with no reason to exist
+    // Degenerate: no children, no domain — an empty parent with no reason to exist
     violations.push({
       code: "V304",
       name: "empty_parent",
@@ -144,75 +145,57 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     }
   }
 
-  // ── V306: container_role_label ──
-  // Containers are groupings and must carry NO role label (GOS-21: labels
-  // classify deliverables; parents never execute). A role label on a
+  // ── V306: container_domain_label ──
+  // Containers are groupings and must carry NO domain label (GOS-21: labels
+  // classify deliverables; parents never execute). A domain label on a
   // container is metadata drift — flag so it can be cleaned via
   // `pm update <id> --label <remaining labels>`.
   for (const id of containerIds) {
     const container = allById.get(id);
     if (!container) continue;
-    const matched = container.labels.filter((l) => roleLabels.includes(l));
+    const matched = container.labels.filter((l) => domainLabels.includes(l));
     if (matched.length > 0) {
       violations.push({
         code: "V306",
-        name: "container_role_label",
+        name: "container_domain_label",
         severity: "warning",
         issue_id: id,
-        detail: `Container carries role label(s): ${matched.join(", ")} — containers are groupings and must have no role label (remove via pm update)`,
+        detail: `Container carries domain label(s): ${matched.join(", ")} — containers are groupings and must have no domain label (remove via pm update)`,
       });
     }
   }
 
-  // ── V400: missing_role_label ──
+  // ── V400: missing_domain_label ──
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
     if (containerIds.has(issue.id)) continue;
 
-    const matched = issue.labels.filter(l => roleLabels.includes(l));
+    const matched = issue.labels.filter(l => domainLabels.includes(l));
     if (matched.length === 0) {
       violations.push({
         code: "V400",
-        name: "missing_role_label",
+        name: "missing_domain_label",
         severity: "error",
         issue_id: issue.id,
-        detail: "Sub-issue has no role label — not routable to any agent",
+        detail: "deliverable has no domain label — not routable",
       });
     }
   }
 
-  // ── V401: multiple_role_labels ──
-  for (const issue of issues) {
-    if (issue.canceledAt || issue.statusType === "completed") continue;
-    if (containerIds.has(issue.id)) continue;
-
-    const matched = issue.labels.filter(l => roleLabels.includes(l));
-    if (matched.length > 1) {
-      violations.push({
-        code: "V401",
-        name: "multiple_role_labels",
-        severity: "error",
-        issue_id: issue.id,
-        detail: `Sub-issue has multiple role labels: ${matched.join(", ")}`,
-      });
-    }
-  }
-
-  // ── V402: unknown_role_label ──
-  // Labels on sub-issues that look like they could be role labels but aren't in config.
-  // We check for labels that are NOT in roleLabels and NOT in the known non-role set.
-  const knownNonRole = new Set(["Feature", "Bug", "Improvement"]);
+  // ── V402: unknown_label ──
+  // Any label that is neither a configured domain, a work type, nor a
+  // readiness label is unrecognized metadata drift.
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
 
     for (const label of issue.labels) {
-      if (!roleLabels.includes(label) && !domainLabels.includes(label) && !knownNonRole.has(label)) {
+      if (!domainLabels.includes(label) && !typeLabels.includes(label) && !readiness.includes(label)) {
         violations.push({
           code: "V402",
-          name: "unknown_role_label",
+          name: "unknown_label",
           severity: "warning",
           issue_id: issue.id,
-          detail: `Label "${label}" is not a configured role or known category label`,
+          detail: `Label "${label}" is not a configured domain, type, or readiness label`,
         });
       }
     }
@@ -236,27 +219,66 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     }
   }
 
+  // ── V404: readiness_label_count ──
+  // An open, non-container deliverable must carry EXACTLY ONE readiness label
+  // (untriaged / ready / needs-rescoping). Zero or many is a routing error.
+  for (const issue of issues) {
+    if (issue.canceledAt || issue.statusType === "completed") continue;
+    if (containerIds.has(issue.id)) continue;
+
+    const matched = issue.labels.filter((l) => readiness.includes(l));
+    if (matched.length !== 1) {
+      violations.push({
+        code: "V404",
+        name: "readiness_label_count",
+        severity: "error",
+        issue_id: issue.id,
+        detail: `Deliverable has ${matched.length} readiness label(s) — expected exactly 1 of [${readiness.join(", ")}]`,
+      });
+    }
+  }
+
+  // ── V405: missing_description_sections ──
+  // An open deliverable's description must carry the three canonical sections.
+  const REQUIRED_SECTIONS = ["## Why this exists", "## Scope", "## Acceptance criteria"];
+  for (const issue of issues) {
+    if (issue.canceledAt || issue.statusType === "completed") continue;
+    if (containerIds.has(issue.id)) continue;
+
+    const description = issue.description ?? "";
+    const missing = REQUIRED_SECTIONS.filter((s) => !description.includes(s));
+    if (missing.length > 0) {
+      violations.push({
+        code: "V405",
+        name: "missing_description_sections",
+        severity: "error",
+        issue_id: issue.id,
+        detail: `Description missing section(s): ${missing.join(", ")}`,
+      });
+    }
+  }
+
   // ── V500: queue_overflow ──
-  const todoCountByRole = new Map<string, number>();
+  const todoCountByDomain = new Map<string, number>();
   for (const issue of issues) {
     if (issue.canceledAt || issue.statusType === "completed") continue;
     if (containerIds.has(issue.id)) continue;
     if (issue.status !== config.statuses.todo) continue;
 
-    const matched = issue.labels.filter(l => roleLabels.includes(l));
+    const matched = issue.labels.filter(l => domainLabels.includes(l));
     if (matched.length === 1) {
-      const role = matched[0];
-      todoCountByRole.set(role, (todoCountByRole.get(role) || 0) + 1);
+      const domain = matched[0];
+      todoCountByDomain.set(domain, (todoCountByDomain.get(domain) || 0) + 1);
     }
   }
-  for (const [role, count] of todoCountByRole) {
-    if (count > config.invariants.max_todo_per_role) {
+  for (const [domain, count] of todoCountByDomain) {
+    if (count > config.invariants.max_todo_per_domain) {
       violations.push({
         code: "V500",
         name: "queue_overflow",
         severity: "warning",
-        issue_id: `(${role})`,
-        detail: `${count} Todo sub-issues for role "${role}" exceeds max ${config.invariants.max_todo_per_role}`,
+        issue_id: `(${domain})`,
+        detail: `${count} Todo sub-issues for domain "${domain}" exceeds max ${config.invariants.max_todo_per_domain}`,
       });
     }
   }

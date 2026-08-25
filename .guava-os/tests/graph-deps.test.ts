@@ -2,9 +2,21 @@ import { describe, it, expect } from "vitest";
 import { buildGraph, type LinearIssue } from "../src/linear.js";
 import { formatStatus } from "../src/status.js";
 import { generateNext } from "../src/next.js";
-import { loadConfig, findRepoRoot } from "../src/config.js";
+import type { Config } from "../src/config.js";
 
-const config = loadConfig(findRepoRoot());
+const config: Config = {
+  linear: { team: "Test", project: "TestProject", issue_prefix: "TST" },
+  domains: ["task"],
+  domainAgents: { task: "task" },
+  types: ["Feature", "Bug", "Improvement", "Chore", "Spike"],
+  readiness: { untriaged: "untriaged", ready: "ready-for-work", needs_rescoping: "needs-rescoping" },
+  statuses: { backlog: "Backlog", todo: "Todo", in_progress: "In Progress", in_review: "In Review", done: "Done" },
+  active_parent_statuses: ["Todo", "In Progress"],
+  invariants: { max_todo_per_domain: 3, stale_hours: 48, reclaim_limit: 2, bulk_threshold: 5, max_subtasks_per_parent: 3 },
+  branch_pattern: "{domain}/{prefix}-{id}-{slug}",
+  process_files: {},
+  manifest_path: ".guava-os/manifest.json",
+};
 
 function issue(overrides: Partial<LinearIssue> & { id: string }): LinearIssue {
   return {
