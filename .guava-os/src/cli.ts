@@ -16,6 +16,9 @@
  *   npx tsx .guava-os/src/cli.ts triage --all
  *   npx tsx .guava-os/src/cli.ts pm get-issue GUA-45
  *   npx tsx .guava-os/src/cli.ts pm search --status Todo
+ *   npx tsx .guava-os/src/cli.ts sync [repo]
+ *   npx tsx .guava-os/src/cli.ts sync --fix [repo]
+ *   npx tsx .guava-os/src/cli.ts sync --fix --force [repo]
  *   npx tsx .guava-os/src/cli.ts register my-proj --repo ~/dev/repos/my-proj --remote https://github.com/owner/my-proj.git
  *   npx tsx .guava-os/src/cli.ts pm create --title "..." --team "Guava AI"
  *   npx tsx .guava-os/src/cli.ts pm update GUA-45 --status Done
@@ -36,11 +39,24 @@ import { runDoctor, formatDoctor, type LinearLabelInfo } from "./doctor.js";
 import { formatStatus, formatStatusJson } from "./status.js";
 import { runValidate, formatValidate } from "./validate.js";
 import { generateNext, formatNext } from "./next.js";
-import { readFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { join, resolve } from "path";
+import { createInterface } from "node:readline/promises";
+import { pathToFileURL } from "node:url";
 import * as pm from "./linear-client.js";
 import { runRegister } from "./register.js";
 import { runWork } from "./work.js";
 import { runTriage } from "./triage.js";
+import { loadRegistry } from "./registry.js";
+import {
+  buildSyncPlan,
+  formatSyncPlan,
+  migrateConfig,
+  reconcileSymlinks,
+  type SkillLink,
+  type SyncPlan,
+} from "./sync.js";
 
 function usage(): never {
   console.log(`guava-os <command> [flags]
@@ -53,6 +69,7 @@ Commands:
   pm        Project management via Linear (see: pm --help)
   work      Show open work by domain (--all for every project; session gate)
   triage    Set readiness labels on open Todo deliverables (--all for every project)
+  sync     Snapshot config/labels/symlinks drift (--all, --fix, --fix --force; [repo])
   register  Register a project: create repo + record git_remote (see: register --help)
 Flags:
   --json           Output as JSON instead of human-readable text
@@ -103,7 +120,7 @@ async function main() {
 
   // Subcommand --help: show usage for any known command
   if (args.includes("--help") || args.includes("-h")) {
-    const known = ["doctor", "status", "validate", "next", "work", "triage", "register"];
+    const known = ["doctor", "status", "validate", "next", "work", "triage", "register", "sync"];
     if (known.includes(command)) usage();
   }
 
@@ -112,6 +129,12 @@ async function main() {
   if (command === "register") {
     runRegister(args.slice(1), jsonMode);
     process.exit(0);
+  }
+
+  // sync reads a target repo's raw config directly (legacy repos are reachable),
+  // so it routes before the validated loadConfig below.
+  if (command === "sync") {
+    process.exit(await runSync(args.slice(1)));
   }
 
   const repoRoot = findRepoRoot();
@@ -215,7 +238,11 @@ async function main() {
   }
 }
 
-main();
+// Run as the CLI entrypoint only (not when imported by tests / other modules).
+const isEntrypoint = process.argv[1]
+  ? import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+  : false;
+if (isEntrypoint) main();
 
 function flag(args: string[], name: string): string | undefined {
   const idx = args.indexOf(name);
@@ -288,7 +315,13 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
       return;
     }
     case "create": {
-      const description = flag(rest, "--description");
+      let description = flag(rest, "--description");
+      if (description === "-") {
+        description = readStdin();
+        if (!description.trim()) {
+          throw new Error("pm create --description - requires a body on stdin");
+        }
+      }
       const labels = flagAll(rest, "--label");
       pm.assertCanonicalDescription(description);
       const resolvedLabels = pm.resolveCreateLabels(config, labels);
@@ -309,9 +342,16 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
     case "update": {
       const labels = flagAll(rest, "--label");
       const parentRaw = flag(rest, "--parent");
+      let description = flag(rest, "--description");
+      if (description === "-") {
+        description = readStdin();
+        if (!description.trim()) {
+          throw new Error("pm update --description - requires a body on stdin");
+        }
+      }
       const issue = await pm.updateIssue(rest[0], {
         title: flag(rest, "--title"),
-        description: flag(rest, "--description"),
+        description,
         priority: flag(rest, "--priority") ? Number(flag(rest, "--priority")) : undefined,
         assigneeId: flag(rest, "--assignee"),
         status: flag(rest, "--status"),
@@ -372,5 +412,199 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
       console.error("run 'guava-os pm --help' for usage");
       process.exit(1);
   }
+}
+
+// ── sync: report-first convergence (config / labels / symlinks) ─────────────
+
+/** Canonical skill store (single source of truth per add-skill). */
+const CANONICAL_SKILLS_DIR = join(homedir(), ".agents", "skills");
+
+function expandHome(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/")) return join(homedir(), p.slice(2));
+  return p;
+}
+
+function configuredTeam(raw: unknown): string {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return "";
+  if (!("linear" in raw)) return "";
+  const linear = raw.linear;
+  if (typeof linear !== "object" || linear === null || Array.isArray(linear)) return "";
+  if (!("team" in linear)) return "";
+  const team = linear.team;
+  return typeof team === "string" ? team : "";
+}
+
+/** Read a target repo's raw config — never via validated loadConfig (legacy repos are reachable). */
+function readRawConfig(repoRoot: string): unknown {
+  const path = join(repoRoot, ".guava-os", "config.json");
+  if (!existsSync(path)) {
+    throw new Error(`not a guava-os repo — no ${path}`);
+  }
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    throw new Error(`could not parse ${path} — invalid JSON`);
+  }
+}
+
+/** Scan repo skill symlinks against the canonical store into buildSyncPlan's SkillLink shape. */
+export function collectSkillLinks(repoRoot: string, canonicalDir: string = CANONICAL_SKILLS_DIR): SkillLink[] {
+  const repoDir = join(repoRoot, ".omp", "skills");
+  const { add, broken } = reconcileSymlinks(repoDir, canonicalDir);
+
+  const links: SkillLink[] = add.map((name) => ({ name, target: "", broken: false }));
+  for (const name of broken) {
+    let target = "";
+    try {
+      target = readlinkSync(resolve(repoDir, name));
+    } catch {
+      target = "";
+    }
+    links.push({ name, target, broken: true });
+  }
+  return links;
+}
+
+/**
+ * Apply a SyncPlan's actionable changes. Config migration writes the migrated
+ * schema; labels are created (never deleted); missing symlinks are added.
+ * `flag` changes (stray labels, dead symlinks, seeded domainAgents) are
+ * reported for owner review and never auto-mutated.
+ */
+export async function applySyncPlan(
+  repoRoot: string,
+  raw: unknown,
+  plan: SyncPlan,
+  canonicalDir: string = CANONICAL_SKILLS_DIR,
+): Promise<void> {
+  if (plan.changes.config.length > 0) {
+    const { config } = migrateConfig(raw);
+    writeFileSync(
+      join(repoRoot, ".guava-os", "config.json"),
+      JSON.stringify(config, null, 2) + "\n",
+    );
+  }
+
+  const team = configuredTeam(raw);
+  for (const change of plan.changes.labels) {
+    if (change.kind !== "add") continue;
+    if (!team) throw new Error("config missing linear.team — cannot create labels");
+    await pm.createIssueLabel(change.item, team);
+  }
+
+  const addLinks = plan.changes.symlinks.filter((c) => c.kind === "add");
+  if (addLinks.length > 0) {
+    const repoDir = join(repoRoot, ".omp", "skills");
+    mkdirSync(repoDir, { recursive: true });
+    for (const change of addLinks) {
+      symlinkSync(join(canonicalDir, change.item), join(repoDir, change.item));
+    }
+  }
+}
+
+async function promptAcceptCancel(): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question("Apply these changes? [A]ccept/[C]ancel: ");
+  rl.close();
+  return /^(a|accept|y|yes)$/i.test(answer.trim());
+}
+
+/**
+ * `guava-os sync [repo]`                  — print the plan; exit 0 clean / 1 drift.
+ * `guava-os sync --all`                   — report every active registry repo.
+ * `guava-os sync --fix [repo]`            — prompt, then apply on accept.
+ * `guava-os sync --fix --force [repo]`    — apply without prompting.
+ * `guava-os sync --all --fix --force`     — apply across every active registry repo.
+ */
+export async function runSync(args: string[]): Promise<number> {
+  try {
+    const force = args.includes("--force");
+    const fix = force || args.includes("--fix");
+
+    if (args.includes("--all")) {
+      return await runSyncAll({ fix, force });
+    }
+
+    const repoArg = args.find((a) => !a.startsWith("--"));
+    const repoRoot = repoArg ? findRepoRoot(resolve(expandHome(repoArg))) : findRepoRoot();
+    const linearLabels = await pm.listIssueLabels();
+    return await syncRepo(repoRoot, linearLabels, { fix, force });
+  } catch (err) {
+    console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+    return 1;
+  }
+}
+
+/**
+ * Report (and, under `fix`, optionally apply) one repo's sync plan.
+ * Returns 0 when converged (or applied), 1 when drift remains after a
+ * report-only run. Throws on unreadable config — the caller decides whether
+ * to halt (single) or continue (`--all`).
+ */
+async function syncRepo(
+  repoRoot: string,
+  linearLabels: string[],
+  opts: { fix: boolean; force: boolean },
+): Promise<number> {
+  const raw = readRawConfig(repoRoot);
+  const skillLinks = collectSkillLinks(repoRoot);
+  const plan = buildSyncPlan({ repoRoot, config: raw, linearLabels, skillLinks });
+
+  console.log(formatSyncPlan(plan));
+
+  if (!plan.drift) return 0;
+  if (!opts.fix) return 1;
+
+  if (!opts.force) {
+    const accepted = await promptAcceptCancel();
+    if (!accepted) {
+      console.log("cancelled — no changes applied");
+      return 0;
+    }
+  }
+
+  await applySyncPlan(repoRoot, raw, plan);
+  console.log("sync applied.");
+  return 0;
+}
+
+/**
+ * `sync --all`: iterate every `lifecycle: active` registry project, run the
+ * sync report per repo, and summarize. Exit 0 iff every active repo converged
+ * (or was fixed); 1 if any repo still drifts or errored.
+ */
+async function runSyncAll(opts: { fix: boolean; force: boolean }): Promise<number> {
+  const registry = loadRegistry();
+  const active = registry.filter((p) => p.lifecycle === "active");
+  const linearLabels = await pm.listIssueLabels();
+
+  let clean = 0;
+  let drift = 0;
+  let errors = 0;
+
+  for (const project of active) {
+    try {
+      if (!project.repoPath) {
+        errors += 1;
+        console.log(`${project.id}: missing repo_path — cannot sync`);
+        continue;
+      }
+      const repoRoot = resolve(expandHome(project.repoPath));
+      const exit = await syncRepo(repoRoot, linearLabels, opts);
+      if (exit === 0) clean += 1;
+      else drift += 1;
+    } catch (err) {
+      errors += 1;
+      console.log(
+        `${project.id}: error: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  console.log(
+    `aggregate: ${clean} clean, ${drift} drifted, ${errors} errored (${active.length} active repos)`,
+  );
+  return drift > 0 || errors > 0 ? 1 : 0;
 }
 

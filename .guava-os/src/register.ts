@@ -10,15 +10,19 @@
  * `register` enforces steps 1–2: it creates-or-checks the repo directory
  * (git init when missing) and records the canonical git_remote both in the
  * local `origin` and in the project registry (`.guava-os/registry/
- * projects.yml`). Execution still fails closed — never invents a path
- * and refuses to run against a repo dir that does not exist.
+ * projects.yml`). It then converges the repo at birth — migrating the config
+ * to the new-schema domain model (domains / domainAgents / types / readiness)
+ * and linking the canonical skill store into `.omp/skills`. Execution still
+ * fails closed — never invents a path and refuses to run against a repo dir
+ * that does not exist.
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { resolveRegistryPath } from "./registry.js";
+import { migrateConfig, reconcileSymlinks } from "./sync.js";
 
 export interface RegisterResult {
   readonly id: string;
@@ -146,6 +150,46 @@ function upsertRegistryEntry(
   return { created: true };
 }
 
+/** Canonical skill store — the single source of truth every repo links from. */
+const DEFAULT_CANONICAL_SKILLS_DIR = join(homedir(), ".agents", "skills");
+
+/**
+ * Converge a freshly registered repo at birth, reusing the sync engine:
+ *
+ *   - migrate the raw config to the new-schema domain model
+ *     (domains / domainAgents / types / readiness); write it back on drift
+ *   - link every canonical skill into the repo's `.omp/skills`
+ *
+ * Labels need no write here: Linear issue labels are workspace-global, so the
+ * canonical type/readiness/domain set already exists for any repo in the same
+ * workspace. A new-schema config therefore makes the repo label-complete.
+ */
+function convergeRepo(abs: string, canonicalSkillsDir: string): void {
+  // Config → new-schema (idempotent; only rewritten on drift or first write).
+  const configDir = join(abs, ".guava-os");
+  const configPath = join(configDir, "config.json");
+  const raw: unknown = existsSync(configPath)
+    ? JSON.parse(readFileSync(configPath, "utf8"))
+    : {};
+  const migrated = migrateConfig(raw);
+  if (migrated.changes.length > 0 || !existsSync(configPath)) {
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(configPath, JSON.stringify(migrated.config, null, 2) + "\n", "utf8");
+  }
+
+  // Canonical skills → `<repo>/.omp/skills` (the dir `sync` reconciles).
+  const skillsDir = join(abs, ".omp", "skills");
+  const { add } = reconcileSymlinks(skillsDir, canonicalSkillsDir);
+  if (add.length === 0) return;
+  mkdirSync(skillsDir, { recursive: true });
+  for (const name of add) {
+    const link = join(skillsDir, name);
+    if (!existsSync(link)) {
+      symlinkSync(join(canonicalSkillsDir, name), link);
+    }
+  }
+}
+
 /**
  * Register a project: create-or-check the repo, record the canonical remote,
  * and append/update the registry entry. Pure core — no stdout.
@@ -155,6 +199,7 @@ export function registerProject(
   repoPath: string,
   gitRemote?: string,
   registryPath?: string,
+  canonicalSkillsDir?: string,
 ): RegisterResult {
   const abs = isAbsolute(expandHome(repoPath))
     ? expandHome(repoPath)
@@ -164,6 +209,8 @@ export function registerProject(
 
   const regPath = resolveRegistryPath(registryPath);
   const { created } = upsertRegistryEntry(regPath, id, repoPath, gitRemote);
+
+  convergeRepo(abs, canonicalSkillsDir ?? DEFAULT_CANONICAL_SKILLS_DIR);
 
   return {
     id,
