@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# gos — Guava OS CLI
+# Thin wrapper that runs the TypeScript CLI via tsx.
+# Usage: .guava-os/bin/gos <command> [flags]
+
+set -euo pipefail
+
+# Resolve the *physical* location of this script, following symlinks — both the
+# bin symlink itself and the `npm link` package dir (`/opt/homebrew/bin/gos` →
+# node_modules/guava-os → repo). Physical resolution means the tsx entry point
+# is an absolute real path, and imports resolve against the repo.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd -P)"
+  TARGET="$(readlink "$SOURCE")"
+  [[ "$TARGET" != /* ]] && TARGET="$DIR/$TARGET"
+  SOURCE="$TARGET"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd -P)"
+REPO_ROOT="$(cd -P "$SCRIPT_DIR/../.." && pwd -P)"
+
+exec npx tsx "$REPO_ROOT/.guava-os/src/cli.ts" "$@"

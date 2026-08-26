@@ -59,7 +59,7 @@ import {
 } from "./sync.js";
 
 function usage(): never {
-  console.log(`guava-os <command> [flags]
+  console.log(`gos <command> [flags]
 
 Commands:
   doctor    Verify repo Guava OS setup
