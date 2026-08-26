@@ -1,7 +1,11 @@
 {
   "name": "guava-os",
   "private": true,
+  "bin": {
+    "gos": ".guava-os/bin/gos"
+  },
   "scripts": {
+    "gos": "tsx .guava-os/src/cli.ts",
     "guava-os": "tsx .guava-os/src/cli.ts",
     "test": "vitest run"
   },
