@@ -3,9 +3,9 @@
 Authorization is a repository concern, owned by **GitHub** — not a local
 permission model and not a custom execution engine (ADR_001 Amendment 2).
 
-- Protected branches: `production`, `staging` (and one `dev/<role>` per role).
+- Protected branches: `production`, `staging` (and one `dev/<domain>` per domain).
 - Required pull-request review + required CI status checks.
-- Workers never merge; they push to `dev/<role>` and QA/operator merge upstream.
+- Workers never merge; they push to `dev/<domain>` and QA/operator merge upstream.
 
 See `docs/architecture/github-authorization.md` and
 `docs/architecture/guava-os-operating-contract.md`.

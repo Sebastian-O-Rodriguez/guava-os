@@ -107,7 +107,7 @@ review and merge; Linear is the workflow state of record.
 2. Authority docs, only as deep as the decision requires: `ADR_001.md` →
    `docs/architecture/guava-os-operating-contract.md` →
    `docs/architecture/linear-conventions.md`.
-3. `.guava-os/config.json` — team, project, roles, statuses, invariants
+3. `.guava-os/config.json` — team, project, domains, domainAgents, statuses, invariants
    (e.g. `max_subtasks_per_parent`), branch pattern. Defines the shape any
    sprint must fit.
 4. Tooling capability — `.guava-os/src/cli.ts` + `linear-client.ts` when unsure
@@ -124,7 +124,7 @@ review and merge; Linear is the workflow state of record.
 
 ```
 Linear backlog → guava-os planning → scoped deliverables (issues) →
-ready-work selection → OMP subagents (dispatch skill) → dev/<role> branch →
+ready-work selection → OMP subagents (dispatch skill) → dev/<domain> branch →
 QA review → GitHub merge to staging → second review → production → Linear refresh
 ```
 
@@ -137,7 +137,7 @@ review/merge; workers execute; Linear is the workflow state of record.
   A container groups deliverables and is **never executable itself**. Sprint
   parents are containers.
 - **Deliverable** = a Linear issue with **no children**. Executable when: status
-  Todo, exactly one role label, and no unresolved native blockers. Child or
+  Todo, one domain label + `ready-for-work`, and no unresolved native blockers. Child or
   standalone — both equally eligible.
 - **Standalone dependency chain** = a set of top-level deliverables wired by
   native `blocks` edges. The chain head (unblocked issue) is executable.
@@ -149,8 +149,9 @@ review/merge; workers execute; Linear is the workflow state of record.
 - Children per container ≤ `max_subtasks_per_parent` (config). **Enforced** —
   `validate` raises V305 (`subtask_overflow`, error) when an active container
   exceeds the cap.
-- Every deliverable: exactly one role label; description with Why / Scope /
-  Acceptance criteria (template: `docs/architecture/linear-conventions.md`).
+- Every deliverable: one domain label (plus one type + one readiness label);
+  description with Why / Scope / Acceptance criteria (template:
+  `docs/architecture/linear-conventions.md`).
 - Workflow state = Status; labels carry metadata only (GOS-21).
 - One artifact: the Linear issue **is** the task contract and the handoff
   record. There is no separate SprintDocument.
@@ -184,10 +185,10 @@ For dependency-heavy sprints, research decisions through MCP tools **before**
 scoping issues, so the plan rests on evidence rather than the agent's head.
 
 1. **Research first via MCP.** Settle library / provider decisions before
-   creating issues. Capture each decision as **version + license + role** in
+   creating issues. Capture each decision as **version + license + domain** in
    the container or deliverable description.
-2. **Granular role deliverables.** One observable outcome per issue, sized
-   for a single worker turn, exactly one role label, pass/fail acceptance.
+2. **Granular domain deliverables.** One observable outcome per issue, sized
+   for a single worker turn, exactly one domain label, pass/fail acceptance.
 3. **Containers cap.** Group related deliverables under containers, each ≤
    `max_subtasks_per_parent`. End the dependency set with a **QA gate issue**.
 4. **Forward dependency DAG.** Wire `blocks` edges so work flows forward to the
@@ -213,10 +214,11 @@ hard result-dependency. It is NOT a sequencing preference.
 - Fix a wrong/early edge cleanly: `pm unlink <id> --blocks/--blocked-by`
   (GOS-41).
 
-## Role → agent
+## Domain → agent
 
-Each issue carries one role label → the OMP agent type of the same name.
-Definitions: `docs/workflow/roles/<role>.md`. The `dispatch` skill dispatches.
+An issue's **domain** label selects the OMP agent via the `domainAgents` map
+in `.guava-os/config.json` (`qa`→`reviewer`, `security`→`security-reviewer`,
+`frontend`→`designer`, else→`task`). The `dispatch` skill dispatches.
 
 ## Identity (canonical IDs)
 
@@ -257,7 +259,7 @@ guava-os pm get-project
 guava-os pm get-sprint [parent-id]
 guava-os pm get-issue <id>
 guava-os pm search [--status <s>] [--label <l>] [--assignee <a>]
-guava-os pm create --title "..." --team "Guava AI" [--project guava-os] [--parent <id>] [--label task] [--label backend] [--priority 2]
+guava-os pm create --title "..." --team "Guava AI" [--project guava-os] [--parent <id>] [--label <domain>] [--label <type>] [--priority 2]
 guava-os pm update <id> [--status "In Progress"] [--assignee me] [--priority 3]
 guava-os pm link <id> --blocked-by <id>
 guava-os pm unlink <id> --blocked-by <id>   # remove a dependency edge (GOS-41)
@@ -269,9 +271,9 @@ guava-os pm comment <id> --body "..."
 ### Conventions (GOS-21)
 
 - **Native fields first**: Status, Assignee, Priority, Project, Parent, Dependencies.
-- **Labels**: one **role** label (`task`/`reviewer`/`scout`/`designer`/`sonic`/`librarian`/`security-reviewer`) selects the subagent; one **domain** label (`pm`/`qa`/`security`/`backend`/`frontend`/`devops`/`ai-ml`) selects the skills. Any other labels are metadata.
-- **Never labels for workflow state**: no ready/review/blocked/pickup. Workflow = Status.
-- **One role label + one domain label per issue.**
+- **Labels**: one **domain** label (`pm`/`qa`/`security`/`backend`/`frontend`/`devops`/`ai-ml`) selects both the skills AND the OMP agent (via the `domainAgents` map); one **type** label (`Feature`/`Bug`/`Improvement`/`Chore`/`Spike`); one **readiness** label (`untriaged`/`ready-for-work`/`needs-rescoping`). Other labels are metadata.
+- **Never labels for workflow state**: no ready/review/blocked/pickup. Workflow = Status (readiness is a separate computed axis).
+- **One domain + one type + one readiness label per issue.**
 
 ### Identity (GOS-38 create)
 
@@ -288,10 +290,10 @@ production   ← protected: PR from staging + required review + required CI
     ↑
 staging      ← protected: PR from dev/* + QA review + required CI
     ↑
-dev/task   dev/reviewer   ...   (one per role; workers push here)
+dev/backend   dev/frontend   ...   (one per domain; workers push here)
 ```
 
-- Workers push to `dev/<role>` — never to staging/production.
+- Workers push to `dev/<domain>` — never to staging/production.
 - Every commit subject carries `GUA-### <outcome>` so QA can map commits to
   issues and acceptance criteria.
 - Promotion is two-gated: QA review to staging, then a second review to
@@ -301,10 +303,10 @@ dev/task   dev/reviewer   ...   (one per role; workers push here)
 
 #### pick work
 
-Find executable work for a role:
+Find executable work for a domain:
 
 ```bash
-guava-os pm search --status Todo --label task
+guava-os pm search --status Todo --label backend
 ```
 
 Pick the first unblocked issue (check dependencies). Move to In Progress:
@@ -322,7 +324,7 @@ guava-os pm create \
   --team "Guava AI" \
   --project guava-os \
   --parent GUA-44 \
-  --label task --label backend \
+  --label backend --label Feature \
   --priority 2 \
   --description "$(cat <<'EOF'
 ## Why this exists
@@ -352,7 +354,7 @@ guava-os pm move GUA-50 --status "In Review"
 guava-os pm comment GUA-50 --body "$(cat <<'EOF'
 ## Result
 - Changed: <files>
-- Commit: <sha> on dev/<role>
+- Commit: <sha> on dev/<domain>
 - Verification: <test output / grep proof>
 - Acceptance: 1. ✅ 2. ✅ 3. ⚠️ (blocked on ...)
 EOF
@@ -398,49 +400,70 @@ Set `LINEAR_API_KEY` env var (Linear Settings → API → Personal API keys).
 
 ### dispatch
 
-_Project-session dispatcher — load this repo's open Linear issues and delegate each to an OMP role subagent. guava-os planned; the subagents execute._
+_Project-session dispatcher — load this repo's ready-for-work Linear issues and delegate each to its domain's OMP agent. guava-os planned; the subagents execute._
 
 ## Dispatch
 
 A project session is a **dispatcher**, not an executor. Planning and scoping
-happened upstream in guava-os. This session: loads the project's open issues
-and delegates each to a subagent of the issue's role.
+happened upstream in guava-os. This session: loads the project's
+`ready-for-work` issues and delegates each to its domain's OMP agent.
 
 ## Loop
+1. **Gate** — `guava-os work` (this project). Nothing ready → close the session.
+2. **Load** — read open issues (`pm search --status Todo`); each dispatchable
+   issue carries one **domain** label (`pm` / `qa` / `security` / `backend` /
+   `frontend` / `devops` / `ai-ml`), one **type** label, and the
+   **`ready-for-work`** readiness label. Never fan out an issue without
+   `ready-for-work` (anything else → stop and surface, don't dispatch).
+3. **Assemble Context** — compile the worker context with
+   `manual/scripts/inject.mjs`. The worker receives:
+   - Task contract (why, scope, out_of_scope, acceptance)
+   - Behavior (implement / judge — terminal action + authorization)
+   - Domain routing decision tree
+   - Engineering invariants (small stable core)
+   - Execution protocol
+   - Activated domain guidance (concise bullets)
+   - Available skills for progressive retrieval (`skill://<name>`)
+   - Completion contract (evidence required)
+4. **Dispatch** — fan out each ready issue to its domain's OMP agent
+   (`agent: config.domainAgents[domain]` — e.g. qa→reviewer,
+   security→security-reviewer, frontend→designer, rest→task), passing the
+   assembled context as the task payload and an `outputSchema`.
+5. **Isolate** — each subagent edits in an isolated worktree (`isolated: true`).
+6. **Hand off** — on completion, verify the completion contract, write the
+   result comment, and move status (`pm comment` + `pm move In Review`).
 
-1. **Gate** — `guava-os work` (this project). Nothing open → close the session.
-2. **Load** — read the open issues; each carries one role label
-   (`task` / `reviewer` / `scout` / `designer` / `sonic` / `librarian`), a
-   tight scope, and numbered acceptance.
-3. **Dispatch** — fan out each open issue to an OMP subagent of that role
-   (`task agents, agent: <role>`), with the issue's Why/Scope/Acceptance as the
-   task and an `outputSchema` for the typed result.
-4. **Isolate** — each subagent edits in an isolated worktree (`isolated: true`).
-5. **Hand off** — on completion, write the result comment and move status
-   (`pm comment` + `pm move`); see the role tree for the exact steps.
+## Domain → agent
 
-## Decision tree
+The mapping is `domainAgents` in `.guava-os/config.json` — one domain, one
+OMP agent (model + disposition + tools), one behavior. No separate role label:
 
-Each role has its own decision tree under `docs/workflow/roles/`. The subagent
-follows its role's tree; the dispatcher does not implement.
+| Domain | OMP agent | Behavior |
+|---|---|---|
+| `pm` | task | implement |
+| `qa` | reviewer | judge |
+| `security` | security-reviewer | judge (read-only) |
+| `backend` | task | implement |
+| `frontend` | designer | implement |
+| `devops` | task | implement |
+| `ai-ml` | task | implement |
 
-## Roles → agent type
+## Context Assembly
 
-| Label | OMP agent |
-|---|---|
-| `task` | task |
-| `reviewer` | reviewer |
-| `scout` | scout |
-| `designer` | designer |
-| `sonic` | sonic |
-| `librarian` | librarian |
+Before dispatching a subagent, assemble its task payload using `inject.mjs`:
+```bash
+node ~/dev/guava-os/manual/scripts/inject.mjs task-payload.json
+```
+Full skills are **never** inlined into default prompts; they are advertised under
+`# AVAILABLE SKILLS` for progressive on-demand retrieval (`read skill://<name>`).
 
 ## Uses
-
-- `guava-os work` — session gate (open issues for this project)
-- `task` — dispatch a subagent per open issue (agent = issue role)
+- `guava-os work` — session gate (ready work for this project)
+- `guava-os triage` — set readiness labels before dispatch (run by planning/operator)
+- `manual/scripts/inject.mjs` / `context-assembly` — compile task context
+- `task` — dispatch a subagent per ready issue (agent = domain agent)
 - `pm comment` / `pm move` — result handoff (via the `linear` skill)
-- `docs/workflow/roles/<role>.md` — the per-role decision tree
+- `skill://behavior` — the injected behavior (implement / judge)
 
 ### handoff
 

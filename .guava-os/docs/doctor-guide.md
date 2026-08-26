@@ -4,7 +4,7 @@ Read-only. Validates the repo's guava-os setup.
 
 ```bash
 guava-os doctor
-echo '{"issues": [], "labels": ["task","reviewer","scout","designer","sonic","librarian"]}' | guava-os doctor
+echo '{"issues": [], "labels": ["pm","qa","security","backend","frontend","devops","ai-ml"]}' | guava-os doctor
 ```
 
 ## Checks
@@ -15,7 +15,7 @@ echo '{"issues": [], "labels": ["task","reviewer","scout","designer","sonic","li
 | `agents-md` | `AGENTS.md` present (advisory) |
 | `protocol` | configured process docs exist |
 | `linear` | caller supplied issue data via stdin |
-| `labels` | every configured role has a matching Linear label |
+| `labels` | every configured domain has a matching Linear label |
 | `gitignore` | `manifest_path` is gitignored |
 | `git-remote` | registry remotes match local `origin` (advisory) |
 

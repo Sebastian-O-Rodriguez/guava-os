@@ -34,10 +34,10 @@ machine-enforced "no stale gate": the exact commit being merged is tested.
 ## QA review (guava-os OMP agent)
 
 The QA review is the **judgment** step (acceptance vs diff), separate from CI's
-deterministic gate. It runs as a guava-os OMP agent with the `reviewer` role,
+deterministic gate. It runs as a guava-os OMP agent with the `reviewer` agent (`qa` domain),
 triggered on schedule or PR-open:
 
-1. Read the open issues in `In Review` and the `dev/<role>` → `staging` diff.
+1. Read the open issues in `In Review` and the `dev/<domain>` → `staging` diff.
 2. Check each acceptance criterion against the diff; run `verify`.
 3. **Approve** → merge the PR to `staging`; move the issue to `Done`.
 4. **Reject** → comment the reason on the issue; move status back to

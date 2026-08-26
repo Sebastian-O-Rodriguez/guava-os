@@ -1,10 +1,10 @@
 # FAQ
 
-## Why is a missing role label an error (V400)?
+## Why is a missing domain label an error (V400)?
 
-A deliverable without a role label can't be dispatched to any subagent — dead
-weight. Fix: add exactly one role label (`task`/`reviewer`/`scout`/`designer`/
-`sonic`/`librarian`).
+A deliverable without a domain label can't be dispatched to any subagent — dead
+weight. Fix: add exactly one domain label (`pm`/`qa`/`security`/`backend`/
+`frontend`/`devops`/`ai-ml`).
 
 ## Why doesn't the classifier fetch Linear itself?
 
@@ -19,8 +19,8 @@ work?"
 
 ## How do issues go from `Todo` to `Done`?
 
-A project session dispatches a subagent (the issue's role); the subagent
-implements, verifies, commits to `dev/<role>`, and comments. QA reviews and
+A project session dispatches a subagent (the issue's domain); the subagent
+implements, verifies, commits to `dev/<domain>`, and comments. QA reviews and
 merges to `staging`; the operator merges to `production`; the issue moves to
 `Done`.
 

@@ -19,7 +19,7 @@ guava-os/
 │   ├── src/               # cli, linear-client, work, register, doctor, …
 │   ├── tests/             # vitest suite
 │   ├── registry/projects.yml   # governed projects
-│   ├── config.json        # team/project/roles/statuses/invariants
+│   ├── config.json        # team/project/domains/domainAgents/types/readiness/invariants
 │   ├── bin/guava-os       # CLI shim
 │   └── package.json       # "type": "module"
 ├── docs/                  # architecture, workflow, governance

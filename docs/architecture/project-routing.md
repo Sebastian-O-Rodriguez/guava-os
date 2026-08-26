@@ -33,7 +33,7 @@ A project is routable once it is:
 
 1. Registered in `~/dev/guava-os/.guava-os/registry/projects.yml` (repo_path
    present) — required for execution.
-2. Has `.guava-os/config.json` (team, project, roles, invariants including
+2. Has `.guava-os/config.json` (team, project, domains, domainAgents, invariants
    `max_subtasks_per_parent`).
 3. Has the two bootstrap files below at its repo root.
 
@@ -58,12 +58,12 @@ When asked to plan (a sprint, a request, /planning):
    guava-os tooling. Sprint scope comes from the repo's domain docs, not the
    agent's head.
 4. Produce a Linear-ready sprint: canonical GUA-### ids (pm create prints
-   them), one role label per child, children per parent ≤
+   them), one domain label per child, children per parent ≤
    max_subtasks_per_parent, DoR = `pm search --json | validate` exits 0.
 
 ## Tooling
 Prefer guava-os tooling for Linear; Linear MCP is a last-resort fallback. Run the CLI from THIS
-repo root so it loads this project's .guava-os/config.json (project, roles,
+repo root so it loads this project's .guava-os/config.json (project, domains,
 invariants); the binary lives in the guava-os checkout:
   ~/dev/guava-os/.guava-os/bin/guava-os pm <cmd>
 ```
@@ -86,7 +86,7 @@ steering, no Linear MCP):
 2. Read .guava-os/config.json + live Linear state for this project via
    guava-os tooling.
 3. Produce a Linear-ready sprint: canonical GUA-### ids (from pm create
-   output), one role label per child, children per parent ≤
+   output), one domain label per child, children per parent ≤
    max_subtasks_per_parent (3), DoR via (run from this repo root so the
    project config loads): `pm search --json | validate` where the binary is
    ~/dev/guava-os/.guava-os/bin/guava-os, exiting 0.
