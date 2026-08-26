@@ -803,6 +803,24 @@ export async function linkUrl(
     { input: { issueId, url, title: title ?? url } },
   );
 }
+/** List every issue label in the workspace (name-only, sorted). */
+export async function listIssueLabels(): Promise<string[]> {
+  const data = await gql<{ issueLabels: { nodes: { name: string }[] } }>(
+    `query { issueLabels { nodes { name } } }`,
+  );
+  return (data.issueLabels?.nodes ?? []).map((l) => l.name).sort();
+}
+
+/** Create a workspace label owned by the given team (resolved by name). */
+export async function createIssueLabel(name: string, teamName: string): Promise<void> {
+  const teamId = await resolveTeamId(teamName);
+  await gql<{ issueLabelCreate: { success: boolean } }>(
+    `mutation ($input: IssueLabelCreateInput!) {
+      issueLabelCreate(input: $input) { success }
+    }`,
+    { input: { name, teamId } },
+  );
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
