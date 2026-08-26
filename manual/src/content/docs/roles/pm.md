@@ -344,6 +344,9 @@ EOF
 
 The description **is** the worker's task contract and the subagent's prompt.
 
+`pm create` / `pm update` also accept `--description -` to read the body from
+stdin (the `$(cat <<'EOF' … EOF)` heredoc form above is equivalent).
+
 #### worker result handoff (clean handoff protocol)
 
 When a worker finishes, it records the result on the issue — this is the
@@ -391,6 +394,20 @@ guava-os pm move GUA-50 --status "Done"
 ### Authentication
 
 Set `LINEAR_API_KEY` env var (Linear Settings → API → Personal API keys).
+
+## Consumer convergence
+
+Outside `pm`, two commands reconcile a consumer repo to the canonical contract:
+
+```bash
+guava-os sync [repo]          # report drift (config/labels/symlinks)
+guava-os sync --fix --force   # apply with no prompt
+guava-os triage               # set readiness labels on open Todo
+```
+
+`sync` is report-first: `--fix` prompts before applying, `--fix --force`
+applies without a prompt, `--all` batches every active registry project. See
+`docs/architecture/sync-convergence.md`.
 
 ## Uses
 
