@@ -42,7 +42,21 @@ guava-os register <id> --repo ~/dev/repos/<id> --remote <url>
 guava-os doctor   # verify remotes + config
 ```
 
-## 5. Verify
+## 5. Converge existing consumers
+
+For registered projects on a stale guava-os contract (e.g. after a gos update
+or a repo rollback):
+
+```bash
+guava-os sync <repo>                 # report drift (writes nothing)
+guava-os sync --fix <repo>           # prompt [A]ccept/[C]ancel, then apply
+guava-os sync --all --fix --force    # batch every active project, no prompt
+```
+
+`register` converges new projects at birth; `sync` reconciles drift and
+migration. See `docs/architecture/sync-convergence.md`.
+
+## 6. Verify
 
 ```bash
 npm test          # 162+ tests
