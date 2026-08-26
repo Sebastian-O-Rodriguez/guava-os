@@ -143,7 +143,7 @@ diff (`git`), run tests (`verify`), and check the result comment. Then verdict.
 Two gates, both GitHub-enforced:
 
 1. **dev → staging** — QA review: diff is in-scope, acceptance criteria met,
-   tests green. **Approve** = merge PR `dev/<role>` → `staging`. **Reject** =
+   tests green. **Approve** = merge PR `dev/<domain>` → `staging`. **Reject** =
    comment the reason on the issue, move status back to In Progress.
 2. **staging → production** — a second, separate operator review before merge.
 

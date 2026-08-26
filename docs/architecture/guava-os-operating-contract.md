@@ -55,20 +55,20 @@ carries the dependency DAG.
 ## Workflow (canonical loop)
 
 1. **Plan** — guava-os reads Linear and decomposes work into scoped
-   deliverables (one issue = one observable outcome, one role label, tight
-   acceptance criteria).
+   deliverables (one issue = one observable outcome, one domain + one type +
+   one readiness label, tight acceptance criteria).
 2. **Write Linear** — issues created/updated with the task contract and
    `blocks` dependencies.
-3. **Select ready work** — zero-indegree issues (unblocked, `Todo`, role
-   label).
+3. **Select ready work** — zero-indegree issues (unblocked, `Todo`,
+   `ready-for-work`).
 4. **Dispatch** — guava-os fans out ready issues to OMP subagents (`task` /
    `eval agent()`), each in an isolated worktree, typed by `outputSchema`.
 5. **Workers push** — each worker verifies, commits (`GUA-### <outcome>`), and
-   pushes to `dev/<role>`.
+   pushes to `dev/<domain>`.
 6. **QA review** — a QA subagent (or CI) reviews the diff against acceptance,
    runs tests, then approves (PR to `staging`) or rejects (comment on the
    issue, status back to In Progress).
-7. **Promote to staging** — merge `dev/<role>` → `staging` (required review
+7. **Promote to staging** — merge `dev/<domain>` → `staging` (required review
    + required CI).
 8. **Promote to production** — a second review gate merges `staging` →
    `production`.
@@ -85,10 +85,10 @@ production   ← protected: PR from staging + required review + required CI
     ↑
 staging      ← protected: PR from dev/* + QA review + required CI
     ↑
-dev/task   dev/designer   ...   (one per role; workers push here)
+dev/backend   dev/frontend   ...   (one per domain; workers push here)
 ```
 
-- Per-role dev branches isolate concurrent workers; cross-role conflicts
+- Per-domain dev branches isolate concurrent workers; cross-domain conflicts
   resolve at the staging merge.
 - Every commit subject carries the canonical `GUA-###` identifier.
 - Two promotion gates: staging review, then production review.
@@ -128,9 +128,12 @@ Linear project mapping. No other component owns or mutates it.
 ## Roles
 
 Roles are the seven OMP agent types: `task`, `reviewer`, `scout`, `designer`,
-`sonic`, `librarian`, `security-reviewer`. An issue carries one role label (and one domain label), which selects
-the subagent a project session dispatches. Roles do not own governance,
-approval, or promotion — those are operator/QA-gated via GitHub.
+`sonic`, `librarian`, `security-reviewer`. An issue carries no role label — its
+**domain** label selects the OMP agent via the `domainAgents` map in
+`.guava-os/config.json` (`qa`→`reviewer`, `security`→`security-reviewer`,
+`frontend`→`designer`, else→`task`), plus one **type** label and one
+**readiness** label. Roles do not own governance, approval, or promotion —
+those are operator/QA-gated via GitHub.
 
 ## Project management (Linear)
 

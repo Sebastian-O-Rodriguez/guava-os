@@ -12,7 +12,7 @@ internal reference for how the system is built and how every agent enters work.
 
 ## Routing — every agent starts here
 
-1. Read this file (overview + role map).
+1. Read this file (overview + domain map).
 2. Load **core** context → [`core`](core.md) — the principles every worker
    applies, regardless of domain.
 3. Go to your **role** → [`roles/`](roles/) — your specific context + skills.
@@ -20,9 +20,9 @@ internal reference for how the system is built and how every agent enters work.
    (new machine) · [`structure`](structure.md) (repo) · [`workflow`](workflow.md)
    (flow diagrams).
 
-## Role map
+## Domain map
 
-| Role | Agent type | Skills domain |
+| Domain | Agent type | Skills |
 |---|---|---|
 | [PM](roles/pm.md) | manager session (guava-os) | planning · linear · dispatch · to-tickets · grilling · handoff |
 | [QA](roles/qa.md) | `reviewer` | review · verify · code-review · test-strategy |
@@ -32,7 +32,7 @@ internal reference for how the system is built and how every agent enters work.
 | [DevOps](roles/devops.md) | `task` | ci-cd · terraform · observability |
 | [AI / ML](roles/ai-ml.md) | `task` | rag · prompt-engineering · pandas-data |
 
-The seven **agent-type roles** in Linear dispatch are: `task`, `reviewer`,
-`scout`, `designer`, `sonic`, `librarian`, `security-reviewer`. The role map
-above is the **domain** layer — skills organized by what a worker builds, not
-how it's dispatched.
+The seven OMP agent types are `task`, `reviewer`, `scout`, `designer`, `sonic`,
+`librarian`, `security-reviewer`. The map above is the **domain** layer —
+skills organized by what a worker builds; the `domainAgents` map in
+`.guava-os/config.json` selects the OMP agent per domain.

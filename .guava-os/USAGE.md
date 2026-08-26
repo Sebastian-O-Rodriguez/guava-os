@@ -5,16 +5,17 @@
 | Command | Surface | Reads stdin | Calls Linear |
 |---|---|---|---|
 | `doctor` | validate repo setup | optional | no |
-| `status` | executable queue by role | yes | no |
+| `status` | executable queue by domain | yes | no |
 | `validate` | protocol violations | yes | no |
-| `next` | one launch directive per role | yes | no |
-| `work` | open work by role (session gate) | no | **yes** |
+| `next` | one launch directive per domain | yes | no |
+| `work` | open work by domain (session gate) | no | **yes** |
 | `pm` | Linear create/update/link/move/comment/cancel/archive | no | **yes** |
 | `register` | project bootstrap | no | no |
 
-Roles are the 6 OMP agent types: `task`, `reviewer`, `scout`, `designer`,
-`sonic`, `librarian`. Each executable issue carries exactly **one role label**;
-that label picks the subagent a project session dispatches.
+An issue carries **one domain label** (selecting both the skill domain and the
+OMP agent via the `domainAgents` map), **one type label**, and **one readiness
+label** (`ready-for-work` to be dispatchable). The seven OMP agent types are
+`task`, `reviewer`, `scout`, `designer`, `sonic`, `librarian`, `security-reviewer`.
 
 ## Classifier commands (`doctor`, `status`, `validate`, `next`)
 
@@ -24,12 +25,12 @@ Read-only over stdin JSON. They never call Linear, mutate state, or write files.
 guava-os doctor
 cat issues.json | guava-os status
 cat issues.json | guava-os validate
-cat issues.json | guava-os next --role task
+cat issues.json | guava-os next --domain backend
 ```
 
 ### `status`
 
-Groups executable work by role. Categories: EXECUTABLE (Todo, one role label,
+Groups executable work by domain. Categories: EXECUTABLE (Todo, one domain label + `ready-for-work`,
 active parent), NOT_PROMOTED (Backlog), BLOCKED (unresolved `blocks`), INVALID
 (protocol violations), PARENTS (container health). Exit 0 if any executable
 work exists.
@@ -42,25 +43,26 @@ Violation codes:
 - `V303` parent_not_active (error)
 - `V304` empty_parent (warning)
 - `V305` subtask_overflow (error)
-- `V306` container_role_label (warning)
+- `V306` container_domain_label (warning)
 - `V307` external_blocker_gap (warning)
-- `V400` missing_role_label (error)
-- `V401` multiple_role_labels (error)
-- `V402` unknown_role_label (warning)
+- `V400` missing_domain_label (error)
+- `V402` unknown_label (warning)
+- `V403` multiple_domain_labels (warning)
+- `V404` readiness_label_count (error)
+- `V405` missing_description_sections (error)
 - `V500` queue_overflow (warning)
-
 Exit 0 if no errors; `--strict` makes warnings fail too.
 
 ### `next`
 
-One operator-ready directive per role (highest-priority executable issue).
-`--role <name>` filters to a single role. Read-only.
+One operator-ready directive per domain (highest-priority executable issue).
+`--domain <name>` filters to a single domain. Read-only.
 
 ## Network commands
 
 ### `work`
 
-The session gate — queries Linear and reports open work (Todo by role, plus
+The session gate — queries Linear and reports open work (Todo by domain, plus
 In Progress / In Review counts). This is the "script, not AI" bootstrap a
 session hook runs on open.
 
@@ -81,8 +83,8 @@ Linear interface:
 guava-os pm get-project
 guava-os pm get-sprint [parent-id]
 guava-os pm get-issue <id>
-guava-os pm search --project <name> --status Todo --label task
-guava-os pm create --title "..." --team "Guava AI" --label task
+guava-os pm search --project <name> --status Todo --label backend
+guava-os pm create --title "..." --team "Guava AI" --label backend
 guava-os pm link <id> --blocked-by <id>
 guava-os pm move <id> --status "In Progress"
 guava-os pm comment <id> --body "..."
@@ -100,7 +102,7 @@ A JSON array of Linear issues:
   "id": "GUA-10", "title": "Issue title",
   "status": "Todo", "statusType": "unstarted",
   "priority": { "value": 2, "name": "High" },
-  "labels": ["task"], "parentId": "GUA-5",
+  "labels": ["backend"], "parentId": "GUA-5",
   "project": "guava-os", "createdAt": "2026-01-01", "updatedAt": "2026-01-01",
   "completedAt": null, "canceledAt": null
 }]

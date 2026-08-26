@@ -22,9 +22,8 @@ flowchart TD
 **Core skills, in order:** `engineering-principles` → `tdd` → `diagnosing-bugs` →
 `writing-for-agents` → `technical-writing` → `diagrammatic-writing` →
 `diagrammatic-review`. An agent loads core first, then follows its domain branch
-to the ordered role workflow.
-
-## Per-role (example: Backend)
+to the ordered domain workflow.
+## Per-domain (example: Backend)
 
 ```mermaid
 flowchart TD
@@ -34,7 +33,7 @@ flowchart TD
     Dr --> A[api-design] --> Py[python-backend] --> Sq[sql-postgres] --> Sup[supabase] --> SupPg[supabase-postgres-best-practices]
 ```
 
-The role pages under `roles/` carry each domain's full ordered chain plus the
+The domain pages under `roles/` carry each domain's full ordered chain plus the
 full skill content — self-contained starting places.
 
 ## The operating loop (PM → workers → GitHub → Linear)
@@ -42,10 +41,10 @@ full skill content — self-contained starting places.
 ```mermaid
 flowchart TD
     PLAN[PM: engineering-principles + grilling] --> TICK[to-tickets + linear: pm create/link]
-    TICK --> DISPATCH[dispatch: fan issue to role agent]
-    DISPATCH --> WORK[worker: core skills + role skills → verify → commit GUA-### → dev/role]
+    TICK --> DISPATCH[dispatch: fan issue to domain agent]
+    DISPATCH --> WORK[worker: core skills + domain skills → verify → commit GUA-### → dev/domain]
     WORK --> Q[QA: verify + code-review + review]
-    Q -->|approve| PROMOTE[promote dev/role → staging → production]
+    Q -->|approve| PROMOTE[promote dev/domain → staging → production]
     Q -->|reject| WORK
     PROMOTE --> REFRESH[handoff: pm comment + move Done]
     REFRESH --> PLAN

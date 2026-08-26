@@ -10,13 +10,15 @@ orchestrates OMP subagents. It does not implement — project sessions are
    projects; cleans up stale/blocked work. On open, `guava-os work --all` gates
    the session (nothing → close).
 2. **Project dispatcher** (`~/dev/repos/<project>`) — loads *its* project's open
-   issues and fans each out to a subagent of the issue's role. On open,
+   issues and fans each out to a subagent of the issue's domain. On open,
    `guava-os work` gates the session.
 
 ## Roles
 
-The seven OMP agent types are the roles: `task`, `reviewer`, `scout`, `designer`,
-`sonic`, `librarian`, `security-reviewer`. One issue carries one role label and one domain label.
+The seven OMP agent types are `task`, `reviewer`, `scout`, `designer`, `sonic`,
+`librarian`, `security-reviewer`. An issue carries one domain label, one type
+label, and one readiness label (no role label — `domainAgents` maps domain to
+agent).
 
 ## Commands
 
@@ -26,5 +28,5 @@ The seven OMP agent types are the roles: `task`, `reviewer`, `scout`, `designer`
 
 ## Authorization
 
-GitHub owns it — protected branches (`dev/<role>` → `staging` → `production`)
+GitHub owns it — protected branches (`dev/<domain>` → `staging` → `production`)
 with required review + CI. Workers never merge.

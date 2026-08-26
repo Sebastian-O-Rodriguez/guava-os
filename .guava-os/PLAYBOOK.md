@@ -31,10 +31,10 @@ production   ← protected: PR from staging + required review + required CI
     ↑
 staging      ← protected: PR from dev/* + QA review + required CI
     ↑
-dev/task   dev/designer   ...   (one per role; workers push here)
+dev/backend   dev/frontend   ...   (one per domain; workers push here)
 ```
 
-- Workers push to `dev/<role>` — never to staging/production.
+- Workers push to `dev/<domain>` — never to staging/production.
 - Every commit subject carries `GUA-### <outcome>`.
 - Promotion is two-gated: QA review to staging, then a second review to
   production. GitHub enforces both via branch protection.
@@ -44,19 +44,20 @@ dev/task   dev/designer   ...   (one per role; workers push here)
 1. **Understand** — operator intent + live Linear state + target repo docs.
    Skill: `planning`.
 2. **Plan** — decompose into scoped deliverables: one issue = one observable
-   outcome, one role label, tight acceptance, explicit out-of-scope. Scope
+   outcome, one domain + one type + one readiness label, tight acceptance,
+   explicit out-of-scope. Scope
    for the worker (`default`/`smol` tier), not the ambition. Skill: `planning`.
 3. **Write Linear** — create/update issues, dependency links, statuses. The
    issue description IS the worker's task contract and the subagent prompt.
    Skill: `linear`.
-4. **Select ready work** — zero-indegree issues (unblocked, `Todo`, one role
-   label). Skill: `planning`.
+4. **Select ready work** — zero-indegree issues (unblocked, `Todo`,
+   `ready-for-work`). Skill: `planning`.
 5. **Dispatch** — fan out ready issues to OMP subagents (`task`/`eval agent()`),
    each in an isolated worktree, typed by `outputSchema`. Skill: `dispatch`.
 6. **Workers push** — verify (`verify` skill), commit (`GUA-### <outcome>`),
-   push to `dev/<role>`. Skill: `dispatch`.
+   push to `dev/<domain>`. Skill: `dispatch`.
 7. **QA review** — review diff vs acceptance, run tests, approve (merge
-   `dev/<role>` → `staging`) or reject (comment + status back). Skill:
+   `dev/<domain>` → `staging`) or reject (comment + status back). Skill:
    `review`.
 8. **Promote to production** — a second, separate review gate merges `staging`
    → `production`. Skill: `review`.
@@ -70,7 +71,8 @@ dev/task   dev/designer   ...   (one per role; workers push here)
 ## Ownership
 
 - guava-os owns: planning, decomposition, orchestration (OMP subagents), Linear
-  integration, review/promotion workflow, project registry, roles.
+  integration, review/promotion workflow, project registry, domain routing
+  (`domainAgents`).
 - OMP owns: runtime, subagent dispatch, worktree isolation, DAG fan-out,
   process supervision.
 - GitHub owns: authorization (branch protection, required review, required CI).

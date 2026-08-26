@@ -1,6 +1,6 @@
-# `status` — executable queue by role
+# `status` — executable queue by domain
 
-Groups open work by role (the six OMP agent types). Read-only, stdin-driven.
+Groups open work by domain. Read-only, stdin-driven.
 
 ```bash
 cat issues.json | guava-os status
@@ -9,14 +9,14 @@ cat issues.json | guava-os status --json
 
 ## Categories
 
-- **EXECUTABLE** — Todo, exactly one role label, active parent, unblocked.
+- **EXECUTABLE** — Todo, one domain label + `ready-for-work`, active parent, unblocked.
 - **NOT_PROMOTED** — Backlog (exists, not scheduled).
 - **BLOCKED** — unresolved `blocks` dependency.
-- **INVALID** — protocol violation (missing/multiple role label, inactive parent,
-  orphan).
+- **INVALID** — protocol violation (missing domain label, readiness gap, inactive
+  parent, orphan).
 - **PARENTS** — container health.
 
-`(none)` for a role means no executable work — not an error.
+`(none)` for a domain means no executable work — not an error.
 
 ## Exit
 
