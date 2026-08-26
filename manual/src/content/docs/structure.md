@@ -16,15 +16,14 @@ guava-os/
 │   ├── hooks/pre/session-gate.ts   # runs `guava-os work --all` on open
 │   └── skills/            # symlinks → ~/.agents/skills/
 ├── .guava-os/             # the control-plane CLI + config
-│   ├── src/               # cli, linear-client, work, register, doctor, …
+│   ├── src/               # cli, linear-client, sync, triage, work, register, doctor, …
 │   ├── tests/             # vitest suite
 │   ├── registry/projects.yml   # governed projects
 │   ├── config.json        # team/project/domains/domainAgents/types/readiness/invariants
 │   ├── bin/guava-os       # CLI shim
 │   └── package.json       # "type": "module"
 ├── docs/                  # architecture, workflow, governance
-│   ├── architecture/      # operating contract, linear-conventions, routing
-│   ├── workflow/roles/    # per-role decision trees (7)
+│   ├── architecture/      # operating contract, linear-conventions, sync-convergence, routing
 │   └── governance/
 ├── manual/                # this manual (Astro Starlight site)
 │   └── src/content/docs/  # routing + cross-cutting + roles + skills

@@ -11,6 +11,8 @@
 | `work` | open work by domain (session gate) | no | **yes** |
 | `pm` | Linear create/update/link/move/comment/cancel/archive | no | **yes** |
 | `register` | project bootstrap | no | no |
+| `sync` | consumer convergence (config/labels/symlinks) | no | **yes** |
+| `triage` | set readiness labels | no | **yes** |
 
 An issue carries **one domain label** (selecting both the skill domain and the
 OMP agent via the `domainAgents` map), **one type label**, and **one readiness
@@ -92,6 +94,26 @@ guava-os pm archive <id>
 ```
 
 Prefer `pm` for Linear; Linear MCP is a last-resort fallback.
+
+### `sync`
+
+Consumer convergence (config / labels / symlinks). Report-first:
+
+```bash
+guava-os sync [repo]                 # report-only — exit 0 clean / 1 drift
+guava-os sync --fix [repo]           # prompt [A]ccept/[C]ancel
+guava-os sync --fix --force [repo]   # apply, no prompt
+guava-os sync --all                  # every active registry project
+```
+
+### `triage`
+
+Sets the readiness label on open Todo deliverables:
+
+```bash
+guava-os triage          # this project
+guava-os triage --all    # every active registry project
+```
 
 ## Stdin contract (classifier commands)
 

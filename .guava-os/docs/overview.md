@@ -23,7 +23,8 @@ agent).
 ## Commands
 
 - Classifier (stdin, read-only): `doctor`, `status`, `validate`, `next`.
-- Live (Linear): `work` (session gate), `pm` (create/update/link/move/comment/…).
+- Live (Linear): `work` (session gate), `pm` (create/update/link/move/comment/…),
+  `sync` (consumer convergence), `triage` (readiness labels).
 - Bootstrap: `register`.
 
 ## Authorization

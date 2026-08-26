@@ -4,8 +4,8 @@ The Guava OS CLI has two surfaces:
 
 - **Classifier commands** (`doctor`, `status`, `validate`, `next`) — read-only,
   stdin-driven JSON; never call Linear or mutate state.
-- **Live commands** (`work`, `pm`) — query Linear; the session gate + project
-  management.
+- **Live commands** (`work`, `pm`, `sync`, `triage`) — query Linear; the
+  session gate + project management + consumer convergence.
 - **Bootstrap** (`register`) — project setup.
 
 ```bash
@@ -68,6 +68,32 @@ guava-os work --json
 
 Exit 0 if open work exists, 1 if none (the session hook closes on 1).
 
+## `sync`
+
+Snapshot + converge a consumer repo against the canonical contract (config,
+Linear labels, skills symlinks). Report-first: prints a plan and writes nothing
+unless a fix flag is passed.
+
+```bash
+guava-os sync [repo]                 # report-only — exit 0 clean / 1 drift
+guava-os sync --fix [repo]           # prompt [A]ccept/[C]ancel, then apply
+guava-os sync --fix --force [repo]   # apply with no prompt
+guava-os sync --all                  # every active registry project
+guava-os sync --all --fix --force
+```
+
+See `docs/architecture/sync-convergence.md`.
+
+## `triage`
+
+Sets the readiness label on open Todo deliverables (`untriaged`,
+`ready-for-work`, `needs-rescoping`).
+
+```bash
+guava-os triage          # this project
+guava-os triage --all    # every active registry project
+```
+
 ## `pm`
 
 All Linear reads/writes — the preferred interface. Linear MCP is a fallback only.
@@ -80,6 +106,9 @@ guava-os pm move <id> --status "In Progress"
 guava-os pm comment <id> --body "..."
 guava-os pm archive <id>
 ```
+
+`pm create` / `pm update` accept `--description -` to read the body from stdin
+(the documented `$(cat <<'EOF' … EOF)` heredoc form).
 
 ## Global flags
 
