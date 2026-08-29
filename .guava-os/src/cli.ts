@@ -344,7 +344,7 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
         priority: flag(rest, "--priority") ? Number(flag(rest, "--priority")) : undefined,
         status: flag(rest, "--status"),
         assigneeId: flag(rest, "--assignee"),
-      });
+      }, config);
       console.log(jsonMode ? JSON.stringify(issue, null, 2) : `Created: ${issue.identifier ?? issue.id} ${issue.title}`);
       return;
     }
@@ -368,7 +368,7 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
         parentId: parentRaw === undefined ? undefined : (parentRaw === "none" || parentRaw === "null" ? null : parentRaw),
         // undefined (not []) when --label omitted — never wipe existing labels (GUA-96)
         labels: labels.length > 0 ? labels : undefined,
-      });
+      }, config);
       console.log(jsonMode ? JSON.stringify(issue, null, 2) : `Updated: ${issue.id} ${issue.title}`);
       return;
     }
