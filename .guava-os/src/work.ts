@@ -10,16 +10,19 @@
  *
  * Exit code is the gate: 0 = ready work available, 1 = nothing dispatchable.
  *
- *   work        → this project (repo config)
- *   work --all  → every active registry project
- *   --json      → machine-readable output
+ *   work                    → this project (repo config)
+ *   work --project <name>   → that project, resolved from registry (CWD-independent)
+ *   work --all              → every active registry project
+ *   --json                  → machine-readable output
  */
 import { findRepoRoot, loadConfig, type Config } from "./config.js";
 import { readinessLabels } from "./config.js";
 import { buildGraph, type LinearIssue } from "./linear.js";
 import { runValidate } from "./validate.js";
 import * as pm from "./linear-client.js";
-import { loadRegistry } from "./registry.js";
+import { loadRegistry, type RegistryProject } from "./registry.js";
+import { homedir } from "os";
+import { resolve } from "path";
 
 export interface WorkIssue {
   issue_id: string;
@@ -105,9 +108,9 @@ function formatViews(views: WorkView[]): string {
   for (const v of views) {
     const readyIds = v.ready.map((r) => r.issue_id);
     lines.push(
-      `${v.project}: ready=${v.ready.length}` +
+      `project: ${v.project} — ready=${v.ready.length}` +
         (readyIds.length ? ` [${readyIds.join(" ")}]` : "") +
-        ` not-ready=${v.notReady.length} in-progress=${v.inProgress} in-review=${v.inReview}`,
+        ` · not-ready=${v.notReady.length} · in-progress=${v.inProgress} · in-review=${v.inReview}`,
     );
     for (const n of v.notReady) {
       lines.push(`  ! ${n.issue_id} (${n.domain ?? "no-domain"}) ${n.reasons.join("; ")}`);
@@ -116,7 +119,65 @@ function formatViews(views: WorkView[]): string {
   return lines.join("\n");
 }
 
+/** Expand a leading `~` in a registry `repo_path` to the user's home directory. */
+function expandHome(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/")) return resolve(homedir(), p.slice(2));
+  return p;
+}
+
+/** Find a registry project by id or linear_project. */
+function findRegistryProject(
+  registry: RegistryProject[],
+  name: string,
+): RegistryProject | undefined {
+  return registry.find((p) => p.id === name || p.linearProject === name);
+}
+
+/**
+ * Warn (stderr) when the CWD's repo root is not the registered repo for the
+ * project being reported — the board may be right, but the working tree is not.
+ */
+function warnWrongRepoRoot(repoRoot: string, configuredProject: string): void {
+  let entry: RegistryProject | undefined;
+  try {
+    entry = findRegistryProject(loadRegistry(), configuredProject);
+  } catch {
+    return; // registry unavailable — nothing to compare
+  }
+  if (!entry?.repoPath) return;
+  const registeredRoot = resolve(expandHome(entry.repoPath));
+  if (resolve(repoRoot) !== registeredRoot) {
+    console.error(
+      `warning: working directory ${repoRoot} is not the registered repo for ` +
+        `${configuredProject} (${registeredRoot}) — verify you are in the right checkout`,
+    );
+  }
+}
+
+/** Report one explicitly-named project, independent of CWD. */
+async function runProject(name: string, jsonMode: boolean): Promise<number> {
+  const registry = loadRegistry();
+  const entry = findRegistryProject(registry, name);
+  if (!entry) {
+    console.error(`unknown project: ${name}`);
+    return 1;
+  }
+  if (!entry.repoPath) {
+    console.error(`registry project ${entry.id} has no repo_path — cannot load its config`);
+    return 1;
+  }
+  const config = loadConfig(resolve(expandHome(entry.repoPath)));
+  const view = await workView(config, entry.linearProject ?? entry.id);
+  if (jsonMode) console.log(JSON.stringify(view, null, 2));
+  else console.log(formatViews([view]));
+  return view.ready.length > 0 ? 0 : 1;
+}
+
 export async function runWork(args: string[], jsonMode: boolean): Promise<number> {
+  const projectIdx = args.indexOf("--project");
+  if (projectIdx !== -1) return runProject(args[projectIdx + 1], jsonMode);
+
   const repoRoot = findRepoRoot();
   const config = loadConfig(repoRoot);
 
@@ -138,6 +199,8 @@ export async function runWork(args: string[], jsonMode: boolean): Promise<number
     else console.log(formatViews(views));
     return totalReady > 0 ? 0 : 1;
   }
+
+  warnWrongRepoRoot(repoRoot, config.linear.project);
 
   const view = await workView(config, config.linear.project);
   if (jsonMode) console.log(JSON.stringify(view, null, 2));

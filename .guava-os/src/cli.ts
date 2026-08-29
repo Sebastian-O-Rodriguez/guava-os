@@ -67,7 +67,7 @@ Commands:
   validate  Detect protocol violations in issue graph
   next      Generate operator-ready launch directives
   pm        Project management via Linear (see: pm --help)
-  work      Show open work by domain (--all for every project; session gate)
+  work      Show open work (--project <name> targets a project from any CWD; --all for every project; session gate)
   triage    Set readiness labels on open Todo deliverables (--all for every project)
   sync     Snapshot config/labels/symlinks drift (--all, --fix, --fix --force; [repo])
   register  Register a project: create repo + record git_remote (see: register --help)
@@ -135,6 +135,13 @@ async function main() {
   // so it routes before the validated loadConfig below.
   if (command === "sync") {
     process.exit(await runSync(args.slice(1)));
+  }
+
+  // work resolves its own target — CWD-derived config, or an explicit
+  // --project resolved via the registry. Route before loadConfig so
+  // `work --project X` works from any directory.
+  if (command === "work") {
+    process.exit(await runWork(args.slice(1), jsonMode));
   }
 
   const repoRoot = findRepoRoot();
@@ -222,9 +229,6 @@ async function main() {
     case "pm": {
       await runPm(args.slice(1), config, jsonMode);
       process.exit(0);
-    }
-    case "work": {
-      process.exit(await runWork(args.slice(1), jsonMode));
     }
     case "triage": {
       process.exit(await runTriage(args.slice(1), jsonMode));
