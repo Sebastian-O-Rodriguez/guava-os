@@ -34,6 +34,18 @@ export interface LinearIssue {
   description?: string;
   /** Out-edges of native "blocks" relations (this issue blocks these ids). */
   blocks?: string[];
+  /** Full comment thread, oldest first (Linear default order). */
+  comments?: LinearComment[];
+}
+
+/** A single comment in an issue's thread. */
+export interface LinearComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Display name of the author (undefined when the user was deleted). */
+  author?: string;
 }
 
 export interface ParentHealth {
