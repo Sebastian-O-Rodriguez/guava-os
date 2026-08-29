@@ -170,9 +170,9 @@ describe("CLI boundary", () => {
     expect(exitCode).toBe(0);
   });
 
-  it("status without stdin exits 1", () => {
-    const { exitCode } = run("status");
-    expect(exitCode).toBe(1);
+  it("status without stdin does not demand stdin", () => {
+    const { stdout } = run("status");
+    expect(stdout).not.toContain("requires issue data on stdin");
   });
 
   it("validate without stdin exits 1", () => {
