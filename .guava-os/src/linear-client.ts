@@ -853,14 +853,20 @@ interface RawLinearIssue {
 /** Normalize a Linear GraphQL issue node to the provider-neutral LinearIssue type. */
 function normalizeIssue(raw: RawLinearIssue): LinearIssue {
   const blocks: string[] = [];
+  const blockedBy: string[] = [];
   for (const rel of raw.relations?.nodes ?? []) {
+    if (rel.type !== "blocks") continue;
     // `type: "blocks"` means the initiating issue (rel.issue) blocks
-    // rel.relatedIssue. We record the out-edge on the initiator.
-    if (rel.type === "blocks" && rel.issue.id === raw.id && rel.relatedIssue) {
-      blocks.push(rel.relatedIssue.id);
+    // rel.relatedIssue.
+    if (rel.issue.id === raw.id) {
+      // Out-edge: this issue blocks rel.relatedIssue.
+      if (rel.relatedIssue) blocks.push(rel.relatedIssue.id);
+    } else if (rel.relatedIssue?.id === raw.id) {
+      // In-edge: rel.issue blocks this issue.
+      blockedBy.push(rel.issue.id);
     }
   }
-  return {
+  const issue: LinearIssue = {
     id: raw.id,
     identifier: raw.identifier,
     title: raw.title,
@@ -878,6 +884,9 @@ function normalizeIssue(raw: RawLinearIssue): LinearIssue {
     description: raw.description ?? undefined,
     blocks,
   };
+  // blockedBy is surfaced at runtime (JSON output) without widening the
+  // provider-neutral LinearIssue type in linear.ts.
+  return Object.assign(issue, { blockedBy });
 }
 
 const PRIORITY_NAMES: Record<number, string> = {
