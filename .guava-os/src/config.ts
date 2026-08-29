@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
+import { fileURLToPath } from "node:url";
 
 export interface LinearConfig {
   team: string;
@@ -64,24 +65,39 @@ export function findRepoRoot(startDir: string = process.cwd()): string {
   throw new Error("Not inside an guava-os repo (no .guava-os/config.json found)");
 }
 
-/** Full set of required new-schema fields, in canonical reporting order. */
-const REQUIRED_FIELD_PATHS: string[] = [
-  "linear",
-  "domains",
-  "domainAgents",
-  "types",
-  "readiness.untriaged",
-  "readiness.ready",
-  "readiness.needs_rescoping",
-  "statuses",
-  "active_parent_statuses",
-  "invariants.max_todo_per_domain",
-  "branch_pattern",
-  "process_files",
-  "manifest_path",
-];
+/** Structural view of config.schema.json — only the constraint keywords we read. */
+interface SchemaNode {
+  required?: string[];
+  properties?: Record<string, SchemaNode>;
+}
 
-const REQUIRED_READINESS_FIELDS: string[] = ["untriaged", "ready", "needs_rescoping"];
+/**
+ * Canonical required-field paths, read once from config.schema.json in source
+ * order (top-level `required`, descending into any nested `required` object).
+ * The schema file — not a hand-maintained list — is the contract for what a
+ * config must carry.
+ */
+function loadRequiredPaths(): string[] {
+  const schemaPath = fileURLToPath(new URL("../config.schema.json", import.meta.url));
+  const schema = JSON.parse(readFileSync(schemaPath, "utf8")) as SchemaNode;
+  const paths: string[] = [];
+  const walk = (node: SchemaNode, prefix: string): void => {
+    for (const key of node.required ?? []) {
+      const path = prefix ? `${prefix}.${key}` : key;
+      const child = node.properties?.[key];
+      if (child?.required && child.required.length > 0) {
+        walk(child, path);
+      } else {
+        paths.push(path);
+      }
+    }
+  };
+  walk(schema, "");
+  return paths;
+}
+
+/** Full set of required new-schema fields, in canonical reporting order. */
+const REQUIRED_FIELD_PATHS: string[] = loadRequiredPaths();
 
 /** Thrown when a repo config predates the domain model and must be migrated. */
 export class ConfigStaleError extends Error {
@@ -91,42 +107,15 @@ export class ConfigStaleError extends Error {
   }
 }
 
-/** Reports required-field paths missing from `config`, in canonical order. */
-function missingFields(config: Record<string, unknown>): string[] {
-  const missing: string[] = [];
-
-  for (const key of ["linear", "domains", "domainAgents", "types"]) {
-    if (!Object.prototype.hasOwnProperty.call(config, key)) missing.push(key);
+/** True when the dot-separated `path` resolves to an own property of `config`. */
+function hasPath(config: Record<string, unknown>, path: string): boolean {
+  let node: unknown = config;
+  for (const part of path.split(".")) {
+    if (node === null || typeof node !== "object" || Array.isArray(node)) return false;
+    if (!Object.prototype.hasOwnProperty.call(node, part)) return false;
+    node = (node as Record<string, unknown>)[part];
   }
-
-  const readiness = config.readiness;
-  const readinessMissing =
-    readiness === null || typeof readiness !== "object" || Array.isArray(readiness)
-      ? REQUIRED_READINESS_FIELDS
-      : REQUIRED_READINESS_FIELDS.filter(
-          (key) => !Object.prototype.hasOwnProperty.call(readiness, key),
-        );
-  for (const key of readinessMissing) missing.push(`readiness.${key}`);
-
-  for (const key of ["statuses", "active_parent_statuses"]) {
-    if (!Object.prototype.hasOwnProperty.call(config, key)) missing.push(key);
-  }
-
-  const invariants = config.invariants;
-  if (
-    invariants === null ||
-    typeof invariants !== "object" ||
-    Array.isArray(invariants) ||
-    !Object.prototype.hasOwnProperty.call(invariants, "max_todo_per_domain")
-  ) {
-    missing.push("invariants.max_todo_per_domain");
-  }
-
-  for (const key of ["branch_pattern", "process_files", "manifest_path"]) {
-    if (!Object.prototype.hasOwnProperty.call(config, key)) missing.push(key);
-  }
-
-  return missing;
+  return true;
 }
 
 /** Legacy-schema markers: role-based fields that predate the domain model. */
@@ -166,7 +155,7 @@ export function loadConfig(repoRoot: string): Config {
   }
   // Plain object confirmed; the record view lets field checks read by name.
   const config = parsed as Record<string, unknown>;
-  const missing = missingFields(config);
+  const missing = REQUIRED_FIELD_PATHS.filter((path) => !hasPath(config, path));
   const legacy = legacyFields(config);
   if (missing.length > 0 || legacy.length > 0) {
     throw new ConfigStaleError(staleConfigMessage(missing, legacy));
