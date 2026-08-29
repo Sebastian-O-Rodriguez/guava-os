@@ -11,8 +11,10 @@
  *   npx tsx .guava-os/src/cli.ts doctor
  *   npx tsx .guava-os/src/cli.ts status < issues.json
  *   npx tsx .guava-os/src/cli.ts validate < issues.json
+ *   npx tsx .guava-os/src/cli.ts validate --project guava-bi
  *   npx tsx .guava-os/src/cli.ts work
  *   npx tsx .guava-os/src/cli.ts triage
+ *   npx tsx .guava-os/src/cli.ts triage --project guava-bi
  *   npx tsx .guava-os/src/cli.ts triage --all
  *   npx tsx .guava-os/src/cli.ts pm get-issue GUA-45
  *   npx tsx .guava-os/src/cli.ts pm search --status Todo
@@ -64,18 +66,18 @@ function usage(): never {
 Commands:
   doctor    Verify repo Guava OS setup
   status    Show executable queue by domain
-  validate  Detect protocol violations in issue graph
+  validate  Detect protocol violations in issue graph (--project <name> reads that project's issues)
   next      Generate operator-ready launch directives
   pm        Project management via Linear (see: pm --help)
   work      Show open work (--project <name> targets a project from any CWD; --all for every project; session gate)
-  triage    Set readiness labels on open Todo deliverables (--all for every project)
+  triage    Set readiness labels on open Todo deliverables (--project <name> for another project; --all for every project)
   sync     Snapshot config/labels/symlinks drift (--all, --fix, --fix --force; [repo])
   register  Register a project: create repo + record git_remote (see: register --help)
 Flags:
   --json           Output as JSON instead of human-readable text
   --strict         (validate only) Treat warnings as errors
   --domain <name> (next only) Filter directives to a single domain
-
+  --project <name> (triage/validate) Resolve that project's issues instead of CWD/stdin
 Stdin:
   doctor accepts: { "issues": [...], "labels": [...] }
   status/validate/next accept: [ issue, issue, ... ]
@@ -191,7 +193,10 @@ async function main() {
     }
 
     case "validate": {
-      const issues = parseIssuesFromStdin(readStdin().trim());
+      const projectName = flag(args, "--project");
+      const issues = projectName
+        ? (await pm.searchIssues(config, { projectId: (await pm.getProject(config, projectName)).id })).issues
+        : parseIssuesFromStdin(readStdin().trim());
       const graph = buildGraph(issues, config);
       const result = runValidate(graph, issues, config);
 
