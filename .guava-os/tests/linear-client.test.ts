@@ -94,9 +94,9 @@ function router(query: string, variables: Record<string, unknown>): unknown {
     !query.includes("description")
   )
     return { data: { issue: { relations: { nodes: stubRelations } } } };
-  if (query.includes("issue(id: $v)")) {
-    // identifier -> uuid (getIssue / parent resolution path), distinct per input
-    return { data: { issue: { id: `uuid-${String(variables.v)}` } } };
+  if (query.includes("issues(filter")) {
+    // identifier -> uuid (fresh issues filter; distinct per input)
+    return { data: { issues: { nodes: [{ id: `uuid-${String(variables.v)}` }] } } };
   }
   if (query.includes("issue(id: $id)")) {
     // getIssue after create/update
@@ -219,6 +219,12 @@ describe("GUA-96 native relation creation", () => {
     expect(input.type).toBe("blocks");
     expect(input.issueId).toBe("uuid-GUA-5");
     expect(input.relatedIssueId).toBe("uuid-GUA-6");
+  });
+
+  it("resolves identifiers via fresh issues filter, not the stale issue(id:) shortcut", async () => {
+    await linkDependencies("GUA-5", { blocks: ["GUA-6"] });
+    expect(calls.some((c) => c.query.includes("issues(filter"))).toBe(true);
+    expect(calls.some((c) => c.query.includes("issue(id: $v)"))).toBe(false);
   });
 
   it("--blocked-by inverts direction (B blocks A)", async () => {

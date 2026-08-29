@@ -235,12 +235,16 @@ export function assertCanonicalReference(value: string, field = "issue"): void {
 async function resolveIssueId(value: string): Promise<string> {
   assertCanonicalReference(value);
   if (isUuid(value)) return value;
-  const data = await gql<{ issue: { id: string } }>(
-    `query ($v: String!) { issue(id: $v) { id } }`,
+  // Look identifiers up through the fresh `issues` filter rather than
+  // Linear's `issue(id:)` shortcut, whose identifier→UUID mapping can be
+  // stale and resolve a canonical id to the wrong issue (GUA-548).
+  const data = await gql<{ issues: { nodes: { id: string }[] } }>(
+    `query ($v: String!) { issues(filter: { identifier: { eq: $v } }) { nodes { id } } }`,
     { v: value },
   );
-  if (!data?.issue?.id) throw new Error(`Issue not found: ${value}`);
-  return data.issue.id;
+  const issue = data.issues?.nodes?.[0];
+  if (!issue?.id) throw new Error(`Issue not found: ${value}`);
+  return issue.id;
 }
 
 /** Resolve an assignee: "me" -> viewer; uuid passthrough. */
