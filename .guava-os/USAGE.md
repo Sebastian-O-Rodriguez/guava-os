@@ -45,7 +45,6 @@ Violation codes:
 - `V303` parent_not_active (error)
 - `V304` empty_parent (warning)
 - `V305` subtask_overflow (error)
-- `V306` container_domain_label (warning)
 - `V307` external_blocker_gap (warning)
 - `V400` missing_domain_label (error)
 - `V402` unknown_label (warning)

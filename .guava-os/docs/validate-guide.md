@@ -23,7 +23,6 @@ cat issues.json | guava-os validate --strict   # warnings fail too
 |---|---|---|
 | `V302` | `orphan_sub_issue` | parent id not in dataset |
 | `V304` | `empty_parent` | active parent with no children + no domain label |
-| `V306` | `container_domain_label` | container wrongly carries a domain label |
 | `V307` | `external_blocker_gap` | blockers may exist outside the snapshot |
 | `V402` | `unknown_label` | label not in configured domains/types/readiness |
 | `V403` | `multiple_domain_labels` | deliverable has >1 domain label |
