@@ -136,3 +136,37 @@ describe("classifyTriage", () => {
     expect(classifyTriage(TEST_CONFIG, issues)).toHaveLength(0);
   });
 });
+
+describe("classifyTriage blocked-by gate (GUA-581)", () => {
+  it("classifies an issue with an open blocked-by edge as needs-rescoping, naming the blocker", () => {
+    const blocker = makeIssue({ id: "TST-BLK", identifier: "TST-10", labels: ["pm", "Feature", "untriaged"] });
+    const blocked = {
+      ...makeIssue({ id: "TST-2", identifier: "TST-2", labels: ["pm", "Feature", "untriaged"] }),
+      blockedBy: ["TST-BLK"],
+    } as LinearIssue & { blockedBy?: string[] };
+
+    const decisions = classifyTriage(TEST_CONFIG, [blocker, blocked]);
+    const target = decisions.find((d) => d.issue_id === "TST-2");
+
+    expect(target).toBeDefined();
+    expect(target!.new_readiness).toBe("needs-rescoping");
+    expect(target!.reasons.some((r) => r.includes("TST-10"))).toBe(true);
+  });
+
+  it("does not block when the blocker is completed", () => {
+    const blocker = makeIssue({
+      id: "TST-BLK", identifier: "TST-10", labels: ["pm", "Feature", "untriaged"],
+      completedAt: "2026-08-01", statusType: "completed",
+    });
+    const blocked = {
+      ...makeIssue({ id: "TST-2", identifier: "TST-2", labels: ["pm", "Feature", "untriaged"] }),
+      blockedBy: ["TST-BLK"],
+    } as LinearIssue & { blockedBy?: string[] };
+
+    const decisions = classifyTriage(TEST_CONFIG, [blocker, blocked]);
+    const target = decisions.find((d) => d.issue_id === "TST-2");
+
+    expect(target).toBeDefined();
+    expect(target!.new_readiness).toBe("ready-for-work");
+  });
+});
