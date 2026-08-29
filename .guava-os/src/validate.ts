@@ -145,25 +145,10 @@ export function runValidate(graph: IssueGraph, issues: LinearIssue[], config: Co
     }
   }
 
-  // ── V306: container_domain_label ──
-  // Containers are groupings and must carry NO domain label (GOS-21: labels
-  // classify deliverables; parents never execute). A domain label on a
-  // container is metadata drift — flag so it can be cleaned via
-  // `pm update <id> --label <remaining labels>`.
-  for (const id of containerIds) {
-    const container = allById.get(id);
-    if (!container) continue;
-    const matched = container.labels.filter((l) => domainLabels.includes(l));
-    if (matched.length > 0) {
-      violations.push({
-        code: "V306",
-        name: "container_domain_label",
-        severity: "warning",
-        issue_id: id,
-        detail: `Container carries domain label(s): ${matched.join(", ")} — containers are groupings and must have no domain label (remove via pm update)`,
-      });
-    }
-  }
+  // Containers (issues with children) are exempt from the zero-domain-label
+  // rule: the provider (pm create) requires a domain label on every issue,
+  // so a container can never legitimately carry zero domain labels. A
+  // container's domain label is provider-forced, not metadata drift (GUA-523).
 
   // ── V400: missing_domain_label ──
   for (const issue of issues) {

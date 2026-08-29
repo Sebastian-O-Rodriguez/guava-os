@@ -526,15 +526,13 @@ describe("nested decomposition — wave → container → leaves", () => {
     expect(detail?.issue_id).toBe("CONT");
   });
 
-  it("flags a domain label on a container (V306 — cleanup support)", () => {
+  it("does NOT flag a domain label on a container (containers exempt — GUA-523)", () => {
     const issues = nestedFixture();
     issues.find((i) => i.id === "CONT")!.labels = ["task"];
     const v = codes(issues);
-    expect(v).toContain("V306");
-    const detail = runValidate(buildGraph(issues, TEST_CONFIG), issues, TEST_CONFIG)
-      .violations.find((x) => x.code === "V306");
-    expect(detail?.severity).toBe("warning");
-    expect(detail?.issue_id).toBe("CONT");
+    expect(v).not.toContain("V306");
+    expect(v).not.toContain("V400");
+    expect(v).not.toContain("V403");
   });
 
   it("does NOT flag V305 on a BACKLOG container (cap applies to ACTIVE containers)", () => {
