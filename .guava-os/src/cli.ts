@@ -181,7 +181,13 @@ async function main() {
     }
 
     case "status": {
-      const issues = parseIssuesFromStdin(readStdin().trim());
+      const projectName = flag(args, "--project");
+      const stdin = readStdin().trim();
+      const issues = stdin
+        ? parseIssuesFromStdin(stdin)
+        : (await pm.searchIssues(config, {
+            projectId: projectName ? (await pm.getProject(config, projectName)).id : undefined,
+          })).issues;
       const graph = buildGraph(issues, config);
 
       if (jsonMode) {
@@ -302,8 +308,13 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
       return;
     }
     case "get-sprint": {
-      const sprint = await pm.getSprint(config, rest[0]);
-      console.log(jsonMode ? JSON.stringify(sprint, null, 2) : `${sprint.title} (${sprint.id}) [${sprint.status}]\n${sprint.children.length} children`);
+      try {
+        const sprint = await pm.getSprint(config, rest[0]);
+        console.log(jsonMode ? JSON.stringify(sprint, null, 2) : `${sprint.title} (${sprint.id}) [${sprint.status}]\n${sprint.children.length} children`);
+      } catch (err) {
+        console.error(`no sprint parent: ${err instanceof Error ? err.message : String(err)}`);
+        process.exitCode = 1;
+      }
       return;
     }
     case "get-issue": {
@@ -536,7 +547,17 @@ export async function runSync(args: string[]): Promise<number> {
     }
 
     const repoArg = args.find((a) => !a.startsWith("--"));
-    const repoRoot = repoArg ? findRepoRoot(resolve(expandHome(repoArg))) : findRepoRoot();
+    let repoRoot: string;
+    if (repoArg) {
+      const reg = loadRegistry().find(
+        (p) => p.id === repoArg || p.linearProject === repoArg,
+      );
+      repoRoot = reg?.repoPath
+        ? resolve(expandHome(reg.repoPath))
+        : findRepoRoot(resolve(expandHome(repoArg)));
+    } else {
+      repoRoot = findRepoRoot();
+    }
     const linearLabels = await pm.listIssueLabels();
     return await syncRepo(repoRoot, linearLabels, { fix, force });
   } catch (err) {
