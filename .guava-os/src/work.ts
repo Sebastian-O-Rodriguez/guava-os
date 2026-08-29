@@ -40,8 +40,29 @@ export interface WorkView {
   inReview: number;
 }
 
+/**
+ * Incoming blocked-by edges surfaced by linear-client (GUA-549) at runtime.
+ * An edge is open while its blocker is neither completed nor canceled. A
+ * blocker id not present in this dataset is external (another project) — its
+ * status is unverifiable, so it is conservatively treated as open and named
+ * by its raw id.
+ */
+type IssueWithBlockedBy = LinearIssue & { blockedBy?: string[] };
+
+function openBlockers(issue: LinearIssue, byId: Map<string, LinearIssue>): string[] {
+  const blockedBy = (issue as IssueWithBlockedBy).blockedBy;
+  if (!blockedBy || blockedBy.length === 0) return [];
+  const open: string[] = [];
+  for (const blockerId of blockedBy) {
+    const blocker = byId.get(blockerId);
+    if (blocker && (blocker.completedAt || blocker.canceledAt)) continue;
+    open.push(blocker ? blocker.identifier : blockerId);
+  }
+  return open;
+}
+
 /** Classify open issues into READY / NOT-READY, keeping in-progress/in-review counts. */
-function classifyIssues(config: Config, issues: LinearIssue[]): Omit<WorkView, "project"> {
+export function classifyIssues(config: Config, issues: LinearIssue[]): Omit<WorkView, "project"> {
   const graph = buildGraph(issues, config);
   const violations = runValidate(graph, issues, config).violations;
 
@@ -56,6 +77,8 @@ function classifyIssues(config: Config, issues: LinearIssue[]): Omit<WorkView, "
     errorsByIssue.set(v.issue_id, list);
   }
 
+
+  const byId = new Map(issues.map((i) => [i.id, i]));
   const readinessAll = readinessLabels(config);
   const ready: WorkIssue[] = [];
   const notReady: WorkIssue[] = [];
@@ -83,6 +106,9 @@ function classifyIssues(config: Config, issues: LinearIssue[]): Omit<WorkView, "
       );
     }
     for (const r of errorsByIssue.get(issue.id) ?? []) reasons.push(r);
+    for (const blocker of openBlockers(issue, byId)) {
+      reasons.push(`blocked by ${blocker}`);
+    }
 
     const entry: WorkIssue = {
       issue_id: issue.id,

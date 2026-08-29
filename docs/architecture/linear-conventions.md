@@ -111,6 +111,33 @@ dev/<domain>   (one dev branch per domain; workers push here)
   upstream result. Never use it for "roughly before" ordering; that needlessly
   serializes independent work.
 
+## Close-out tickets and precondition commands
+
+A **close-out ticket** closes a body of work (a branch, a sprint, a release)
+rather than building new behavior. Its acceptance depends on the state of a
+branch or history, so the description MUST carry a **precondition command** —
+one deterministic, runnable shell command that the worker executes first and
+that must pass before the ticket can be considered done.
+
+Convention:
+
+- The command lives under its own `## Precondition` heading (or, if the ticket
+  already uses `## Acceptance criteria`, as its first item).
+- It must be runnable in the target repo and fail closed: a non-zero exit or
+  unexpected output means the precondition is not met.
+- It must be scoped to the ticket: a close-out for one branch verifies that
+  branch, never the whole repo.
+
+Example — closing out `dev/backend` into `staging`:
+
+```bash
+git log main..origin/dev/backend
+```
+
+...must list only commits that reference the ticket's in-scope identifiers
+(`GUA-###` in the subject). Any other commit means the branch carries
+out-of-scope work and the close-out is blocked.
+
 ## Handoff protocol (clean handoff)
 
 The Linear issue + comment thread is the **state of record**.

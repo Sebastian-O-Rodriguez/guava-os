@@ -46,6 +46,27 @@ export interface TriageView {
 }
 
 /**
+ * Incoming blocked-by edges surfaced by linear-client (GUA-549) at runtime.
+ * An edge is open while its blocker is neither completed nor canceled. A
+ * blocker id not present in this dataset is external (another project) — its
+ * status is unverifiable, so it is conservatively treated as open and named
+ * by its raw id.
+ */
+type IssueWithBlockedBy = LinearIssue & { blockedBy?: string[] };
+
+function openBlockers(issue: LinearIssue, byId: Map<string, LinearIssue>): string[] {
+  const blockedBy = (issue as IssueWithBlockedBy).blockedBy;
+  if (!blockedBy || blockedBy.length === 0) return [];
+  const open: string[] = [];
+  for (const blockerId of blockedBy) {
+    const blocker = byId.get(blockerId);
+    if (blocker && (blocker.completedAt || blocker.canceledAt)) continue;
+    open.push(blocker ? blocker.identifier : blockerId);
+  }
+  return open;
+}
+
+/**
  * Classify open Todo non-container deliverables from a pre-fetched issue set.
  *
  * Pure — no Linear calls. Returns only the deliverables triage acts on:
@@ -73,6 +94,7 @@ export function classifyTriage(config: Config, issues: LinearIssue[]): TriageIss
       .filter((i) => !i.canceledAt && issues.some((c) => c.parentId === i.id && !c.canceledAt))
       .map((i) => i.id),
   );
+  const byId = new Map(issues.map((i) => [i.id, i]));
 
   // Error violations attributable to a single issue. Exclude aggregate codes
   // (issue_id "(domain)"/"(executable)") and V404 (readiness label count).
@@ -98,7 +120,8 @@ export function classifyTriage(config: Config, issues: LinearIssue[]): TriageIss
     const types = issue.labels.filter((l) => typeLabels.includes(l));
     const oldReadiness = issue.labels.find((l) => readinessAll.includes(l)) ?? null;
 
-    const reasons = errorsByIssue.get(issue.id) ?? [];
+    const reasons = [...(errorsByIssue.get(issue.id) ?? [])];
+    for (const blocker of openBlockers(issue, byId)) reasons.push(`blocked by ${blocker}`);
     const newReadiness =
       reasons.length === 0 ? config.readiness.ready : config.readiness.needs_rescoping;
 
