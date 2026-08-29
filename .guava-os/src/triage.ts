@@ -13,9 +13,10 @@
  * and type labels and replacing only the readiness label (so exactly one
  * readiness label remains). Idempotent: unchanged issues are not re-written.
  *
- *   triage        → this project (repo config)
- *   triage --all  → every active registry project
- *   --json        → machine-readable output
+ *   triage                     → this project (repo config)
+ *   triage --project <name>    → that project (resolved like `pm search`)
+ *   triage --all               → every active registry project
+ *   --json                     → machine-readable output
  */
 import { findRepoRoot, loadConfig, type Config } from "./config.js";
 import { allDomains, readinessLabels } from "./config.js";
@@ -174,7 +175,15 @@ export async function runTriage(args: string[], jsonMode: boolean): Promise<numb
     return 0;
   }
 
-  const view = await triageProject(config, config.linear.project);
+  // Resolve --project <name> like `pm search` does (getProject honors
+  // config.linear.aliases), falling back to the repo's configured project.
+  // triageProject resolves the name to a UUID when searching and reports the
+  // project name — so pass the canonical name rather than the UUID.
+  const projectIdx = args.indexOf("--project");
+  const linearProject = projectIdx !== -1
+    ? (await pm.getProject(config, args[projectIdx + 1])).name
+    : config.linear.project;
+  const view = await triageProject(config, linearProject);
   if (jsonMode) console.log(JSON.stringify(view, null, 2));
   else console.log(formatTriage([view]));
   return 0;
