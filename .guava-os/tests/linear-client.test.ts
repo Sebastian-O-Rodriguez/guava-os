@@ -5,6 +5,7 @@ import {
   linkDependencies,
   unlinkDependencies,
   loadToken,
+  getIssue,
 } from "../src/linear-client.js";
 import { findRepoRoot } from "../src/config.js";
 import type { Config } from "../src/config.js";
@@ -377,5 +378,67 @@ describe("GUA-550 subtask cap enforced at write time", () => {
       updateIssue(ISSUE_UUID, { parentId: PARENT_UUID }, CAP_CONFIG),
     ).rejects.toThrow(/max_subtasks_per_parent cap of 3/);
     expect(calls.filter((c) => c.query.includes("issueUpdate("))).toHaveLength(0);
+  });
+});
+
+describe("GUA-587 comment thread read accessor", () => {
+  it("getIssue normalizes the comment thread (oldest-first body + author)", async () => {
+    respond = (query) => {
+      if (query.includes("issue(id: $id)")) {
+        return {
+          data: {
+            issue: {
+              id: "issue-uuid",
+              identifier: "GUA-587",
+              title: "Threaded",
+              state: { name: "Todo", type: "unstarted" },
+              priority: 2,
+              labels: { nodes: [{ name: "backend" }] },
+              parent: null,
+              project: { name: "guava-os" },
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              completedAt: null,
+              canceledAt: null,
+              assignee: null,
+              description: "",
+              relations: { nodes: [] },
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-1",
+                    body: "decisions recorded on thread",
+                    createdAt: "2026-01-02T00:00:00.000Z",
+                    updatedAt: "2026-01-02T00:00:00.000Z",
+                    user: { id: "user-1", name: "Ada" },
+                  },
+                ],
+              },
+            },
+          },
+        };
+      }
+      return router(query, {});
+    };
+
+    const issue = await getIssue("GUA-587");
+    expect(issue.comments).toEqual([
+      {
+        id: "comment-1",
+        body: "decisions recorded on thread",
+        createdAt: "2026-01-02T00:00:00.000Z",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+        author: "Ada",
+      },
+    ]);
+  });
+
+  it("getIssue includes comments in the GraphQL query and defaults to []", async () => {
+    const issue = await getIssue("issue-uuid");
+    const call = calls.find((c) => c.query.includes("issue(id: $id)"))!;
+    expect(call.query).toContain(
+      "comments { nodes { id body createdAt updatedAt user { id name } } }",
+    );
+    expect(issue.comments).toEqual([]);
   });
 });

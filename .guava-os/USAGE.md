@@ -92,6 +92,9 @@ guava-os pm comment <id> --body "..."
 guava-os pm archive <id>
 ```
 
+`pm get-issue <id> --json` returns the issue with its full `comments` thread
+(each comment: `id`, `body`, `createdAt`, `updatedAt`, `author`).
+
 Prefer `pm` for Linear; Linear MCP is a last-resort fallback.
 
 ### `sync`

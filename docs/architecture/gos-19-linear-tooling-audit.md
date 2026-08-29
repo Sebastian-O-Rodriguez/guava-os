@@ -13,7 +13,7 @@
 | Issue queries | none (only stdin-fed graph) | **fill gap** | Added `getIssue()` and `searchIssues()` in `linear-client.ts` |
 | Create/update | none — CLI is read-only by design | **fill gap** | Added `createIssue()` and `updateIssue()` in `linear-client.ts` |
 | Status | none — CLI classifies status from stdin data but cannot move it | **fill gap** | Added `moveStatus()` in `linear-client.ts` |
-| Comments | none | **fill gap** | Added `createComment()` in `linear-client.ts` |
+| Comments | none | **fill gap** | Added `createComment()` (write) and comment-thread read via `getIssue()` in `linear-client.ts` |
 | Links | none — dependency relations are read-only in `buildGraph` | **fill gap** | Added `linkDependencies()` and `linkUrl()` in `linear-client.ts` |
 | Assignments | none | **fill gap** | Added `assignIssue()` in `linear-client.ts` |
 
@@ -25,7 +25,7 @@
   nine operations + comments/links. Existing read-only commands untouched.
 - **Replace:** none — existing classifier commands stay as-is.
 - **Remove:** none — no existing code was deleted.
-- **Fill:** all nine operations + comments + links implemented in
+- **Fill:** all nine operations + comments (read + write) + links implemented in
   `linear-client.ts` (the single Linear network layer).
 
 ## One supported interface

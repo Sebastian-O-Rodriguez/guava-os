@@ -341,6 +341,7 @@ export async function getIssue(issueId: string): Promise<LinearIssue> {
         createdAt updatedAt
         completedAt canceledAt
         assignee { name }
+        comments { nodes { id body createdAt updatedAt user { id name } } }
         ${ISSUE_RELATIONS_FRAGMENT}
       }
     }`,
@@ -901,6 +902,15 @@ interface RawLinearIssue {
       relatedIssue: { id: string };
     }[];
   };
+  comments?: {
+    nodes: {
+      id: string;
+      body: string;
+      createdAt: string;
+      updatedAt: string;
+      user?: { id: string; name: string };
+    }[];
+  };
 }
 
 /** Normalize a Linear GraphQL issue node to the provider-neutral LinearIssue type. */
@@ -934,6 +944,13 @@ function normalizeIssue(raw: RawLinearIssue): LinearIssue {
     completedAt: raw.completedAt,
     canceledAt: raw.canceledAt,
     assignee: raw.assignee?.name,
+    comments: (raw.comments?.nodes ?? []).map((c) => ({
+      id: c.id,
+      body: c.body,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      author: c.user?.name,
+    })),
     description: raw.description ?? undefined,
     blocks,
   };
