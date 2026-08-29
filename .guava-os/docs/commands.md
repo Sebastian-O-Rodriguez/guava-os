@@ -38,10 +38,10 @@ cat issues.json | guava-os validate --strict
 ```
 
 Codes: `V302` orphan_sub_issue · `V303` parent_not_active (error) · `V304`
-empty_parent · `V305` subtask_overflow (error) · `V306` container_domain_label ·
-`V307` external_blocker_gap · `V400` missing_domain_label (error) · `V402`
-unknown_label · `V403` multiple_domain_labels · `V404` readiness_label_count
-(error) · `V405` missing_description_sections (error) · `V500` queue_overflow.
+empty_parent · `V305` subtask_overflow (error) · `V307` external_blocker_gap ·
+`V400` missing_domain_label (error) · `V402` unknown_label · `V403`
+multiple_domain_labels · `V404` readiness_label_count (error) · `V405`
+missing_description_sections (error) · `V500` queue_overflow.
 
 Exit 0 if no errors; `--strict` also fails on warnings.
 
