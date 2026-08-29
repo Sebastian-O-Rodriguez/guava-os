@@ -7,6 +7,7 @@ import {
   loadToken,
 } from "../src/linear-client.js";
 import { findRepoRoot } from "../src/config.js";
+import type { Config } from "../src/config.js";
 import { tmpdir } from "node:os";
 
 // loadToken's .env fallback resolves via findRepoRoot; point it at a
@@ -324,5 +325,57 @@ describe("GOS-25 auth loading", () => {
     expect(probes).toHaveLength(1);
     expect(probes[0]).toBeTypeOf("string");
     expect(probes[0] as string).toContain(".guava-os");
+  });
+});
+
+describe("GUA-550 subtask cap enforced at write time", () => {
+  const CAP_CONFIG: Config = {
+    linear: { team: "Guava AI", project: "guava-os", issue_prefix: "GUA" },
+    domains: ["backend"],
+    domainAgents: { backend: "task" },
+    types: ["Feature"],
+    readiness: { untriaged: "untriaged", ready: "ready-for-work", needs_rescoping: "needs-rescoping" },
+    statuses: { backlog: "Backlog", todo: "Todo", in_progress: "In Progress", in_review: "In Review", done: "Done" },
+    active_parent_statuses: ["Todo", "In Progress"],
+    invariants: { max_todo_per_domain: 3, stale_hours: 48, reclaim_limit: 2, bulk_threshold: 5, max_subtasks_per_parent: 3 },
+    branch_pattern: "dev/{domain}",
+    process_files: {},
+    manifest_path: ".guava-os/manifest.json",
+  };
+
+  const PARENT_UUID = "22222222-2222-4222-8222-222222222222";
+  const ISSUE_UUID = "33333333-3333-4333-8333-333333333333";
+  const TEAM_UUID = "11111111-1111-4111-8111-111111111111";
+
+  function respondChildren(count: number) {
+    respond = (query) => {
+      if (query.includes("children { nodes { id } }")) {
+        const nodes = Array.from({ length: count }, (_unused, i) => ({ id: `child-${i}` }));
+        return { data: { issue: { children: { nodes } } } };
+      }
+      return router(query, {});
+    };
+  }
+
+  it("createIssue rejects a parent already at the cap before any issueCreate", async () => {
+    respondChildren(3);
+    await expect(
+      createIssue({ title: "T", teamId: TEAM_UUID, parentId: PARENT_UUID }, CAP_CONFIG),
+    ).rejects.toThrow(/max_subtasks_per_parent cap of 3/);
+    expect(calls.filter((c) => c.query.includes("issueCreate("))).toHaveLength(0);
+  });
+
+  it("createIssue allows a parent below the cap", async () => {
+    respondChildren(2);
+    await createIssue({ title: "T", teamId: TEAM_UUID, parentId: PARENT_UUID }, CAP_CONFIG);
+    expect(calls.some((c) => c.query.includes("issueCreate("))).toBe(true);
+  });
+
+  it("updateIssue rejects attaching to a parent at the cap before any issueUpdate", async () => {
+    respondChildren(3);
+    await expect(
+      updateIssue(ISSUE_UUID, { parentId: PARENT_UUID }, CAP_CONFIG),
+    ).rejects.toThrow(/max_subtasks_per_parent cap of 3/);
+    expect(calls.filter((c) => c.query.includes("issueUpdate("))).toHaveLength(0);
   });
 });

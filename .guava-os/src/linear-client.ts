@@ -445,16 +445,62 @@ export function resolveCreateLabels(config: Config, labels: string[]): string[] 
     : [...labels, config.readiness.untriaged];
 }
 
+/** Classified error when attaching a child would exceed max_subtasks_per_parent. */
+export class SubtasksOverflowError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SubtasksOverflowError";
+  }
+}
+
+/** Count a parent's current (non-archived) sub-issues, for the write-time cap. */
+async function countSubissues(parentId: string): Promise<number> {
+  const data = await gql<{
+    issue: { children: { nodes: { id: string }[] } };
+  }>(
+    `query ($id: String!) {
+      issue(id: $id) { children { nodes { id } } }
+    }`,
+    { id: parentId },
+  );
+  return data.issue.children.nodes.length;
+}
+
+/**
+ * Enforce max_subtasks_per_parent at write time (GUA-550): adding a child to a
+ * parent already at the cap is rejected before any mutation. `parentRef` is the
+ * caller's raw id/identifier (for the error message); `parentId` the resolved UUID.
+ */
+async function assertSubtaskCapacity(
+  config: Config,
+  parentId: string,
+  parentRef: string,
+): Promise<void> {
+  const cap = config.invariants?.max_subtasks_per_parent ?? 3;
+  const count = await countSubissues(parentId);
+  if (count >= cap) {
+    throw new SubtasksOverflowError(
+      `Parent ${parentRef} already has ${count} sub-issues — at the ` +
+        `max_subtasks_per_parent cap of ${cap}. Split across multiple parents ` +
+        `before adding a child.`,
+    );
+  }
+}
+
 /** create issue — create an issue. Names and identifiers resolved here. */
-export async function createIssue(input: CreateIssueInput): Promise<LinearIssue> {
+export async function createIssue(input: CreateIssueInput, config?: Config): Promise<LinearIssue> {
   const teamId = await resolveTeamId(input.teamId);
   const projectId = input.projectId ? await resolveProjectId(input.projectId) : undefined;
-  const parentId = input.parentId ? await resolveIssueId(input.parentId) : undefined;
+  const parentRef = input.parentId;
+  const parentId = parentRef ? await resolveIssueId(parentRef) : undefined;
   const labelIds = input.labels && input.labels.length > 0
     ? await resolveLabelIds(input.labels)
     : undefined;
   const stateId = input.status ? await resolveTeamStateId(teamId, input.status) : undefined;
   const assigneeId = input.assigneeId ? await resolveAssigneeId(input.assigneeId) : undefined;
+  if (parentId && parentRef && config) {
+    await assertSubtaskCapacity(config, parentId, parentRef);
+  }
   const data = await gql<{
     issueCreate: { issue: { id: string; title: string } };
   }>(
@@ -484,6 +530,7 @@ export async function createIssue(input: CreateIssueInput): Promise<LinearIssue>
 export async function updateIssue(
   issueId: string,
   input: UpdateIssueInput,
+  config?: Config,
 ): Promise<LinearIssue> {
   const labelIds = input.labels !== undefined
     ? await resolveLabelIds(input.labels)
@@ -495,12 +542,14 @@ export async function updateIssue(
     ? (input.assigneeId === null ? null : await resolveAssigneeId(input.assigneeId))
     : undefined;
   // Reparent: undefined = leave as-is; null = detach from parent; id = set/attach.
-  const parentId = input.parentId !== undefined
-    ? (input.parentId === null ? null : await resolveIssueId(input.parentId))
+  const parentRef = input.parentId;
+  const parentId = parentRef !== undefined
+    ? (parentRef === null ? null : await resolveIssueId(parentRef))
     : undefined;
   if (parentId != null) {
     const selfId = await resolveIssueId(issueId);
     if (parentId === selfId) throw new Error(`Cannot set ${issueId}'s parent to itself`);
+    if (config && parentRef) await assertSubtaskCapacity(config, parentId, parentRef);
   }
   await gql(
     `mutation ($id: String!, $input: IssueUpdateInput!) {
