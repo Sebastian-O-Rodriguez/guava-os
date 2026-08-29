@@ -3,8 +3,7 @@
 > Authority: `ADR_001.md` (Amendment 2) →
 > `docs/architecture/guava-os-operating-contract.md` → this doc.
 
-GitHub owns authorization — the machine enforcement that replaces gorp's
-transition table and fail-closed promotion.
+GitHub owns authorization — the machine enforcement of "workers never merge."
 
 ## Branch topology
 

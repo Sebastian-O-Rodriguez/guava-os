@@ -11,10 +11,8 @@ loop.
 
 - `~/dev/guava-os` is the canonical stable runtime (clean `main`) — agents
   execute from it; **never develop here**.
-- `~/dev/guava-archives/` holds durable history/archive storage (gorp bundle —
-  historical).
-- Project repos are their own working roots; GOS dev changes use temporary
-  isolated clones (create on demand, remove after merge).
+- `~/dev/guava-archives/` holds durable history/archive storage.
+- Project repos are their own working roots; worker branches land under dev/<domain> per linear-conventions.md.
 
 ## Owners
 

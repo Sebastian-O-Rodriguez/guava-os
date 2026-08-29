@@ -3,7 +3,7 @@
 > **Authority:** ratified by ADR_001 (Amendment 2, 2026-08-20). When code or
 > documentation conflicts with this contract or ADR_001, ADR_001 wins.
 >
-> Supersedes the former `guava-os-gorp-contract.md` (gorp retired, 2026-08-20).
+> This contract ratifies ADR_001 Amendment 2 (2026-08-20).
 
 ## Purpose
 
@@ -32,6 +32,7 @@ ownership; no custom execution engine.
 | Audit trail | GitHub (git history, PRs, CI logs) |
 | Workflow state of record | Linear |
 | Engineering runtime | OMP |
+| Operator session/terminal/workspace layer | Herdr |
 
 ## Decision vs enforcement
 
@@ -151,6 +152,6 @@ task contract, and the handoff comment thread.
 ## Amendment
 
 This contract ratifies the operator decisions of 2026-08-20 (ADR_001
-Amendment 2): gorp retired; OMP is the orchestration substrate; GitHub owns
-authorization; Linear is the workflow state of record; per-role branching
-with two promotion gates.
+Amendment 2): OMP is the orchestration substrate; GitHub owns authorization;
+Linear is the workflow state of record; per-domain branching with two
+promotion gates.

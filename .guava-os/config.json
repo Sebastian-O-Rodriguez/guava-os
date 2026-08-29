@@ -35,7 +35,7 @@
     "stale_hours": 48,
     "reclaim_limit": 2,
     "bulk_threshold": 5,
-    "max_subtasks_per_parent": 3
+    "max_subtasks_per_parent": 6
   },
   "branch_pattern": "dev/{domain}",
   "process_files": {},
