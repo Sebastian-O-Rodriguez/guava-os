@@ -20,14 +20,13 @@ guava-os/
 │   ├── tests/             # vitest suite
 │   ├── registry/projects.yml   # governed projects
 │   ├── config.json        # team/project/domains/domainAgents/types/readiness/invariants
-│   ├── bin/guava-os       # CLI shim
+│   ├── bin/gos            # CLI shim
 │   └── package.json       # "type": "module"
 ├── docs/                  # architecture, workflow, governance
 │   ├── architecture/      # operating contract, linear-conventions, sync-convergence, routing
 │   └── governance/
 ├── manual/                # this manual (Astro Starlight site)
-│   └── src/content/docs/  # routing + cross-cutting + roles + skills
-└── (gorp/                 # retired — historical, not run)
+    └── src/content/docs/  # routing + cross-cutting + roles + skills
 ```
 
 - **Skills** (the 24 authored) live in `~/.agents/skills/`, not the repo.
