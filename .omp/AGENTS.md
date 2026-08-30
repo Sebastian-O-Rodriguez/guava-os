@@ -9,8 +9,9 @@ Authority: `ADR_001.md` → `docs/architecture/guava-os-operating-contract.md` �
 
 ## On session open
 
-A hook runs `guava-os work --all`. If there is nothing actionable, the session
-closes. Otherwise, work through the loop below with the operator.
+`session-report` runs `gos work --all` and reports project status. It never
+blocks — planning runs even when nothing is ready. Dispatch happens in project
+repos via `dispatch-gate` + `context-gate`. See `docs/architecture/pre-hooks.md`.
 
 ## Manager loop
 

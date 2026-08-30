@@ -13,7 +13,7 @@ guava-os/
 │   ├── AGENTS.md          # manager loop
 │   ├── RULES.md           # hard rules
 │   ├── mcp.json           # Linear MCP (last-resort fallback)
-│   ├── hooks/pre/session-gate.ts   # runs `guava-os work --all` on open
+│   ├── hooks/pre/{session-report,context-gate}.ts   # status report + task context marker
 │   └── skills/            # symlinks → ~/.agents/skills/
 ├── .guava-os/             # the control-plane CLI + config
 │   ├── src/               # cli, linear-client, sync, triage, work, register, doctor, …
