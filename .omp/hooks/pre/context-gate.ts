@@ -1,15 +1,13 @@
 /**
- * Dispatch gate — deterministic pre-tool hook on `task`.
+ * Context gate — deterministic pre-tool hook on `task` (any repo that fans out).
  *
  * Every worker fan-out must be assembled by the dispatch skill via
- * `manual/scripts/inject.mjs`. inject.mjs stamps the assembled context with a
- * `# CONTEXT-MARKER <sha256-of-task-contract>` sentinel line (its own section),
- * so this gate can distinguish an assembled context from a raw `task` call.
+ * `manual/scripts/inject.mjs`, which stamps the assembled context with a
+ * `# CONTEXT-MARKER <sha256-of-task-contract>` sentinel line, so this gate can
+ * distinguish an assembled context from a raw `task` call. A `task` payload
+ * lacking the marker is blocked. Pure regex check, zero AI.
  *
- * A `task` tool call whose payload lacks that marker is blocked, forcing the
- * dispatch skill / inject.mjs flow. Non-`task` tools are never blocked.
- *
- * Override: GUAVA_OS_ALLOW_RAW_DISPATCH (any truthy value) bypasses the gate.
+ * Override: GUAVA_OS_ALLOW_RAW_DISPATCH.
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 

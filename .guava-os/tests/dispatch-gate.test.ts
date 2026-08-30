@@ -1,63 +1,96 @@
-import { describe, it, expect } from "vitest";
-import gate from "../../.omp/hooks/pre/dispatch-gate";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-type ToolCallHandler = (event: {
-  toolName: string;
-  input?: unknown;
-}) => Promise<{ block?: boolean; reason?: string } | void> | void;
+vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
 
-function captureHandler(): ToolCallHandler {
-  let captured: ToolCallHandler = () => undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pi: any = {
-    on: (_event: string, handler: ToolCallHandler) => {
-      captured = handler;
+import { execFileSync } from "node:child_process";
+import gate from "../hooks/dispatch-gate";
+
+type Host = Parameters<typeof gate>[0];
+type Message = { type: string; content: string };
+type StartEvent = { cwd?: string };
+type StartHandler = (event: unknown, ctx: StartEvent) => Promise<void> | void;
+type ToolHandler = (
+  event: { toolName?: string },
+) => Promise<{ block: boolean; reason: string } | void> | void;
+
+function capture(): { start: StartHandler; tool: ToolHandler; send: (m: Message) => void } {
+  let start: StartHandler = () => undefined;
+  let tool: ToolHandler = () => undefined;
+  const send = vi.fn<(m: Message) => void>();
+  const host = {
+    on(event: string, handler: unknown): void {
+      if (event === "session_start") start = handler as StartHandler;
+      if (event === "tool_call") tool = handler as ToolHandler;
     },
-  };
-  gate(pi);
-  return captured;
+    sendMessage: send,
+  } as unknown as Host;
+  gate(host);
+  return { start, tool, send };
 }
 
-const MARKER = `# CONTEXT-MARKER ${"a".repeat(64)}`;
+function noWorkError(): Error & { status?: number; stdout?: Buffer; stderr?: Buffer } {
+  const e = new Error("no work") as Error & { status?: number; stdout?: Buffer; stderr?: Buffer };
+  e.status = 1;
+  e.stdout = Buffer.from("ready=0");
+  e.stderr = Buffer.from("");
+  return e;
+}
+
+beforeEach(() => {
+  vi.mocked(execFileSync).mockReset();
+  delete process.env.GUAVA_OS_ALLOW_NO_WORK;
+});
 
 describe("dispatch gate (dispatch-gate.ts)", () => {
-  it("blocks a task fan-out payload lacking the marker", async () => {
-    const handler = captureHandler();
-    const result = await handler({
-      toolName: "task",
-      input: { i: "spawn", context: "raw context", tasks: [{ task: "do a thing" }] },
+  it("does not block execution when ready work exists", async () => {
+    vi.mocked(execFileSync).mockReturnValue("project: x — ready=2");
+    const { start, tool } = capture();
+    await start(undefined, { cwd: "/tmp/x" });
+    const result = await tool({ toolName: "bash" });
+    expect(result).toBeUndefined();
+  });
+
+  it("blocks exec tools when no ready work", async () => {
+    vi.mocked(execFileSync).mockImplementation(() => {
+      throw noWorkError();
     });
+    const { start, tool } = capture();
+    await start(undefined, { cwd: "/tmp/x" });
+    const result = await tool({ toolName: "bash" });
     expect(result?.block).toBe(true);
-    expect(result?.reason).toContain("dispatch skill / inject.mjs");
-    expect(result?.reason).toContain("CONTEXT-MARKER");
+    expect(result?.reason).toContain("GUAVA_OS_ALLOW_NO_WORK");
   });
 
-  it("lets a payload carrying the marker proceed", async () => {
-    const handler = captureHandler();
-    const result = await handler({
-      toolName: "task",
-      input: { context: "compiled", tasks: [{ task: `...\n${MARKER}\nmore` }] },
+  it("never blocks a non-exec tool", async () => {
+    vi.mocked(execFileSync).mockImplementation(() => {
+      throw noWorkError();
     });
+    const { start, tool } = capture();
+    await start(undefined, { cwd: "/tmp/x" });
+    const result = await tool({ toolName: "read" });
     expect(result).toBeUndefined();
   });
 
-  it("never blocks a non-task tool", async () => {
-    const handler = captureHandler();
-    const result = await handler({ toolName: "bash", input: { command: "rm -rf /tmp/x" } });
+  it("leaves the gate inactive for an unregistered cwd", async () => {
+    vi.mocked(execFileSync).mockImplementation(() => {
+      const e = noWorkError();
+      e.stderr = Buffer.from("Not inside an guava-os repo (no .guava-os/config.json found)");
+      throw e;
+    });
+    const { start, tool } = capture();
+    await start(undefined, { cwd: "/tmp/not-governed" });
+    const result = await tool({ toolName: "bash" });
     expect(result).toBeUndefined();
   });
 
-  it("bypasses when GUAVA_OS_ALLOW_RAW_DISPATCH is set", async () => {
-    process.env.GUAVA_OS_ALLOW_RAW_DISPATCH = "1";
-    try {
-      const handler = captureHandler();
-      const result = await handler({
-        toolName: "task",
-        input: { tasks: [{ task: "no marker here" }] },
-      });
-      expect(result).toBeUndefined();
-    } finally {
-      delete process.env.GUAVA_OS_ALLOW_RAW_DISPATCH;
-    }
+  it("bypasses when GUAVA_OS_ALLOW_NO_WORK is set", async () => {
+    process.env.GUAVA_OS_ALLOW_NO_WORK = "1";
+    vi.mocked(execFileSync).mockImplementation(() => {
+      throw noWorkError();
+    });
+    const { start, tool } = capture();
+    await start(undefined, { cwd: "/tmp/x" });
+    const result = await tool({ toolName: "bash" });
+    expect(result).toBeUndefined();
   });
 });
