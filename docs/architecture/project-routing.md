@@ -23,7 +23,7 @@ cd <project>
   → AGENTS.md routing            (auto-loaded context at project root)
   → guava-os PLAYBOOK            (~/dev/guava-os/.guava-os/PLAYBOOK.md)
   → planning skill               (~/dev/guava-os/.omp/skills/planning/SKILL.md)
-  → guava-os pm tooling          (run from the project root; binary at ~/dev/guava-os/.guava-os/bin/guava-os)
+  → guava-os pm tooling          (run from the project root; binary at ~/dev/guava-os/.guava-os/bin/gos)
   → Linear-ready sprint
 ```
 
@@ -65,7 +65,7 @@ When asked to plan (a sprint, a request, /planning):
 Prefer guava-os tooling for Linear; Linear MCP is a last-resort fallback. Run the CLI from THIS
 repo root so it loads this project's .guava-os/config.json (project, domains,
 invariants); the binary lives in the guava-os checkout:
-  ~/dev/guava-os/.guava-os/bin/guava-os pm <cmd>
+  ~/dev/guava-os/.guava-os/bin/gos pm <cmd>
 ```
 
 ### 2. `.omp/commands/planning.md` (project root)
@@ -87,9 +87,9 @@ steering, no Linear MCP):
    guava-os tooling.
 3. Produce a Linear-ready sprint: canonical GUA-### ids (from pm create
    output), one domain label per child, children per parent ≤
-   max_subtasks_per_parent (3), DoR via (run from this repo root so the
+   max_subtasks_per_parent (6), DoR via (run from this repo root so the
    project config loads): `pm search --json | validate` where the binary is
-   ~/dev/guava-os/.guava-os/bin/guava-os, exiting 0.
+   ~/dev/guava-os/.guava-os/bin/gos, exiting 0.
 ```
 
 ## Verification (dry run)
