@@ -31,7 +31,7 @@
   },
   "active_parent_statuses": ["Todo", "In Progress"],
   "invariants": {
-    "max_todo_per_domain": 3,
+    "max_todo_per_domain": 6,
     "stale_hours": 48,
     "reclaim_limit": 2,
     "bulk_threshold": 5,
