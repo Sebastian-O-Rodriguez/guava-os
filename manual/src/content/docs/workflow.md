@@ -23,6 +23,18 @@ flowchart TD
 `writing-for-agents` → `technical-writing` → `diagrammatic-writing` →
 `diagrammatic-review`. An agent loads core first, then follows its domain branch
 to the ordered domain workflow.
+## Session pre-hooks
+
+Three deterministic OMP hooks gate every session (pure code, zero AI — see
+`docs/architecture/pre-hooks.md`):
+
+- `session-report` (guava-os) — reports `gos work --all` status; never blocks.
+- `dispatch-gate` (project repos) — blocks exec tools when no `ready-for-work`.
+- `context-gate` (any repo) — requires `# CONTEXT-MARKER` on every `task` fan-out.
+
+Planning runs on guava-os regardless of board state; project sessions dispatch
+only when work is ready.
+
 ## Per-domain (example: Backend)
 
 ```mermaid
