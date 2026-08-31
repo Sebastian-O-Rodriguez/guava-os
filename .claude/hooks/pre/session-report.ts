@@ -13,8 +13,11 @@ const GUAVA_OS = "/Users/sebroot/dev/guava-os";
 const TSX = `${GUAVA_OS}/node_modules/.bin/tsx`;
 const CLI = `${GUAVA_OS}/.guava-os/src/cli.ts`;
 
+console.error("[session-report] loaded");
+
 export default function (pi: HookAPI): void {
   pi.on("session_start", async (_event, ctx) => {
+    console.error("[session-report] session_start fired");
     let output = "";
     try {
       output = execFileSync(TSX, [CLI, "work", "--all"], {

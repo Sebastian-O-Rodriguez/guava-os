@@ -23,11 +23,14 @@ const EXECUTION_TOOLS: Record<string, true> = {
   eval: true,
 };
 
+console.error("[dispatch-gate] loaded");
+
 export default function (pi: HookAPI): void {
   // Per-invocation state — never shared across sessions.
   let noReadyWork = false;
 
   pi.on("session_start", async (_event, ctx) => {
+    console.error("[dispatch-gate] session_start fired");
     let output = "";
     let hasWork = false;
     let unregistered = false;
