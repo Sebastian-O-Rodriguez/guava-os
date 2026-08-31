@@ -24,9 +24,11 @@
 
 ## Canonical source & wiring
 
-guava-os ships canonical hook sources; governed project repos symlink their
-`.omp/hooks/pre/*.ts` to guava-os:
+guava-os ships canonical hook sources; governed project repos **copy** them
+into their own `.omp/hooks/pre/` (not symlink — OMP's hook loader only picks up
+regular files, so symlinked hooks silently don't load):
 
 - `guava-os/.omp/hooks/pre/session-report.ts` (guava-os only)
-- `guava-os/.omp/hooks/pre/context-gate.ts` (symlinked into project repos)
-- `guava-os/.guava-os/hooks/dispatch-gate.ts` (symlinked into project repos — not auto-loaded in guava-os, so planning never blocks)
+- `guava-os/.omp/hooks/pre/context-gate.ts` (copied into project repos)
+- `guava-os/.guava-os/hooks/dispatch-gate.ts` (copied into project repos — this
+  path is not auto-loaded in guava-os, so planning never blocks)
