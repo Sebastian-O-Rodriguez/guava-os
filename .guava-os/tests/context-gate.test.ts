@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import gate from "../../.omp/hooks/pre/context-gate";
+import gate from "../../.claude/hooks/pre/context-gate";
 
 type ToolCallHandler = (event: {
   toolName: string;

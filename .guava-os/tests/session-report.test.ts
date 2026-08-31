@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
 
 import { execFileSync } from "node:child_process";
-import report from "../../.omp/hooks/pre/session-report";
+import report from "../../.claude/hooks/pre/session-report";
 
 type Host = Parameters<typeof report>[0];
 type Message = { type: string; content: string };

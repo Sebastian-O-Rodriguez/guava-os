@@ -13,7 +13,17 @@ import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 
 const CONTEXT_MARKER = /# CONTEXT-MARKER [0-9a-f]{64}/;
 
+console.error("[context-gate] loaded");
+
 export default function (pi: HookAPI): void {
+  pi.on("session_start", async () => {
+    console.error("[context-gate] session_start fired");
+    pi.sendMessage?.({
+      type: "text",
+      content: "context-gate active — every `task` fan-out requires # CONTEXT-MARKER.",
+    });
+  });
+
   pi.on("tool_call", async (event) => {
     if (event.toolName !== "task") return;
     if (process.env.GUAVA_OS_ALLOW_RAW_DISPATCH) return;
@@ -21,6 +31,7 @@ export default function (pi: HookAPI): void {
     const payload = JSON.stringify(event.input ?? {});
     if (CONTEXT_MARKER.test(payload)) return;
 
+    console.error("[context-gate] blocked a raw task call (no marker)");
     return {
       block: true,
       reason:
