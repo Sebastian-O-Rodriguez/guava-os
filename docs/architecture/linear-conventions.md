@@ -97,6 +97,21 @@ dev/<domain>   (one dev branch per domain; workers push here)
 - This lets QA map commits to issues and acceptance criteria (the dev branch is
   long-lived per domain, so the branch name cannot carry the id).
 
+### Commit author identity (2026-09-01)
+
+Exactly three canonical author emails — no other identities may produce commits:
+
+- `rodriguez.o.sebas@gmail.com` — personal gmail.
+- `gorp@guavaai.ai` — harness/worker identity (replaces `gorp@guava.ai` and
+  all `*-worker@gorp.local` variants).
+- `sebastian@guavaai.ai` — operator identity (replaces deprecated
+  `sebastian@guavatt.com`).
+
+Enforcement is forward-looking only: set `user.name`/`user.email` per repo,
+point the harness commit identity at `gorp@guavaai.ai`, and add a `.mailmap`
+for display attribution. Rewriting existing history is out of scope (high
+effort + destructive).
+
 ## Identity (canonical IDs)
 
 - **After Linear creation**, the canonical `GUA-###` identifier is the sole
