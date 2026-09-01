@@ -10,13 +10,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
 
 vi.mock("../src/linear-client.js", () => ({
   listIssueLabels: vi.fn(),
   createIssueLabel: vi.fn(),
 }));
 
-import { runSync, collectSkillLinks, applySyncPlan } from "../src/cli.js";
+import { runSync, collectSkillLinks, applySyncPlan, detectUncommittedDrift } from "../src/cli.js";
 import { buildSyncPlan } from "../src/sync.js";
 import { listIssueLabels, createIssueLabel } from "../src/linear-client.js";
 
@@ -150,6 +151,58 @@ describe("runSync", () => {
     const rewritten = JSON.parse(readFileSync(join(repo, ".guava-os", "config.json"), "utf8"));
     expect(rewritten.roles).toBeUndefined();
     log.mockRestore();
+    rmSync(repo, { recursive: true, force: true });
+  });
+});
+
+function gitInitCommit(root: string): void {
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  execFileSync("git", ["config", "user.email", "test@guava.test"], { cwd: root });
+  execFileSync("git", ["config", "user.name", "test"], { cwd: root });
+  execFileSync("git", ["add", "-A"], { cwd: root });
+  execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: root });
+}
+
+describe("detectUncommittedDrift", () => {
+  it("flags a canonical config whose working tree differs from HEAD", () => {
+    const repo = writeRepo(CANONICAL_CONFIG);
+    gitInitCommit(repo);
+    // Working-tree rewrite after commit — schema already canonical, only HEAD differs.
+    const modified = JSON.parse(JSON.stringify(CANONICAL_CONFIG));
+    (modified.invariants as Record<string, unknown>).max_todo_per_domain = 9;
+    writeFileSync(join(repo, ".guava-os", "config.json"), JSON.stringify(modified, null, 2), "utf8");
+
+    const drift = detectUncommittedDrift(repo);
+
+    expect(drift.map((c) => c.item)).toContain(".guava-os/config.json");
+    expect(drift[0].kind).toBe("flag");
+    expect(drift[0].detail).toContain("uncommitted");
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it("flags an added (untracked) skill symlink", () => {
+    const repo = writeRepo(CANONICAL_CONFIG);
+    const canonical = join(repo, "canonical");
+    mkdirSync(join(canonical, "beta"), { recursive: true });
+    gitInitCommit(repo);
+    symlinkSync(join(canonical, "beta"), join(repo, ".omp", "skills", "beta"));
+
+    const drift = detectUncommittedDrift(repo);
+
+    expect(drift.map((c) => c.item)).toContain(".omp/skills/beta");
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it("returns [] for a converged repo (working tree == HEAD)", () => {
+    const repo = writeRepo(CANONICAL_CONFIG);
+    gitInitCommit(repo);
+    expect(detectUncommittedDrift(repo)).toEqual([]);
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it("returns [] for a non-git repo (no committed baseline)", () => {
+    const repo = writeRepo(CANONICAL_CONFIG);
+    expect(detectUncommittedDrift(repo)).toEqual([]);
     rmSync(repo, { recursive: true, force: true });
   });
 });
