@@ -7,17 +7,22 @@
  * distinguish an assembled context from a raw `task` call. A `task` payload
  * lacking the marker is blocked. Pure regex check, zero AI.
  *
+ * Visibility: the gate state is shown in the TUI footer via `ctx.ui.setStatus`
+ * (and the injected `sendMessage` text is kept for the model).
+ *
  * Override: GUAVA_OS_ALLOW_RAW_DISPATCH.
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 
 const CONTEXT_MARKER = /# CONTEXT-MARKER [0-9a-f]{64}/;
+const STATUS_KEY = "context-gate";
 
 console.error("[context-gate] loaded");
 
 export default function (pi: HookAPI): void {
-  pi.on("session_start", async () => {
+  pi.on("session_start", async (_event, ctx) => {
     console.error("[context-gate] session_start fired");
+    ctx.ui?.setStatus(STATUS_KEY, "context gate active");
     pi.sendMessage?.({
       type: "text",
       content: "context-gate active — every `task` fan-out requires # CONTEXT-MARKER.",

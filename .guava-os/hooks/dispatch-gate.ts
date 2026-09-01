@@ -6,6 +6,13 @@
  * there is ready work, report the todo list so the agent can dispatch by
  * domain. An unregistered cwd leaves the gate inactive. Pure code, zero AI.
  *
+ * Visibility: the gate state is shown in the TUI footer via `ctx.ui.setStatus`
+ * (and the injected `sendMessage` text is kept for the model).
+ *
+ * Auto-execution: when ready work exists at `session_start`, a
+ * `before_agent_start` handler emits a one-shot synthetic first-turn
+ * instruction directing the agent to begin execution / domain dispatch.
+ *
  * Override: GUAVA_OS_ALLOW_NO_WORK.
  */
 import { execFileSync } from "node:child_process";
@@ -14,6 +21,8 @@ import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 const GUAVA_OS = "/Users/sebroot/dev/guava-os";
 const TSX = `${GUAVA_OS}/node_modules/.bin/tsx`;
 const CLI = `${GUAVA_OS}/.guava-os/src/cli.ts`;
+
+const DISPATCH_CUSTOM_TYPE = "guava-os:dispatch";
 
 const EXECUTION_TOOLS: Record<string, true> = {
   bash: true,
@@ -28,6 +37,8 @@ console.error("[dispatch-gate] loaded");
 export default function (pi: HookAPI): void {
   // Per-invocation state — never shared across sessions.
   let noReadyWork = false;
+  let hasReadyWork = false;
+  let dispatchInstructionSent = false;
 
   pi.on("session_start", async (_event, ctx) => {
     console.error("[dispatch-gate] session_start fired");
@@ -48,21 +59,41 @@ export default function (pi: HookAPI): void {
     }
 
     noReadyWork = !hasWork && !unregistered;
+    hasReadyWork = hasWork;
 
     if (unregistered) {
+      ctx.ui?.setStatus("dispatch-gate", "not a governed repo — gate inactive");
       pi.sendMessage?.({ type: "text", content: "Not a governed repo — dispatch gate inactive." });
       return;
     }
     if (!hasWork) {
+      ctx.ui?.setStatus("dispatch-gate", "no ready work — closing");
       pi.sendMessage?.({ type: "text", content: "No ready-for-work issues for this project — closing session." });
       return;
     }
+    ctx.ui?.setStatus("dispatch-gate", "ready work available");
     pi.sendMessage?.({
       type: "text",
       content:
         `Ready work:\n${output}\n\n` +
         "Dispatch by domain — see .omp/AGENTS.md and docs/architecture/linear-conventions.md.",
     });
+  });
+
+  pi.on("before_agent_start", async () => {
+    if (!hasReadyWork || dispatchInstructionSent) return;
+    dispatchInstructionSent = true;
+    return {
+      message: {
+        customType: DISPATCH_CUSTOM_TYPE,
+        content:
+          "Ready-for-work issues exist for this project. Begin executing them now: " +
+          "dispatch by domain and start working. Do not wait for a user prompt.",
+        display: true,
+        details: { kind: "auto-dispatch", hook: "dispatch-gate" },
+        attribution: "user",
+      },
+    };
   });
 
   pi.on("tool_call", async (event) => {
