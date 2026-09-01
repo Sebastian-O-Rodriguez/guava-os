@@ -1,0 +1,10 @@
+# Canonical author mapping — GUA-701 (forward-looking, 2026-09-01)
+# Legacy machine/harness identities → gorp@guavaai.ai
+<gorp@guavaai.ai> <gorp@guava.ai>
+<gorp@guavaai.ai> <devops@guava.ai>
+<gorp@guavaai.ai> <guava-os@local>
+<gorp@guavaai.ai> <omp-worker@gorp.local>
+<gorp@guavaai.ai> <hermes-worker@gorp.local>
+<gorp@guavaai.ai> <fixture-worker@gorp.local>
+# Deprecated operator identity → sebastian@guavaai.ai
+<sebastian@guavaai.ai> <sebastian@guavatt.com>
