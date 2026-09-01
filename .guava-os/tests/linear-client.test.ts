@@ -453,3 +453,48 @@ describe("GUA-587 comment thread read accessor", () => {
     expect(issue.comments).toEqual([]);
   });
 });
+
+describe("GUA-715 incoming blocks relation normalizes to blockedBy", () => {
+  it("normalizes an inverseRelations blocks edge into a non-empty blockedBy", async () => {
+    respond = (query) => {
+      if (query.includes("issue(id: $id)")) {
+        return {
+          data: {
+            issue: {
+              id: "blocked-uuid",
+              identifier: "GUA-715",
+              title: "Blocked",
+              state: { name: "Todo", type: "unstarted" },
+              priority: 2,
+              labels: { nodes: [{ name: "backend" }] },
+              parent: null,
+              project: { name: "guava-os" },
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              completedAt: null,
+              canceledAt: null,
+              assignee: null,
+              description: "",
+              relations: { nodes: [] },
+              inverseRelations: {
+                nodes: [
+                  {
+                    id: "rel-in-1",
+                    type: "blocks",
+                    issue: { id: "blocker-uuid" },
+                    relatedIssue: { id: "blocked-uuid" },
+                  },
+                ],
+              },
+            },
+          },
+        };
+      }
+      return router(query, {});
+    };
+
+    const issue = await getIssue("blocked-uuid");
+    const blockedBy = (issue as unknown as { blockedBy?: string[] }).blockedBy;
+    expect(blockedBy).toEqual(["blocker-uuid"]);
+  });
+});

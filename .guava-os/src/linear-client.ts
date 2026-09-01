@@ -282,7 +282,8 @@ export async function getProject(
 
 /** Issue relations load. Included in every issue query (GOS-28). */
 const ISSUE_RELATIONS_FRAGMENT = `
-        relations { nodes { id type issue { id } relatedIssue { id } } }`;
+        relations { nodes { id type issue { id } relatedIssue { id } } }
+        inverseRelations { nodes { id type issue { id } relatedIssue { id } } }`;
 
 /** get sprint — fetch the sprint (parent issue) + children. */
 export async function getSprint(
@@ -921,6 +922,14 @@ interface RawLinearIssue {
       relatedIssue: { id: string };
     }[];
   };
+  inverseRelations?: {
+    nodes: {
+      id: string;
+      type: string;
+      issue: { id: string };
+      relatedIssue: { id: string };
+    }[];
+  };
   comments?: {
     nodes: {
       id: string;
@@ -936,7 +945,11 @@ interface RawLinearIssue {
 function normalizeIssue(raw: RawLinearIssue): LinearIssue {
   const blocks: string[] = [];
   const blockedBy: string[] = [];
-  for (const rel of raw.relations?.nodes ?? []) {
+  const edgeNodes = [
+    ...(raw.relations?.nodes ?? []),
+    ...(raw.inverseRelations?.nodes ?? []),
+  ];
+  for (const rel of edgeNodes) {
     if (rel.type !== "blocks") continue;
     // `type: "blocks"` means the initiating issue (rel.issue) blocks
     // rel.relatedIssue.
