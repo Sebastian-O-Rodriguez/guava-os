@@ -286,7 +286,7 @@ describe("formatSyncPlan", () => {
     const plan = {
       repo: "/repo/guava-os",
       drift: false,
-      changes: { config: [], labels: [], symlinks: [] },
+      changes: { config: [], labels: [], symlinks: [], uncommitted: [] },
     };
 
     const text = formatSyncPlan(plan);

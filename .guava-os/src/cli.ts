@@ -42,6 +42,7 @@ import { formatStatus, formatStatusJson } from "./status.js";
 import { runValidate, formatValidate } from "./validate.js";
 import { generateNext, formatNext } from "./next.js";
 import { existsSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, writeFileSync } from "fs";
+import { execFileSync } from "node:child_process";
 import { homedir } from "os";
 import { join, resolve } from "path";
 import { createInterface } from "node:readline/promises";
@@ -57,6 +58,7 @@ import {
   migrateConfig,
   reconcileSymlinks,
   type SkillLink,
+  type SyncChange,
   type SyncPlan,
 } from "./sync.js";
 
@@ -468,6 +470,39 @@ function readRawConfig(repoRoot: string): unknown {
   }
 }
 
+/** Load-bearing files whose git working-tree state sync must compare to HEAD. */
+const LOAD_BEARING_SYNC_PATHS = [".guava-os/config.json", ".omp/skills"];
+
+/**
+ * Detect uncommitted migration drift (GUA-655): load-bearing files whose
+ * working-tree state differs from git HEAD, even though the config schema may
+ * already be canonical. `sync`'s schema-shape comparison cannot see this —
+ * once migrated-but-uncommitted, `migrateConfig` reports no changes.
+ * Returns [] when the repo has no git baseline (or git is unavailable).
+ */
+export function detectUncommittedDrift(repoRoot: string): SyncChange[] {
+  let out: string;
+  try {
+    out = execFileSync(
+      "git",
+      ["status", "--porcelain", "--untracked-files=all", "--", ...LOAD_BEARING_SYNC_PATHS],
+      { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+  } catch {
+    // Not a git repo (or git missing): no committed baseline to compare.
+    return [];
+  }
+  return out
+    .split("\n")
+    .map((line) => line.slice(3).trim()) // strip the two-char status code + space, keep the path
+    .filter(Boolean)
+    .map((item): SyncChange => ({
+      kind: "flag",
+      item,
+      detail: "uncommitted migration — working tree differs from git HEAD; commit via promotion",
+    }));
+}
+
 /** Scan repo skill symlinks against the canonical store into buildSyncPlan's SkillLink shape. */
 export function collectSkillLinks(repoRoot: string, canonicalDir: string = CANONICAL_SKILLS_DIR): SkillLink[] {
   const repoDir = join(repoRoot, ".omp", "skills");
@@ -579,12 +614,28 @@ async function syncRepo(
 ): Promise<number> {
   const raw = readRawConfig(repoRoot);
   const skillLinks = collectSkillLinks(repoRoot);
-  const plan = buildSyncPlan({ repoRoot, config: raw, linearLabels, skillLinks });
+  const uncommitted = detectUncommittedDrift(repoRoot);
+  const plan = buildSyncPlan({ repoRoot, config: raw, linearLabels, skillLinks, uncommitted });
 
   console.log(formatSyncPlan(plan));
 
   if (!plan.drift) return 0;
   if (!opts.fix) return 1;
+
+  // Uncommitted-only drift is not auto-fixable: the config is already
+  // canonical; the divergence is git HEAD vs working tree. Never claim
+  // convergence — name the files and direct a commit via promotion (GUA-655).
+  const actionable =
+    plan.changes.config.length +
+    plan.changes.labels.length +
+    plan.changes.symlinks.length > 0;
+  if (!actionable) {
+    console.log(
+      "not applied — uncommitted migration drift is not auto-fixable; " +
+        "commit the load-bearing files via promotion.",
+    );
+    return 1;
+  }
 
   if (!opts.force) {
     const accepted = await promptAcceptCancel();

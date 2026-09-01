@@ -26,12 +26,14 @@ export interface SyncChange {
 
 export interface SyncPlan {
   repo: string;
-  /** True when any surface (config, labels, symlinks) has drifted. */
+  /** True when any surface (config, labels, symlinks, uncommitted) has drifted. */
   drift: boolean;
   changes: {
     config: SyncChange[];
     labels: SyncChange[];
     symlinks: SyncChange[];
+    /** Load-bearing files whose working tree differs from git HEAD (GUA-655). */
+    uncommitted: SyncChange[];
   };
 }
 
@@ -47,6 +49,8 @@ export interface BuildSyncPlanOpts {
   config: unknown;
   linearLabels: string[];
   skillLinks: SkillLink[];
+  /** Uncommitted-migration drift (working tree vs git HEAD), detected by the caller. */
+  uncommitted?: SyncChange[];
 }
 
 export interface MigrateResult {
@@ -213,13 +217,23 @@ export function buildSyncPlan(opts: BuildSyncPlanOpts): SyncPlan {
         : { kind: "flag", item: link.name, detail: `dead symlink target → ${link.target}` },
     );
 
-  const changes = { config: configChanges, labels: labelChanges, symlinks: symlinkChanges };
-  const drift = configChanges.length + labelChanges.length + symlinkChanges.length > 0;
+  const uncommittedChanges = opts.uncommitted ?? [];
+  const changes = {
+    config: configChanges,
+    labels: labelChanges,
+    symlinks: symlinkChanges,
+    uncommitted: uncommittedChanges,
+  };
+  const drift =
+    configChanges.length +
+    labelChanges.length +
+    symlinkChanges.length +
+    uncommittedChanges.length > 0;
 
   return { repo: opts.repoRoot, drift, changes };
 }
 
-/** Human-readable report, grouped config / labels / symlinks. */
+/** Human-readable report, grouped config / labels / symlinks / uncommitted. */
 export function formatSyncPlan(plan: SyncPlan): string {
   const lines: string[] = [];
   lines.push(`sync plan — repo: ${plan.repo}`);
@@ -233,6 +247,9 @@ export function formatSyncPlan(plan: SyncPlan): string {
   lines.push("");
   lines.push(`symlinks (${plan.changes.symlinks.length})`);
   appendChanges(lines, plan.changes.symlinks);
+  lines.push("");
+  lines.push(`uncommitted (${plan.changes.uncommitted.length})`);
+  appendChanges(lines, plan.changes.uncommitted);
   return lines.join("\n");
 }
 
