@@ -32,6 +32,8 @@ const calls: FetchCall[] = [];
 let respond: (query: string, variables: Record<string, unknown>) => unknown;
 /** Relations returned by the relation-probe query (GOS-41 unlink tests). */
 let stubRelations: unknown[] = [];
+/** Incoming (inverse) relations returned by the relation-probe query. */
+let stubInverseRelations: unknown[] = [];
 
 function mockFetch() {
   return vi.fn(async (_url: string, init: { body?: string }) => {
@@ -95,10 +97,17 @@ function router(query: string, variables: Record<string, unknown>): unknown {
     query.includes("relations { nodes { id type issue { id }") &&
     !query.includes("description")
   )
-    return { data: { issue: { relations: { nodes: stubRelations } } } };
-  if (query.includes("issues(filter")) {
-    // identifier -> uuid (fresh issues filter; distinct per input)
-    return { data: { issues: { nodes: [{ id: `uuid-${String(variables.v)}` }] } } };
+    return {
+      data: {
+        issue: {
+          relations: { nodes: stubRelations },
+          inverseRelations: { nodes: stubInverseRelations },
+        },
+      },
+    };
+  if (query.includes("issue(id: $id) { id }") && !query.includes("identifier")) {
+    // identifier -> uuid (Linear-valid issue(id:) resolution; GUA-665)
+    return { data: { issue: { id: `uuid-${String(variables.id)}` } } };
   }
   if (query.includes("issue(id: $id)")) {
     // getIssue after create/update
@@ -142,6 +151,7 @@ function router(query: string, variables: Record<string, unknown>): unknown {
 beforeEach(() => {
   calls.length = 0;
   stubRelations = [];
+  stubInverseRelations = [];
   vi.stubGlobal("fetch", mockFetch());
   vi.stubEnv("LINEAR_API_KEY", "test-key");
   respond = router;
@@ -223,10 +233,10 @@ describe("GUA-96 native relation creation", () => {
     expect(input.relatedIssueId).toBe("uuid-GUA-6");
   });
 
-  it("resolves identifiers via fresh issues filter, not the stale issue(id:) shortcut", async () => {
+  it("resolves identifiers via issue(id:) (Linear-valid), not the invalid issues(filter", async () => {
     await linkDependencies("GUA-5", { blocks: ["GUA-6"] });
-    expect(calls.some((c) => c.query.includes("issues(filter"))).toBe(true);
-    expect(calls.some((c) => c.query.includes("issue(id: $v)"))).toBe(false);
+    expect(calls.some((c) => c.query.includes("issue(id: $id) { id }"))).toBe(true);
+    expect(calls.some((c) => c.query.includes("issues(filter"))).toBe(false);
   });
 
   it("--blocked-by inverts direction (B blocks A)", async () => {
@@ -251,13 +261,14 @@ describe("GUA-96 native relation creation", () => {
 });
 
 describe("GOS-41 native relation removal (unlink)", () => {
-  it("--blocked-by deletes the B blocks A relation (inverse of link)", async () => {
-    // source GUA-5 is blocked by GUA-6  <=>  relation issue=uuid-GUA-6 related=uuid-GUA-5
-    stubRelations = [
+  it("--blocked-by deletes the incoming B blocks A relation (inverse of link)", async () => {
+    // A=GUA-5 is blocked by B=GUA-6  <=>  relation issue=uuid-GUA-6 related=uuid-GUA-5.
+    // Incoming edges surface via the anchor's inverseRelations, not relations.
+    stubInverseRelations = [
       { id: "rel-1", type: "blocks", issue: { id: "uuid-GUA-6" }, relatedIssue: { id: "uuid-GUA-5" } },
     ];
     await unlinkDependencies("GUA-5", { blockedBy: ["GUA-6"] });
-    const relProbe = calls.filter((c) => c.query.includes("relations { nodes"));
+    const relProbe = calls.filter((c) => c.query.includes("inverseRelations"));
     expect(relProbe).toHaveLength(1);
     expect(relProbe[0].variables.id).toBe("uuid-GUA-5");
     const del = calls.find((c) => c.query.includes("issueRelationDelete("))!;

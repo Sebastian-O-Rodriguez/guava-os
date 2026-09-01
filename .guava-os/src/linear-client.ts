@@ -235,16 +235,16 @@ export function assertCanonicalReference(value: string, field = "issue"): void {
 async function resolveIssueId(value: string): Promise<string> {
   assertCanonicalReference(value);
   if (isUuid(value)) return value;
-  // Look identifiers up through the fresh `issues` filter rather than
-  // Linear's `issue(id:)` shortcut, whose identifier→UUID mapping can be
-  // stale and resolve a canonical id to the wrong issue (GUA-548).
-  const data = await gql<{ issues: { nodes: { id: string }[] } }>(
-    `query ($v: String!) { issues(filter: { identifier: { eq: $v } }) { nodes { id } } }`,
-    { v: value },
+  // `identifier` is not a field on Linear's `IssueFilter`, so GUA-548's
+  // `issues(filter: { identifier: … })` query is rejected with
+  // GRAPHQL_VALIDATION_FAILED. `issue(id:)` accepts both a UUID and a
+  // canonical identifier and resolves to the correct issue (verified live).
+  const data = await gql<{ issue: { id: string } }>(
+    `query ($id: String!) { issue(id: $id) { id } }`,
+    { id: value },
   );
-  const issue = data.issues?.nodes?.[0];
-  if (!issue?.id) throw new Error(`Issue not found: ${value}`);
-  return issue.id;
+  if (!data.issue?.id) throw new Error(`Issue not found: ${value}`);
+  return data.issue.id;
 }
 
 /** Resolve an assignee: "me" -> viewer; uuid passthrough. */
@@ -363,33 +363,48 @@ export async function searchIssues(
 ): Promise<SearchResult> {
   const proj = opts.projectId ? await resolveProjectId(opts.projectId) : (await getProject(config)).id;
   // Linear's GraphQL filter is limited; we fetch by project and filter client-side.
-  const data = await gql<{
+  // Page at 50 (the default the old single-page query used) and paginate — each
+  // page stays inside Linear's 10000 complexity budget with the relations
+  // fragment. `first: 250` × relations blew the budget (GUA-678).
+  type SearchIssuesPage = {
     project: {
-      issues: { nodes: RawLinearIssue[] };
+      issues: {
+        nodes: RawLinearIssue[];
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      };
     };
-  }>(
-    `query ($id: String!, $archived: Boolean) {
-      project(id: $id) {
-        issues(includeArchived: $archived) {
-          nodes {
-            id identifier title
-            description
-            state { name type }
-            priority
-            labels { nodes { name } }
-            parent { id }
-            project { name }
-            createdAt updatedAt
-            completedAt canceledAt
-            assignee { name }
-            ${ISSUE_RELATIONS_FRAGMENT}
+  };
+  const nodes: RawLinearIssue[] = [];
+  let after: string | null = null;
+  for (;;) {
+    const data: SearchIssuesPage = await gql<SearchIssuesPage>(
+      `query ($id: String!, $archived: Boolean, $after: String) {
+        project(id: $id) {
+          issues(includeArchived: $archived, first: 50, after: $after) {
+            nodes {
+              id identifier title
+              description
+              state { name type }
+              priority
+              labels { nodes { name } }
+              parent { id }
+              project { name }
+              createdAt updatedAt
+              completedAt canceledAt
+              assignee { name }
+              ${ISSUE_RELATIONS_FRAGMENT}
+            }
+            pageInfo { hasNextPage endCursor }
           }
         }
-      }
-    }`,
-    { id: proj, archived: opts.includeArchived ?? false },
-  );
-  let issues = data.project.issues.nodes.map(normalizeIssue);
+      }`,
+      { id: proj, archived: opts.includeArchived ?? false, after },
+    );
+    nodes.push(...data.project.issues.nodes);
+    if (!data.project.issues.pageInfo.hasNextPage) break;
+    after = data.project.issues.pageInfo.endCursor;
+  }
+  let issues = nodes.map(normalizeIssue);
   if (opts.status) issues = issues.filter((i) => i.status === opts.status);
   if (opts.label) issues = issues.filter((i) => i.labels.includes(opts.label!));
   if (opts.assignee)
@@ -621,26 +636,30 @@ export async function unlinkDependencies(
   }
   if (want.size === 0) return;
 
+  type RelationNode = {
+    id: string;
+    type: string;
+    issue: { id: string };
+    relatedIssue: { id: string } | null;
+  };
   const data = await gql<{
     issue: {
-      relations: {
-        nodes: Array<{
-          id: string;
-          type: string;
-          issue: { id: string };
-          relatedIssue: { id: string } | null;
-        }>;
-      };
+      relations: { nodes: RelationNode[] };
+      inverseRelations: { nodes: RelationNode[] };
     };
   }>(
     `query ($id: String!) {
       issue(id: $id) {
         relations { nodes { id type issue { id } relatedIssue { id } } }
+        inverseRelations { nodes { id type issue { id } relatedIssue { id } } }
       }
     }`,
     { id: a },
   );
-  const relations = data.issue?.relations?.nodes ?? [];
+  const relations = [
+    ...(data.issue?.relations?.nodes ?? []),
+    ...(data.issue?.inverseRelations?.nodes ?? []),
+  ];
   const toDelete: Array<{ id: string; why: string }> = [];
   for (const [b, dir] of want) {
     // relation: a blocks b for "a-blocks-b"; b blocks a for "b-blocks-a"
