@@ -1,5 +1,5 @@
 /**
- * `guava-os work` — deterministic session gate (the "script, not AI" layer).
+ * `gos work` — deterministic session gate (the "script, not AI" layer).
  *
  * Reports open work so a session bootstrap can decide whether to proceed or
  * close. It queries Linear directly (unlike the stdin classifier commands),

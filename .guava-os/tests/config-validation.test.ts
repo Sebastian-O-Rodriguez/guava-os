@@ -106,7 +106,7 @@ describe("loadConfig schema validation", () => {
       const message = (thrown as Error).message;
       expect(message).toContain("Missing fields: domains, domainAgents, invariants.max_todo_per_domain");
       expect(message).toContain("Legacy fields: roles, invariants.max_todo_per_role, branch_pattern (contains \"{role}\")");
-      expect(message).toContain("guava-os sync <repo>");
+      expect(message).toContain("gos sync <repo>");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -120,7 +120,7 @@ describe("loadConfig schema validation", () => {
     try {
       const message = caughtMessage(() => loadConfig(dir));
       expect(message).toContain("Missing fields: domainAgents, types");
-      expect(message).toContain("guava-os sync <repo>");
+      expect(message).toContain("gos sync <repo>");
       expect(message).not.toContain("linear");
       expect(message).not.toContain("domains");
       expect(message).not.toContain("Legacy fields");

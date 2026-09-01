@@ -24,7 +24,7 @@
 1. **Project work runs from the project's own repo root.** Agent sessions for a
    project operate in `~/dev/repos/<project>/`; the project is the cwd/working
    root.
-2. **guava-os is shared stable infrastructure.** Its tooling (`guava-os
+2. **guava-os is shared stable infrastructure.** Its tooling (`gos
    pm|doctor|status|validate|next|launch|register` via `.guava-os/bin/gos`)
    is invoked from the guava-os checkout — that is where the CLI resolves
    skills. Do not run it from inside a project repo expecting it to resolve

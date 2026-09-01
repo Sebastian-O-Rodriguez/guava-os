@@ -1,5 +1,5 @@
 /**
- * `guava-os triage` — readiness triage (read → check → write, live Linear).
+ * `gos triage` — readiness triage (read → check → write, live Linear).
  *
  * Readiness labels (untriaged / ready / needs-rescoping) are mutually
  * exclusive and set ONLY by this command. It queries Linear directly, builds

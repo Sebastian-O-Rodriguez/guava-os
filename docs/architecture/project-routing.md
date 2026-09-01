@@ -23,7 +23,7 @@ cd <project>
   → AGENTS.md routing            (auto-loaded context at project root)
   → guava-os PLAYBOOK            (~/dev/guava-os/.guava-os/PLAYBOOK.md)
   → planning skill               (~/dev/guava-os/.omp/skills/planning/SKILL.md)
-  → guava-os pm tooling          (run from the project root; binary at ~/dev/guava-os/.guava-os/bin/gos)
+  → gos pm tooling          (run from the project root; binary at ~/dev/guava-os/.guava-os/bin/gos)
   → Linear-ready sprint
 ```
 

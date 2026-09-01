@@ -52,7 +52,7 @@ deliverable — terminal is a findings comment, not production code.
 
 ### Readiness (gate)
 
-Exactly one, always present, set **only** by `guava-os triage`:
+Exactly one, always present, set **only** by `gos triage`:
 
 | Label | Meaning |
 |---|---|

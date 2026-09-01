@@ -3,8 +3,8 @@
 Read-only, stdin-driven. Detects structural problems in the issue graph.
 
 ```bash
-cat issues.json | guava-os validate
-cat issues.json | guava-os validate --strict   # warnings fail too
+cat issues.json | gos validate
+cat issues.json | gos validate --strict   # warnings fail too
 ```
 
 ## Errors

@@ -239,13 +239,13 @@ function formatRegister(r: RegisterResult): string {
 }
 
 /**
- * Run `guava-os register <id> --repo <path> [--remote <url>]`.
+ * Run `gos register <id> --repo <path> [--remote <url>]`.
  */
 export function runRegister(args: string[], jsonMode: boolean): RegisterResult {
   const id = args[0];
   if (!id) {
     throw new Error(
-      "register: <id> is required — guava-os register <id> --repo <path> [--remote <url>]",
+      "register: <id> is required — gos register <id> --repo <path> [--remote <url>]",
     );
   }
   const repoPath = flag(args, "--repo");

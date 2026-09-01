@@ -24,4 +24,4 @@ projects:
    uses it to map Linear names to canonical ids.
 3. Two entries must not share a `repo_path`.
 4. Archived projects: `lifecycle: retired` and `repo_path` moved under
-   `~/dev/repos/archive/`. `guava-os work --all` and `doctor` skip `retired`.
+   `~/dev/repos/archive/`. `gos work --all` and `doctor` skip `retired`.

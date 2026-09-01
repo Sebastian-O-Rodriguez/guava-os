@@ -150,9 +150,9 @@ Two gates, both GitHub-enforced:
 ## Verdict surface
 
 ```bash
-guava-os pm comment <id> --body "Verdict: <approve|reject>. Evidence: ..."
-guava-os pm move <id> --status "Done"          # on approve
-guava-os pm move <id> --status "In Progress"   # on reject
+gos pm comment <id> --body "Verdict: <approve|reject>. Evidence: ..."
+gos pm move <id> --status "Done"          # on approve
+gos pm move <id> --status "In Progress"   # on reject
 ```
 
 Merge via `git`/PR — GitHub branch protection is the enforcement.

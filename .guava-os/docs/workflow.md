@@ -16,7 +16,7 @@ pm comment + move status → Linear refresh
 
 ## Manager loop
 
-1. `guava-os work --all` — nothing open → close.
+1. `gos work --all` — nothing open → close.
 2. Plan: decompose into scoped deliverables (one issue = one outcome, one domain
    + one type + one readiness label, tight acceptance).
 3. Write Linear via `pm` (create/update/link/deps).
@@ -24,7 +24,7 @@ pm comment + move status → Linear refresh
 
 ## Dispatch loop (project)
 
-1. `guava-os work` — no open issues → close.
+1. `gos work` — no open issues → close.
 2. Load open issues (domain + scope + acceptance).
 3. Fan out each to an OMP subagent of its domain (via the `domainAgents` map in
    `.guava-os/config.json`).

@@ -3,8 +3,8 @@
 Groups open work by domain. Read-only, stdin-driven.
 
 ```bash
-cat issues.json | guava-os status
-cat issues.json | guava-os status --json
+cat issues.json | gos status
+cat issues.json | gos status --json
 ```
 
 ## Categories

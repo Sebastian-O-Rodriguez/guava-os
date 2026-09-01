@@ -17,7 +17,7 @@ repos via `dispatch-gate` + `context-gate`. See `docs/architecture/pre-hooks.md`
 
 ```mermaid
 flowchart TD
-    OPEN[guava-os session opens] --> GATE{guava-os work --all}
+    OPEN[guava-os session opens] --> GATE{gos work --all}
     GATE -->|nothing| CLOSE[close session]
     GATE -->|work visible| LOOP{operator intent?}
     LOOP -->|plan| PLAN[planning skill — decompose, scope, tag role]
@@ -42,4 +42,4 @@ Roles are the 7 OMP agent types: `task`, `reviewer`, `scout`, `designer`,
 `sonic`, `librarian`, `security-reviewer`. An issue carries one role label and one domain label; that decides
 which subagent a project session dispatches.
 
-Prefer `guava-os pm` — the primary Linear path. Linear MCP is a last-resort fallback.
+Prefer `gos pm` — the primary Linear path. Linear MCP is a last-resort fallback.

@@ -24,10 +24,10 @@ label** (`ready-for-work` to be dispatchable). The seven OMP agent types are
 Read-only over stdin JSON. They never call Linear, mutate state, or write files.
 
 ```bash
-guava-os doctor
-cat issues.json | guava-os status
-cat issues.json | guava-os validate
-cat issues.json | guava-os next --domain backend
+gos doctor
+cat issues.json | gos status
+cat issues.json | gos validate
+cat issues.json | gos next --domain backend
 ```
 
 ### `status`
@@ -68,9 +68,9 @@ In Progress / In Review counts). This is the "script, not AI" bootstrap a
 session hook runs on open.
 
 ```bash
-guava-os work          # this project (repo config)
-guava-os work --all    # every active registry project
-guava-os work --json
+gos work          # this project (repo config)
+gos work --all    # every active registry project
+gos work --json
 ```
 
 Exit `0` if open work exists, `1` if none (the hook closes the session on 1).
@@ -81,15 +81,15 @@ All Linear read/write through the guava-os tooling layer — the only supported
 Linear interface:
 
 ```bash
-guava-os pm get-project
-guava-os pm get-sprint [parent-id]
-guava-os pm get-issue <id>
-guava-os pm search --project <name> --status Todo --label backend
-guava-os pm create --title "..." --team "Guava AI" --label backend
-guava-os pm link <id> --blocked-by <id>
-guava-os pm move <id> --status "In Progress"
-guava-os pm comment <id> --body "..."
-guava-os pm archive <id>
+gos pm get-project
+gos pm get-sprint [parent-id]
+gos pm get-issue <id>
+gos pm search --project <name> --status Todo --label backend
+gos pm create --title "..." --team "Guava AI" --label backend
+gos pm link <id> --blocked-by <id>
+gos pm move <id> --status "In Progress"
+gos pm comment <id> --body "..."
+gos pm archive <id>
 ```
 
 `pm get-issue <id> --json` returns the issue with its full `comments` thread
@@ -102,10 +102,10 @@ Prefer `pm` for Linear; Linear MCP is a last-resort fallback.
 Consumer convergence (config / labels / symlinks). Report-first:
 
 ```bash
-guava-os sync [repo]                 # report-only — exit 0 clean / 1 drift
-guava-os sync --fix [repo]           # prompt [A]ccept/[C]ancel
-guava-os sync --fix --force [repo]   # apply, no prompt
-guava-os sync --all                  # every active registry project
+gos sync [repo]                 # report-only — exit 0 clean / 1 drift
+gos sync --fix [repo]           # prompt [A]ccept/[C]ancel
+gos sync --fix --force [repo]   # apply, no prompt
+gos sync --all                  # every active registry project
 ```
 
 ### `triage`
@@ -113,8 +113,8 @@ guava-os sync --all                  # every active registry project
 Sets the readiness label on open Todo deliverables:
 
 ```bash
-guava-os triage          # this project
-guava-os triage --all    # every active registry project
+gos triage          # this project
+gos triage --all    # every active registry project
 ```
 
 ## Stdin contract (classifier commands)
@@ -135,7 +135,7 @@ A JSON array of Linear issues:
 ## Sample fixtures
 
 ```bash
-cat .guava-os/fixtures/clean.json     | guava-os validate   # exit 0
-cat .guava-os/fixtures/warnings.json  | guava-os validate   # exit 0 (warnings only)
-cat .guava-os/fixtures/errors.json    | guava-os validate   # exit 1 (errors)
+cat .guava-os/fixtures/clean.json     | gos validate   # exit 0
+cat .guava-os/fixtures/warnings.json  | gos validate   # exit 0 (warnings only)
+cat .guava-os/fixtures/errors.json    | gos validate   # exit 1 (errors)
 ```
