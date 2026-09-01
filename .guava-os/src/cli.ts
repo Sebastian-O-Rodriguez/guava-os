@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * guava-os CLI — project management + execution-state tooling.
+ * gos CLI — project management + execution-state tooling.
  *
  * Read-only commands (doctor/status/validate/next) inspect issue data from
  * stdin. PM commands (pm <subcommand>) talk to Linear through the guava-os
@@ -250,7 +250,7 @@ async function main() {
 
     default:
       console.error(`unknown command: ${command}`);
-      console.error("run 'guava-os --help' for usage");
+      console.error("run 'gos --help' for usage");
       process.exit(1);
   }
 }
@@ -283,7 +283,7 @@ async function runPm(
   const rest = args.slice(1);
 
   if (!sub || sub === "--help" || sub === "-h") {
-    console.log(`guava-os pm <subcommand> [flags]
+    console.log(`gos pm <subcommand> [flags]
 
 Subcommands:
   get-project              Fetch project metadata
@@ -431,7 +431,7 @@ All PM commands talk to Linear through the guava-os tooling layer.`);
     }
     default:
       console.error(`unknown pm subcommand: ${sub}`);
-      console.error("run 'guava-os pm --help' for usage");
+      console.error("run 'gos pm --help' for usage");
       process.exit(1);
   }
 }
@@ -566,11 +566,11 @@ async function promptAcceptCancel(): Promise<boolean> {
 }
 
 /**
- * `guava-os sync [repo]`                  — print the plan; exit 0 clean / 1 drift.
- * `guava-os sync --all`                   — report every active registry repo.
- * `guava-os sync --fix [repo]`            — prompt, then apply on accept.
- * `guava-os sync --fix --force [repo]`    — apply without prompting.
- * `guava-os sync --all --fix --force`     — apply across every active registry repo.
+ * `gos sync [repo]`                  — print the plan; exit 0 clean / 1 drift.
+ * `gos sync --all`                   — report every active registry repo.
+ * `gos sync --fix [repo]`            — prompt, then apply on accept.
+ * `gos sync --fix --force [repo]`    — apply without prompting.
+ * `gos sync --all --fix --force`     — apply across every active registry repo.
  */
 export async function runSync(args: string[]): Promise<number> {
   try {

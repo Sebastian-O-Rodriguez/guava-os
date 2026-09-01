@@ -1,5 +1,5 @@
 /**
- * `guava-os sync` — convergence engine (Wave 1: foundational modules).
+ * `gos sync` — convergence engine (Wave 1: foundational modules).
  *
  * One primitive, SyncPlan, powers the three sync surfaces: config, Linear
  * labels, and canonical skill symlinks. Every function is pure — it computes

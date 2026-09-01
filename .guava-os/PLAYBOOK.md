@@ -15,13 +15,13 @@ Layout & operating model (where checkouts live, dev isolation rules):
 Every governed project MUST complete the bootstrap before any execution:
 
 1. **Create a minimal repo** — a real git repository on this machine.
-   `guava-os register` creates it if missing (`git init`), but the operator may
+   `gos register` creates it if missing (`git init`), but the operator may
    also clone it by hand. A bare path or a registry entry with no corresponding
    directory is NOT sufficient.
-2. **Register with canonical git remote** — `guava-os register <id> --repo
+2. **Register with canonical git remote** — `gos register <id> --repo
    <path> --remote <url>`. Records `git_remote` in
    `.guava-os/registry/projects.yml` and sets the local `origin` remote.
-   `guava-os doctor` verifies the registry remote matches local `origin`.
+   `gos doctor` verifies the registry remote matches local `origin`.
 3. **Execute** — now issues are ready to dispatch to OMP subagents.
 
 ## Branching model

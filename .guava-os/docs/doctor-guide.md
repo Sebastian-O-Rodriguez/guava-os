@@ -3,8 +3,8 @@
 Read-only. Validates the repo's guava-os setup.
 
 ```bash
-guava-os doctor
-echo '{"issues": [], "labels": ["pm","qa","security","backend","frontend","devops","ai-ml"]}' | guava-os doctor
+gos doctor
+echo '{"issues": [], "labels": ["pm","qa","security","backend","frontend","devops","ai-ml"]}' | gos doctor
 ```
 
 ## Checks

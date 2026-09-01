@@ -16,9 +16,9 @@ convergence.
 
 | Case | Trigger | Invocation |
 |---|---|---|
-| Rollout | gos contract changes | `guava-os sync --all` |
-| New project | `guava-os register` | register converges at birth |
-| Migrate / repair | drifted, corrupted, or rolled-back repo | `guava-os sync <repo>` |
+| Rollout | gos contract changes | `gos sync --all` |
+| New project | `gos register` | register converges at birth |
+| Migrate / repair | drifted, corrupted, or rolled-back repo | `gos sync <repo>` |
 
 ## The contract
 
@@ -52,5 +52,5 @@ convergence.
 
 `loadConfig` validates the config against the new schema and throws
 `ConfigStaleError` naming the missing/legacy keys. The message names
-`guava-os sync <repo>` as the remediation, so a stale consumer fails with an
+`gos sync <repo>` as the remediation, so a stale consumer fails with an
 actionable error instead of crashing deep inside a caller.

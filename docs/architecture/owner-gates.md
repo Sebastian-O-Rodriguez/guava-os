@@ -330,7 +330,7 @@ the current file (step 1 at line 20, `## Decision tree` at line 42):
 
 ```diff
 @@ -20,6 +20,9 @@
- 1. **Gate** — `guava-os work` (this project). Nothing open → close the session.
+ 1. **Gate** — `gos work` (this project). Nothing open → close the session.
 +   Before dispatch, drop every **owner gate**: an issue with **no role label**,
 +   a title beginning `OWNER GATE —`, or a description opening
 +   `OWNER DECISION REQUIRED — not dispatchable`. These are surfaced to the

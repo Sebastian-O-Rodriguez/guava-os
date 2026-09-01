@@ -140,7 +140,7 @@ function staleConfigMessage(missing: string[], legacy: string[]): string {
   const parts: string[] = ["Config is stale and must be migrated."];
   if (missing.length > 0) parts.push(`Missing fields: ${missing.join(", ")}.`);
   if (legacy.length > 0) parts.push(`Legacy fields: ${legacy.join(", ")}.`);
-  parts.push("Run 'guava-os sync <repo>' to migrate this config.");
+  parts.push("Run 'gos sync <repo>' to migrate this config.");
   return parts.join(" ");
 }
 

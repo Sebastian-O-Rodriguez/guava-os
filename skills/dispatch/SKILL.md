@@ -17,7 +17,7 @@ happened upstream in guava-os. This session: loads the project's
 `ready-for-work` issues and delegates each to its domain's OMP agent.
 
 ## Loop
-1. **Gate** — `guava-os work` (this project). Nothing ready → close the session.
+1. **Gate** — `gos work` (this project). Nothing ready → close the session.
 2. **Load** — read open issues (`pm search --status Todo`); each dispatchable
    issue carries one **domain** label (`pm` / `qa` / `security` / `backend` /
    `frontend` / `devops` / `ai-ml`), one **type** label, and the
@@ -66,8 +66,8 @@ Full skills are **never** inlined into default prompts; they are advertised unde
 `# AVAILABLE SKILLS` for progressive on-demand retrieval (`read skill://<name>`).
 
 ## Uses
-- `guava-os work` — session gate (ready work for this project)
-- `guava-os triage` — set readiness labels before dispatch (run by planning/operator)
+- `gos work` — session gate (ready work for this project)
+- `gos triage` — set readiness labels before dispatch (run by planning/operator)
 - `manual/scripts/inject.mjs` / `context-assembly` — compile task context
 - `task` — dispatch a subagent per ready issue (agent = domain agent)
 - `pm comment` / `pm move` — result handoff (via the `linear` skill)

@@ -7,11 +7,11 @@ orchestrates OMP subagents. It does not implement — project sessions are
 ## The two sessions
 
 1. **Manager** (`~/dev/guava-os`) — plans, scopes, and writes Linear across all
-   projects; cleans up stale/blocked work. On open, `guava-os work --all` gates
+   projects; cleans up stale/blocked work. On open, `gos work --all` gates
    the session (nothing → close).
 2. **Project dispatcher** (`~/dev/repos/<project>`) — loads *its* project's open
    issues and fans each out to a subagent of the issue's domain. On open,
-   `guava-os work` gates the session.
+   `gos work` gates the session.
 
 ## Roles
 

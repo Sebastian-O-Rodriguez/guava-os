@@ -5,13 +5,13 @@ Operational guide for the guava-os control plane.
 ## Bootstrap a project
 
 ```bash
-guava-os register <id> --repo ~/dev/repos/<id> --remote <url>
-guava-os doctor
+gos register <id> --repo ~/dev/repos/<id> --remote <url>
+gos doctor
 ```
 
 ## Daily loop
 
-1. **Gate** — `guava-os work --all` (manager) or `guava-os work` (project). If
+1. **Gate** — `gos work --all` (manager) or `gos work` (project). If
    nothing, the session closes.
 2. **Plan** — `planning` skill: decompose into scoped, domain-labeled deliverables.
 3. **Write** — `pm create`/`pm update`/`pm link`/`pm move` (the `linear` skill).
@@ -22,10 +22,10 @@ guava-os doctor
 
 | Command | Purpose |
 |---|---|
-| `guava-os work` / `--all` | session gate — open work by domain; exit 1 = none |
-| `guava-os pm …` | all Linear read/write |
-| `guava-os status` / `validate` / `next` | board health (stdin) |
-| `guava-os doctor` | repo setup checks |
+| `gos work` / `--all` | session gate — open work by domain; exit 1 = none |
+| `gos pm …` | all Linear read/write |
+| `gos status` / `validate` / `next` | board health (stdin) |
+| `gos doctor` | repo setup checks |
 
 ## Authorisation
 
