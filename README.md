@@ -37,4 +37,5 @@ It is **not** an execution runtime (OMP executes), **not** an authorization
 layer (GitHub enforces branch protection and required review), and **not** an
 AI language model — there is no LLM inference, no vector search, and no custom
 execution engine in this repository. Its behavior is covered by a Vitest suite
-in `.guava-os/tests/`; every commit subject carries a `GUA-###` ticket id.
+in `.guava-os/tests/`; work commits carry a `GUA-###` ticket id, while
+docs/chore commits use conventional-commit prefixes.
