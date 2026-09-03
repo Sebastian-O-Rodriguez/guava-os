@@ -89,6 +89,10 @@ PM commands talk to Linear through the guava-os tooling layer.`);
 }
 
 function readStdin(): string {
+  // `doctor`/`status` read stdin opportunistically via this helper; a sync
+  // read on an interactive terminal (TTY) blocks until EOF (Ctrl-D), so
+  // short-circuit when there is no piped data.
+  if (process.stdin.isTTY) return "";
   try {
     return readFileSync("/dev/stdin", "utf-8");
   } catch {
