@@ -2,7 +2,7 @@
 
 **guava-os is developer tooling for coordinating AI agents through real software-development workflows — from planning work and dispatching tasks to tracking execution and enforcing review gates.**
 
-Coding agents can implement tasks quickly, but useful engineering work also requires state, constraints, validation, and human review. guava-os provides the workflow around the agents rather than treating an agent's output as the end of the process.
+Once coding agents handle more than isolated edits, implementation quality is only part of the problem: teams also need durable work state, bounded scope, validation, and review. guava-os provides that workflow around the agents rather than treating an agent's output as the end of the process — a control plane, in the technical sense of the term.
 
 ```mermaid
 flowchart TB
@@ -23,28 +23,17 @@ flowchart TB
 
 ## See It Work
 
-Real commands from a working session:
+Real states from a working session — the board snapshot, then the dispatch gate refusing unready work with its reasons:
 
-```console
-$ gos work
-project: resume-builder — ready=4 · not-ready=2 · in-progress=0 · in-review=0
-  ! issue-53839813 (pm) status is "Backlog" (not Todo); readiness "untriaged"
-    (needs "ready-for-work")
-```
+![guava-os working session — board snapshot and dispatch gate](docs/assets/demo-states.svg)
 
-`gos work` loaded the board, found 4 dispatchable work items and 2 that are *not* — and refused the unready ones, stating exactly what's missing (status, readiness label). The refusal is the feature: work that doesn't meet the definition-of-ready never reaches an agent.
-
-```console
-$ gos pm search --json | gos validate   # exit 0 = every work item structurally sound
-```
-
-The full loop, end to end: a work item is decomposed into bounded child tasks (each labeled with a domain and an agent role, capped by per-parent limits), each child is dispatched to an isolated subagent, work comes back as commits carrying the ticket id, tests and validation gates run, and the only path to "done" is a reviewed pull request. Merging stays with the human reviewer; guava-os tracks the state.
+- `gos status` shows what is dispatchable per domain and what is parked and why.
+- `gos work` is the gate: 4 issues are dispatchable, 2 are refused with the exact reason (status, readiness label). Work that doesn't meet the definition-of-ready never reaches an agent.
+- The full loop, end to end: a work item is decomposed into bounded child tasks (each labeled with a domain and an agent role, capped by per-parent limits), each child is dispatched to an isolated subagent, work comes back as commits carrying the ticket id, tests and validation gates run, and the only path to "done" is a reviewed pull request. Merging stays with the human reviewer; guava-os tracks the state.
 
 ## The Problem
 
-Agents left to run freely produce work you can't trust or even find later: unclear scope, no state of record, no gate between "the agent says it's done" and "it's actually done and reviewed." The failure isn't the agent's implementation ability — it's the absence of a workflow that decides what work exists, when it's ready, what context the agent receives, and what counts as valid.
-
-That workflow is the interesting engineering problem. It has to be deterministic: an agent can't be trusted to grade its own homework.
+The gap isn't the agent's implementation ability — it's everything around it: work state that survives the session, scope that bounds what the agent touches, validation that checks the result, and review that gates what ships. That surrounding workflow is the interesting engineering problem, and it has to be deterministic: an agent can't be trusted to grade its own homework.
 
 ## How It Works
 
