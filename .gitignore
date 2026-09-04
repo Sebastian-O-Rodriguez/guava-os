@@ -17,3 +17,6 @@ dist/
 
 # env files
 .env*
+
+# dated internal prompt material (local only)
+manual/injections-prompts-*/
